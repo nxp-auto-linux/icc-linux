@@ -63,6 +63,8 @@ extern "C"
 #define ICC_FIFO_FLAG_TIMEOUT_ENABLED  (0x00000001UL)
 #define ICC_FIFO_FLAG_TIMEOUT_DISABLED (0x00000000UL)
 
+#define ICC_CONFIG_MAGIC		"1CC_C0NF1G_BL0CK"
+#define ICC_CONFIG_MAGIC_SIZE		16
 
 /*==================================================================================================
                                  STRUCTURES AND OTHER TYPEDEFS
@@ -300,27 +302,25 @@ typedef struct {
  */
 typedef struct {
 
-    const u32                   Channels_Count;                      /**< number  of configured channels */
-    const ICC_Channel_Config_t       * Channels_Ptr;                      /**< pointer to configured channels */
+    const char                  Config_Magic[ICC_CONFIG_MAGIC_SIZE];
 
-    void                             * not_used_on_app;                   /**< not used on application side */
+    const u64                   Channels_Count;                      /**< number  of configured channels */
+    const ICC_Channel_Config_t       * Channels_Ptr;                      /*l*< pointer to configured channels */
 
+    void                             * ICC_Fifo_Os_Config_not_used_on_linux;   /**< not used on application side */
 
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
         const ICC_Heartbeat_Os_Config_t * ICC_Heartbeat_Os_Config;             /**< pointer to Heartbeat OS configuration */
     #endif
 
+    ICC_Callback_Node_State_Update_t        Node_Update_Cb;                    /**< node update call back function, different symbol for each side */
 
+    volatile u32                            (* ICC_Initialized_Shared)[2];        /**< pointer to shared variable */
+    volatile ICC_Channel_Ram_t               * ICC_Channels_Ram_Shared;           /**< pointer to shared variable */
+    volatile ICC_Fifo_Ram_t                 (* ICC_Fifo_Ram_Shared) [][2];        /**< pointer to shared variable */
+    volatile ICC_Signal_Fifo_Ram_t          (* ICC_Node_Sig_Fifo_Ram_Shared) [2]; /**< pointer to shared variable */
 
-    ICC_Callback_Node_State_Update_t   Node_Update_Cb;                    /**< node update call back function, different symbol for each side */
-
-    volatile u32                        (* ICC_Initialized_Shared)[2];        /**< pointer to shared variable */
-    volatile ICC_Channel_Ram_t                * ICC_Channels_Ram_Shared;           /**< pointer to shared variable */
-    volatile ICC_Fifo_Ram_t                  (* ICC_Fifo_Ram_Shared) [][2];        /**< pointer to shared variable */
-    volatile ICC_Signal_Fifo_Ram_t           (* ICC_Node_Sig_Fifo_Ram_Shared) [2]; /**< pointer to shared variable */
-
-
-} ICC_Config_t;
+} __attribute__ ((aligned (16), packed)) ICC_Config_t;
 
 
 #ifdef __cplusplus

@@ -424,13 +424,14 @@ const ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
 ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
 #endif
 ICC_Config_t ICC_Config0 = {
+        ICC_CONFIG_MAGIC,
         ICC_CFG_NO_CHANNELS_CONF0,           /**< number of configured ICC channels in this configuration */
-        ICC_Cfg0_ChannelsConfig,                   /**< ICC channels */
+        ICC_Cfg0_ChannelsConfig,             /**< ICC channels */
 
         #ifdef ICC_BUILD_FOR_M4
-            &ICC_Fifo_Os_Config0,              /**< pointer to Fifo Os configuration */
+            &ICC_Fifo_Os_Config0,            /**< pointer to Fifo Os configuration */
         #else
-            NULL_PTR,                         /**< currently not used for APP core */
+            NULL_PTR,                        /**< currently not used for APP core */
         #endif
 
         #ifdef ICC_CFG_HEARTBEAT_ENABLED

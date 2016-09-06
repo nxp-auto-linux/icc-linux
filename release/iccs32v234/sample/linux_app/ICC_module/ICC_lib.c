@@ -193,10 +193,18 @@ static void local_cleanup(void)
     platform_driver_unregister(&ICC_driver);
 }
 
+union local_magic {
+	char str[ICC_CONFIG_MAGIC_SIZE];
+	struct {
+		u64 m0, m1;
+	} raw;
+} ICC_Local_Magic = { ICC_CONFIG_MAGIC };
+
 static int __init ICC_dev_init(void)
 {
     int err;
     int i;
+    union local_magic * shared_start = NULL;
 
     printk(LOG_LEVEL "[ICC_dev_init] Freescale ICC linux driver\n");
 
@@ -213,14 +221,24 @@ static int __init ICC_dev_init(void)
     }
 
     ICC_Shared_Virt_Base_Addr = ioremap_nocache(IRAM_BASE_ADDR, 0x40000);
-    printk(LOG_LEVEL "[ICC_dev_init] return %16llx size is %d\n", ICC_Shared_Virt_Base_Addr, sizeof(char * ) );
+    printk(LOG_LEVEL "[ICC_dev_init] reserved %16llx size is %d\n", ICC_Shared_Virt_Base_Addr, sizeof(char * ) );
     if( !ICC_Shared_Virt_Base_Addr ){
         printk(KERN_ERR "[ICC_dev_init] ICC_Shared_Virt_Base_Addr virtual mapping has failed for 0x%08x\n", IRAM_BASE_ADDR);
         err = -ENOMEM;
         goto cleanup;
     }
 
+    /* discover location of the configuration */
     ICC_Config_Ptr_M4 = (ICC_Config_t *)(ICC_Shared_Virt_Base_Addr + ICC_CONFIG_OFFSET );
+    printk(LOG_LEVEL "[ICC_dev_init] Default ICC Config address is %16llx\n", ICC_Config_Ptr_M4);
+    shared_start = (union local_magic *)ICC_Shared_Virt_Base_Addr;
+    for (i = 0; i < 0x40000 / sizeof(union local_magic); i++, shared_start++) {
+	    if ((ICC_Local_Magic.raw.m0 == shared_start->raw.m0) &&
+		(ICC_Local_Magic.raw.m1 == shared_start->raw.m1)){
+		    ICC_Config_Ptr_M4 = (ICC_Config_t *)shared_start;
+		    printk(LOG_LEVEL "[ICC_dev_init] ICC Config found at address %16llx\n", ICC_Config_Ptr_M4);
+	    }
+    }
 
     /* register device */
     err = alloc_chrdev_region(&dev_no, BASEMINOR, NUM_MINORS, MODULE_NAME); 

@@ -12,8 +12,8 @@ modules_install: kbuild
 	@echo Copying mcc headers to toolchain
 	mkdir -p "$(DESTDIR)/usr/include/linux"
 	cp -f "$(PWD)/../../../code/linux/inc/ICC_Api.h" "$(DESTDIR)/usr/include/linux/"
-	mkdir -p "$(DESTDIR)/opt/samples/AUTOSAR"
-	cp -f "$(PWD)/../../autosar_app/icc_sample_asos.elf" "$(DESTDIR)/opt/samples/AUTOSAR"
+	mkdir -p "$(DESTDIR)/opt/AUTOSAR"
+	cp -f "$(PWD)/../../autosar_app/icc_sample_asr.bin" "$(DESTDIR)/opt/AUTOSAR"
 
 clean:
 	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(PWD) clean
