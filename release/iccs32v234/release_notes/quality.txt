@@ -1,0 +1,36 @@
+                    FREESCALE SEMICONDUCTOR, INC.
+                   BUCHAREST SOFTWARE DEVELOPMENT
+                       SOFTWARE QUALITY STATUS
+
+I. EAR Release Description
+This software has status of EAR (Early Access Release) release.
+
+EAR software releases have the following characteristics:
+        1. Software has complete functionality
+        2. All formal testing has been carried out 
+        3. Software has the Freescale copyright
+        4. Software is intended for Production
+
+II. Purpose of this EAR Release
+This is a planned release which provides the customer with
+a complete product.
+
+III. Current Software Status
+Product Name            Freescale InterCoreComm ICC SAC58R EAR 0.8.0
+Build number            0.8.0
+Date                    30 Sep 2014
+
+The product is developed according to the documents:
+- TODO
+
+
+This build includes direct support of the following derivative:
+TODO
+
+The following tools were used for code development and testing:
+- Linaro ARM NONE EABI Gcc Compiler 4.9-2014.7 
+
+
+The source code and associated are protected by FLEXlm.
+To get the license file please contact Customer Support (see sections 1 and 2
+of readme.txt for details).

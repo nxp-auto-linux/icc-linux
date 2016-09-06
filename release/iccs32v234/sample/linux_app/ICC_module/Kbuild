@@ -1,0 +1,18 @@
+SRC_ROOT := $(PWD)/../../../code/linux
+
+EXTRA_CFLAGS += -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums
+
+INCLUDE_DEPENDENCIES := -I$(SRC_ROOT)/inc \
+                        -I$(SRC_ROOT)/hw \
+                        -I$(SRC_ROOT)/os \
+                        -I$(SRC_ROOT)/../../sample/config/include
+
+## Objects to build ##
+obj-m := ICC_dev.o
+ccflags-y += $(INCLUDE_DEPENDENCIES)
+ICC_dev-objs := ICC_lib.o
+ICC_dev-objs += ../../../code/linux/src/ICC_Api.o
+ICC_dev-objs += ../../../code/linux/src/ICC_Sig_Fifo.o
+ICC_dev-objs += ../../../code/linux/src/ICC_Fifo.o
+ICC_dev-objs += ../../../code/linux/os/Linux/ICC_Os_Linux.o
+
