@@ -169,7 +169,7 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
 
     ICC_Fifo_Os_Ram_t       * fifo_os_ram;
     ICC_Fifo_Config_t       * fifo_config;
-    ICC_Fifo_Ram_t           * fifo_ram;
+    ICC_Fifo_Ram_t          * fifo_ram;
 
 #ifndef ICC_CFG_NO_TIMEOUT
     wait_queue_head_t* wait_queue = kmalloc(sizeof(wait_queue_head_t), GFP_KERNEL);
@@ -185,6 +185,8 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
         {
             return ICC_ERR_OS_LINUX_CREATE_RATEWAITQUEUE;
         }
+
+        init_waitqueue_head(rate_wait_queue);
 
         atomic_set(&rate_cond, 0);
         rate_timeout = ICC_Config_Ptr->ICC_Heartbeat_Os_Config->rate_ticks;
@@ -222,7 +224,21 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
         return ICC_ERR_GENERAL;
     }
 
-    ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_CPU2CPU_IRQ);
+    return ICC_SUCCESS;
+}
+
+
+/*
+ * OS specific initialization of interrupts
+ */
+ICC_ATTR_SEC_TEXT_CODE
+extern
+ICC_Err_t ICC_OS_Init_Interrupts( void )
+{
+
+    if ( ICC_NODE_STATE_UNINIT == (*ICC_Initialized)[ ICC_GET_REMOTE_CORE_ID ] )  {
+       ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_CPU2CPU_IRQ);
+    }
 
     /* request interrupt line for inter-core notifications */
     if (request_irq(INT_CPU_INT0 + ICC_CFG_HW_CPU2CPU_IRQ, ICC_Cpu2Cpu_ISR_Handler, 0, ICC_DRIVER_NAME, NULL) != 0) {
@@ -231,7 +247,7 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
     }
 
     #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-        ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_LOCAL_IRQ);
+        ICC_HW_Clear_Local_Interrupt(ICC_CFG_HW_LOCAL_IRQ);
         /* request interrupt line for local core notifications */
         if (request_irq(INT_CPU_INT0 + ICC_CFG_HW_LOCAL_IRQ, ICC_Local_ISR_Handler, 0, ICC_DRIVER_NAME, NULL) != 0) {
             printk (KERN_ALERT "Failed to register local interrupt\n");
@@ -242,6 +258,7 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
     return ICC_SUCCESS;
 }
 
+
 ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t
 ICC_OS_Finalize(void)
@@ -249,7 +266,7 @@ ICC_OS_Finalize(void)
 
 #ifndef ICC_CFG_NO_TIMEOUT
     ICC_Fifo_Ram_t           * fifo_ram;
-    ICC_Fifo_Os_Ram_t       * fifo_os_ram;
+    ICC_Fifo_Os_Ram_t        * fifo_os_ram;
 #endif /* no ICC_CFG_NO_TIMEOUT */
 
     /* unregister interrupt line used for inter-core notifications */
@@ -353,20 +370,25 @@ ICC_OS_Wait_Event( ICC_IN ICC_Channel_t ch_id,
     ICC_Timeout_t timeout = fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]->timeout;
 
     if (timeout != 0) {
+        
         switch (fifo_id) {
 
             case ICC_TX_FIFO:
-                current_status = fifo_ram->rd[ICC_GET_REMOTE_CORE_ID];
+                current_status = fifo_ram->rd[ICC_GET_CORE_ID];
                 ret = wait_event_interruptible_timeout (*(fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]->wait_queue),
-                                                ((*ICC_Initialized)[ ICC_GET_CORE_ID ] == ICC_NODE_STATE_UNINIT) ||  (current_status != fifo_ram->rd[ICC_GET_REMOTE_CORE_ID]),
-                                                usecs_to_jiffies(timeout));
+                                                       ((*ICC_Initialized)[ ICC_GET_CORE_ID ] == ICC_NODE_STATE_UNINIT) || 
+                                                        (current_status != fifo_ram->rd[ICC_GET_REMOTE_CORE_ID])  || 
+                                                        (ICC_SUCCESS == ICC_Fifo_Msg_Fits(fifo_ram, fifo_ram->pending_send_msg_size)),
+                                                       usecs_to_jiffies(timeout));
                 break;
 
             case ICC_RX_FIFO:
-                current_status = fifo_ram->wr[ICC_GET_REMOTE_CORE_ID];
+                current_status = fifo_ram->wr[ICC_GET_CORE_ID];
                 ret = wait_event_interruptible_timeout (*(fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]->wait_queue),
-                                                ((*ICC_Initialized)[ ICC_GET_CORE_ID ] == ICC_NODE_STATE_UNINIT) || (current_status != fifo_ram->wr[ICC_GET_REMOTE_CORE_ID]),
-                                                usecs_to_jiffies(timeout));
+                                                       ((*ICC_Initialized)[ ICC_GET_CORE_ID ] == ICC_NODE_STATE_UNINIT) || 
+                                                       (current_status != fifo_ram->wr[ICC_GET_REMOTE_CORE_ID]) || 
+                                                       ( ICC_FIFO_Pending(fifo_ram) > ICC_HEADER_SIZE ),
+                                                       usecs_to_jiffies(timeout));
                 break;
 
             default:
@@ -389,15 +411,19 @@ ICC_OS_Wait_Event( ICC_IN ICC_Channel_t ch_id,
         switch (fifo_id) {
 
             case ICC_TX_FIFO:
-                current_status = fifo_ram->rd[ICC_GET_REMOTE_CORE_ID];
+                current_status = fifo_ram->rd[ICC_GET_CORE_ID];
                 ret = wait_event_interruptible (*(fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]->wait_queue),
-                                                ((*ICC_Initialized)[ ICC_GET_CORE_ID ] == ICC_NODE_STATE_UNINIT) || (current_status != fifo_ram->rd[ICC_GET_REMOTE_CORE_ID]));
+                                               ((*ICC_Initialized)[ ICC_GET_CORE_ID ] == ICC_NODE_STATE_UNINIT) || 
+                                               (current_status != fifo_ram->rd[ICC_GET_REMOTE_CORE_ID]) || 
+                                               (ICC_SUCCESS == ICC_Fifo_Msg_Fits(fifo_ram, fifo_ram->pending_send_msg_size))  );
                 break;
 
             case ICC_RX_FIFO:
-                current_status = fifo_ram->wr[ICC_GET_REMOTE_CORE_ID];
+                current_status = fifo_ram->wr[ICC_GET_CORE_ID];
                 ret = wait_event_interruptible (*(fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]->wait_queue),
-                                                ((*ICC_Initialized)[ ICC_GET_CORE_ID ] == ICC_NODE_STATE_UNINIT) || (current_status != fifo_ram->wr[ICC_GET_REMOTE_CORE_ID]));
+                                               ((*ICC_Initialized)[ ICC_GET_CORE_ID ] == ICC_NODE_STATE_UNINIT) || 
+                                               (current_status != fifo_ram->wr[ICC_GET_REMOTE_CORE_ID]) || 
+                                               ( ICC_FIFO_Pending(fifo_ram) > ICC_HEADER_SIZE ) );
                 break;
 
             default:
@@ -485,7 +511,12 @@ ICC_OS_Set_Event( ICC_IN ICC_Channel_t ch_id,
                   ICC_IN unsigned int fifo_id )
 {
     ICC_Fifo_Ram_t       * fifo_ram  = &((*ICC_Fifo_Ram)[ch_id][fifo_id]);
-    wake_up_interruptible(fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]->wait_queue);
+
+    wait_queue_head_t    * fifo_wq   = fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]->wait_queue;
+
+    if (waitqueue_active( fifo_wq )) {
+        wake_up_interruptible( fifo_wq );
+    }
 
     return ICC_SUCCESS;
 }
@@ -506,7 +537,9 @@ ICC_OS_Set_Rate_Event( ICC_IN ICC_Channel_t ch_id,
         return ICC_ERR_OS_LINUX_WRONGCHNID;
     }
 
-    wake_up_interruptible( rate_wait_queue );
+    if (waitqueue_active( rate_wait_queue ))  {
+        wake_up_interruptible( rate_wait_queue );
+    }
 
     /* disable sending messages rate */
     atomic_set(&rate_cond, 0);
@@ -583,7 +616,7 @@ ICC_OS_Set_Recurrent_Rel_Alarm( ICC_IN ICC_Channel_t ch_id,
         return ICC_ERR_OS_LINUX_WRONGCHNID;
     }
     ret = mod_timer(&timer, jiffies + usecs_to_jiffies(rate_timeout));
-    if( ret )
+    if (( ret != 0) && ( ret != 1))
         return ICC_ERR_OS_LINUX_SETTIMER;
 
 

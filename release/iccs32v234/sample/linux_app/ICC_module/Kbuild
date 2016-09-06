@@ -1,11 +1,21 @@
-SRC_ROOT := $(PWD)/../../../code/linux
+
+SRC_ROOT := $(PWD)/../../..
+CONFIG_USED = $(SRC_ROOT)/sample/config/include
 
 EXTRA_CFLAGS += -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums
 
-INCLUDE_DEPENDENCIES := -I$(SRC_ROOT)/inc \
-                        -I$(SRC_ROOT)/hw \
-                        -I$(SRC_ROOT)/os \
-                        -I$(SRC_ROOT)/../../sample/config/include
+INCLUDE_DEPENDENCIES := -I$(SRC_ROOT)/code/linux/inc \
+                        -I$(SRC_ROOT)/code/linux/os \
+                        -I$(SRC_ROOT)/code/linux/os/Linux \
+                        -I$(SRC_ROOT)/code/linux/hw \
+                        -I$(CONFIG_USED)\
+                        -I$(PWD)
+
+ifneq ($(CC),$(LD))
+	# bitbake calls $(CROSS_COMPILE)LD for linking instead of $(CROSS_COMPILE)GCC
+	# and we need to update LDFLAGS for this case
+	LDFLAGS := -O1 --hash-style=gnu --as-needed
+endif
 
 ## Objects to build ##
 obj-m := ICC_dev.o

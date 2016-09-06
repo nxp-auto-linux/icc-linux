@@ -57,7 +57,7 @@ MODULE_LICENSE("Freescale");
 #define PARAM_PERM      S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP
 
 
-#define IRAM_BASE_ADDR  0x3F000000
+#define IRAM_BASE_ADDR  0x3E900000
 
 struct ICC_device_data {
     struct cdev cdev;
@@ -109,13 +109,13 @@ static int ICC_dev_init(void)
     }
 
     ICC_Shared_Virt_Base_Addr = ioremap_nocache(IRAM_BASE_ADDR, 0x40000);
-    
+    printk( "return %16llx size is %d\n", ICC_Shared_Virt_Base_Addr, sizeof(char * ) );
     if( !ICC_Shared_Virt_Base_Addr ){
             printk(LOG_LEVEL "ICC_Shared_Virt_Base_Addr virtual mapping has failed for 0x%08x\n", IRAM_BASE_ADDR);
     }
 
 
-    ICC_Config_Ptr_M4 = (ICC_Config_t *)(ICC_Shared_Virt_Base_Addr + 0x00001c20 );  /**<  ICC_Config on m4 MAP file = 0x3f041c20 */
+    ICC_Config_Ptr_M4 = (ICC_Config_t *)(ICC_Shared_Virt_Base_Addr + 0x00001ca0 );  /**<  ICC_Config on m4 MAP file = 0x3f041c20 */
 
     /* register device */
     err = alloc_chrdev_region(&dev_no, BASEMINOR, NUM_MINORS, MODULE_NAME); 

@@ -35,7 +35,7 @@
 ==================================================================================================*/
 
 /* Start_ICC_Sample - starts the sample code */
-int Start_ICC_Sample(void);
+extern int Start_ICC_Sample(void);
 
 /* Stop_ICC_Sample - releases the ICC resources */
-int Stop_ICC_Sample(void);
+extern int Stop_ICC_Sample(void);

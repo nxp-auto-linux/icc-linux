@@ -61,8 +61,9 @@ extern "C"
      */
 
         extern char * ICC_Shared_Virt_Base_Addr;
-        #define ICC_OS_Phys_To_Virt(phys_addr) ((char*)(phys_addr) - (char*)ICC_SHARED_PHYS_BASE_ADDR + ICC_Shared_Virt_Base_Addr)
-    
+		#define ICC_OS_Phys_To_Virt(phys_addr) \
+				(((char*)(((unsigned int)phys_addr) & 0xFFFFFFFF) - (char*)ICC_SHARED_PHYS_BASE_ADDR) + ICC_Shared_Virt_Base_Addr)
+
 
 
 #define ICC_START_SEC_TEXT_CODE
@@ -74,6 +75,14 @@ extern "C"
 ICC_ATTR_SEC_TEXT_CODE
 extern
 ICC_Err_t ICC_OS_Initialize( ICC_IN const ICC_Config_t * config_ptr );
+
+/*
+ * OS specific initialization of interrupts
+ */
+ICC_ATTR_SEC_TEXT_CODE
+extern
+ICC_Err_t ICC_OS_Init_Interrupts( void );
+
 
 /*
  * Finalize OS specific elements

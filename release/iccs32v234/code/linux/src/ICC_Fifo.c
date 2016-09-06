@@ -54,6 +54,17 @@ extern "C"
 
         #include <linux/string.h>
 
+void * memcpy (void *dst, const void *src, size_t n)
+{
+    void           *res = dst;
+    unsigned char  *c1, *c2;
+
+    c1 = (unsigned char *) dst;
+    c2 = (unsigned char *) src;
+    while (n--) *c1++ = *c2++;
+    return (res);
+}
+
 
 #define ALIGN_WRITE(size)                                                                                       \
         queue_ICC->tail = queue_ICC->tail + (size);                                                             \
@@ -96,18 +107,22 @@ ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t
 ICC_FIFO_Init(ICC_FIFO_IN       ICC_Fifo_Ram_t       * queue_ICC,
               ICC_FIFO_IN const ICC_Fifo_Config_t    * fifo_conf,
-              ICC_FIFO_IN       ICC_Fifo_Os_Ram_t    * fifo_os_ram)
+              ICC_FIFO_IN       ICC_Fifo_Os_Ram_t    * fifo_os_ram,
+              ICC_FIFO_IN       unsigned int           init)
 {
     queue_ICC->fifo_config[ ICC_GET_CORE_ID ] = fifo_conf; /**< set link to fifo configuration from channel structure */
     queue_ICC->fifo_os_ram[ ICC_GET_CORE_ID ] = fifo_os_ram;
 
-    queue_ICC->head                      = 0; 
-    queue_ICC->tail                      = 0;
+    queue_ICC->rd[ ICC_GET_CORE_ID ]          = 0;
+    queue_ICC->wr[ ICC_GET_CORE_ID ]          = 0;
 
-    queue_ICC->rd[ ICC_GET_CORE_ID ]     = 0;
-    queue_ICC->wr[ ICC_GET_CORE_ID ]     = 0;
+    if (init)
+    {
+        queue_ICC->head                       = 0;
+        queue_ICC->tail                       = 0;
 
-    queue_ICC->pending_send_msg_size     = 0;
+        queue_ICC->pending_send_msg_size      = 0;
+    }
 
     ICC_DCACHE_FLUSH_MLINES( (addr_t)queue_ICC, sizeof(ICC_Fifo_Ram_t) );
 
@@ -221,7 +236,7 @@ ICC_FIFO_Pop_Header(ICC_FIFO_IN  ICC_Fifo_Ram_t   * queue_ICC,
 
                     queue_ICC->head = 0;                   /* place head at the beginning of the buffer */
                     fifo_ptr = fifo_cfg->fifo_buffer_ptr;
-                    header = header + gap_to_end;
+                    header = (ICC_Header_t *)( (char*)header + gap_to_end );
 
                     ICC_DCACHE_INVALIDATE_MLINES( (addr_t) fifo_ptr, ICC_HEADER_SIZE - gap_to_end );
 
@@ -285,7 +300,7 @@ ICC_FIFO_Peek_Header(ICC_FIFO_IN  ICC_Fifo_Ram_t   * queue_ICC,
 
                 ICC_DCACHE_INVALIDATE_MLINES( (addr_t) fifo_cfg->fifo_buffer_ptr, ICC_HEADER_SIZE - gap_to_end );
 
-                header = header + gap_to_end;
+                header = (ICC_Header_t *)( (char*)header + gap_to_end );
                 memcpy(header, fifo_cfg->fifo_buffer_ptr, ICC_HEADER_SIZE - gap_to_end); /* copy the rest of the data*/
             }
         }

@@ -352,20 +352,20 @@ ICC_Msg_Recv(
  *
  * Called by each core to initialize the Heartbeat mechanism.
  *
- * ICC_ERR_NODE_NOT_INIT         - Local node is not initialized
- * ICC_ERR_HEARTBEAT_INITIALIZED - ICC Heartbeat mechanism was already initialized
- * ICC_ERR_HEARTBEAT_RUNNING     - ICC Heartbeat mechanism was already running
- * ICC_ERR_GENERAL               - TBD
- * ICC_SUCCESS                   - OK
+ * ICC_ERR_NODE_NOT_INIT           - Local node is not initialized
+ * ICC_ERR_HEARTBEAT_INITIALIZED   - ICC Heartbeat mechanism was already initialized
+ * ICC_ERR_HEARTBEAT_RUNNING       - ICC Heartbeat mechanism was already running
+ * ICC_ERR_GENERAL                 - TBD
+ * ICC_SUCCESS                     - OK
  *
  */
 
 ICC_ATTR_SEC_TEXT_CODE
 extern
 ICC_Err_t
-ICC_Heartbeat_Initialize( void );
-
-
+ICC_Heartbeat_Initialize(
+                          ICC_IN unsigned int runId   /**< the current runId */
+                        );
 
 /**
  *

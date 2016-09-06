@@ -40,7 +40,6 @@
 #ifndef ICC_OS_TYPES_H_
 #define ICC_OS_TYPES_H_
 
-
 #ifdef __cplusplus
 extern "C"
 {
@@ -80,9 +79,9 @@ typedef struct {
          */
             /* Linux OS */
             #ifndef ICC_CFG_NO_TIMEOUT
-                   wait_queue_head_t * wait_queue;
-                unsigned int timeout;
-                unsigned int event_type;
+                wait_queue_head_t * wait_queue;
+                u32 timeout;
+                u32 event_type;
             #endif /* not ICC_CFG_NO_TIMEOUT */
             struct semaphore fifo_lock;
 
@@ -100,9 +99,9 @@ typedef struct {
      * HEARTBEAT OS specific Config structure
      */
     typedef struct {
-        unsigned int channel_id;                         /**<  channel id reserved for Heartbeat */
-        unsigned int rate_ticks;                         /**<  sent messages rate */
-        unsigned int txrx_timeout;                       /**<  received message timeout:  txrx_timeout > rate_ticks */
+        u32 channel_id;                         /**<  channel id reserved for Heartbeat */
+        u32 rate_ticks;                         /**<  sent messages rate */
+        u32 txrx_timeout;                       /**<  received message timeout:  txrx_timeout > rate_ticks */
 
 
             /*

@@ -68,13 +68,13 @@ extern "C"
                                  STRUCTURES AND OTHER TYPEDEFS
 ==================================================================================================*/
 
-typedef unsigned int ICC_Prio_t;           /**< priority type       */
-typedef unsigned int ICC_Msg_Size_t;       /**< message size        */
-typedef unsigned int ICC_Channel_t;        /**< the channel type    */
-typedef unsigned int ICC_Timeout_t;        /**< timeout in uS       */
-typedef unsigned int ICC_Header_t;         /**< message header type */
-typedef unsigned int ICC_Signal_t;         /**< signal type         */
-typedef unsigned int ICC_Endpoint_State_t; /**< endpoint state type */
+typedef u32 ICC_Prio_t;           /**< priority type       */
+typedef u32 ICC_Msg_Size_t;       /**< message size        */
+typedef u32 ICC_Channel_t;        /**< the channel type    */
+typedef u32 ICC_Timeout_t;        /**< timeout in uS       */
+typedef u32 ICC_Header_t;         /**< message header type */
+typedef u32 ICC_Signal_t;         /**< signal type         */
+typedef u32 ICC_Endpoint_State_t; /**< endpoint state type */
 
 /*
  * ICC endpoint state
@@ -140,17 +140,29 @@ typedef enum  {
 
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
-/*
- * ICC Heartbeat mechanism state
- */
-typedef enum {
 
-    ICC_HEARTBEAT_STATE_UNINIT=0,           /**< ICC HEARTBEAT's structure in uninitialized state*/
-    ICC_HEARTBEAT_STATE_INIT,               /**< ICC HEARTBEAT's structure in initialized state*/
-    ICC_HEARTBEAT_STATE_RUNNING,            /**< ICC HEARTBEAT's structure in running state*/
-    ICC_HEARTBEAT_STATE_ERROR,              /**< ICC HEARTBEAT's structure in error state*/
+    /*
+     * ICC Heartbeat mechanism state
+     */
+    typedef enum {
 
-} ICC_Heartbeat_State_t;
+        ICC_HEARTBEAT_STATE_UNINIT=0,           /**< ICC HEARTBEAT's structure in uninitialized state*/
+        ICC_HEARTBEAT_STATE_INIT,               /**< ICC HEARTBEAT's structure in initialized state*/
+        ICC_HEARTBEAT_STATE_RUNNING,            /**< ICC HEARTBEAT's structure in running state*/
+        ICC_HEARTBEAT_STATE_ERROR,              /**< ICC HEARTBEAT's structure in error state*/
+
+    } ICC_Heartbeat_State_t;
+
+
+    /*
+     * The HearBeat message
+     */
+    typedef struct {
+
+        u32 run;                      /**< the id of the current running sequence this message belongs */
+        u32 val;                      /**< the actual message value */
+
+    } ICC_Heartbeat_Msg_t;
 
 #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
@@ -205,15 +217,15 @@ typedef struct {
  */
 typedef struct {
 
-          unsigned char * fifo_buffer_ptr;    /**< pointer to the Fifo buffer (statically allocated on M4 side) */
+    u8             * fifo_buffer_ptr;    /**< pointer to the Fifo buffer (statically allocated on M4 side) */
     const ICC_Prio_t      fifo_prio;          /**< FIFO priority relative to all FIFOs in the same direction */
-    const unsigned int    fifo_size;          /**< FIFO buffer size  */
+    const u32        fifo_size;          /**< FIFO buffer size  */
 
     const ICC_Msg_Size_t  max_msg_size;       /**< maximum message size to be transmitted using this fifo */
 
-    const unsigned int    alignment;          /**< message alignment in FIFO buffer : [1,2,4,8, ...] in bytes */
+    const u32        alignment;          /**< message alignment in FIFO buffer : [1,2,4,8, ...] in bytes */
 
-    const unsigned int   fifo_flags;          /**< store fifo configuration flags */
+    const u32        fifo_flags;         /**< store fifo configuration flags */
 
 } ICC_Fifo_Config_t;
 
@@ -228,13 +240,13 @@ typedef struct {
 
     ICC_Fifo_Os_Ram_t       * fifo_os_ram[ 2 /* coreId */ ];     /**< pointer to Fifo OS ram structure, [ core_id ] */
 
-    unsigned int                                       head;     /**< consumer/reader index position */
-    unsigned int                                       tail;     /**< producer/writer index position */
+    u32                                           head;     /**< consumer/reader index position */
+    u32                                           tail;     /**< producer/writer index position */
 
-    unsigned int                       wr[ 2 /* coreId */ ];     /**< WR Sig and Ack */
-    unsigned int                       rd[ 2 /* coreId */ ];     /**< RD Sig and Ack */
+    u32                           wr[ 2 /* coreId */ ];     /**< WR Sig and Ack */
+    u32                           rd[ 2 /* coreId */ ];     /**< RD Sig and Ack */
 
-    unsigned int                      pending_send_msg_size;     /**< the size of the pending message */
+    u32                          pending_send_msg_size;     /**< the size of the pending message */
 
 } ICC_Fifo_Ram_t;
 
@@ -288,21 +300,21 @@ typedef struct {
  */
 typedef struct {
 
-    const unsigned int                 Channels_Count;                    /**< number  of configured channels */
+    const u32                   Channels_Count;                      /**< number  of configured channels */
     const ICC_Channel_Config_t       * Channels_Ptr;                      /**< pointer to configured channels */
 
     void                             * not_used_on_app;                   /**< not used on application side */
 
-#ifndef ICC_CFG_NO_TIMEOUT
+
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
         const ICC_Heartbeat_Os_Config_t * ICC_Heartbeat_Os_Config;             /**< pointer to Heartbeat OS configuration */
-    #endif /* ICC_CFG_HEARTBEAT_ENABLED */
-#endif /* ICC_CFG_NO_TIMEOUT */
+    #endif
+
 
 
     ICC_Callback_Node_State_Update_t   Node_Update_Cb;                    /**< node update call back function, different symbol for each side */
 
-    volatile unsigned int                    (* ICC_Initialized_Shared)[2];        /**< pointer to shared variable */
+    volatile u32                        (* ICC_Initialized_Shared)[2];        /**< pointer to shared variable */
     volatile ICC_Channel_Ram_t                * ICC_Channels_Ram_Shared;           /**< pointer to shared variable */
     volatile ICC_Fifo_Ram_t                  (* ICC_Fifo_Ram_Shared) [][2];        /**< pointer to shared variable */
     volatile ICC_Signal_Fifo_Ram_t           (* ICC_Node_Sig_Fifo_Ram_Shared) [2]; /**< pointer to shared variable */

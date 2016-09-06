@@ -73,6 +73,8 @@ extern "C"
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
 
+#define ICC_CFG_HEARTBEAT_STARTING_MSG  (0x00001UL)  /**< the value of the initial msg the HB mechanism sends/expects */
+
 #define ICC_HEARTBEAT_CHECK_ERR_CODE(icc_function_to_call)                                    \
              return_code = (icc_function_to_call);                                             \
              if (ICC_SUCCESS != return_code) {                                                 \
@@ -104,7 +106,8 @@ extern "C"
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_Fifo_Ram_t        (* ICC_Fifo_Ram)[ ICC_CFG_MAX_CHANNELS ][ 2 /* tx/rx */ ] = NULL_PTR;    /**< fifos_ram ordered priority wise for each node */
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_Signal_Fifo_Ram_t (* ICC_Node_Sig_Fifo_Ram)[ 2 /* coreId */ ] = NULL_PTR;        /**< signal fifo for each node */
         #ifdef ICC_CFG_HEARTBEAT_ENABLED
-        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_Heartbeat_State_t ICC_Heartbeat_State  = ICC_HEARTBEAT_STATE_UNINIT;        /**< shows ICC_Heartbeat mechanism state */
+        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_Heartbeat_State_t    ICC_Heartbeat_State  = ICC_HEARTBEAT_STATE_UNINIT;          /**< shows ICC_Heartbeat mechanism state */
+        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile unsigned int             ICC_Heartbeat_RunId  = 0;                                   /**< the current RunId for the HB mechanism */
         #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
         ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS ICC_Fifo_Os_Ram_t ICC_Fifo_Os_Ram_APP[ ICC_CFG_MAX_CHANNELS ][ 2 /* tx/rx */ ];   /**< Fifo OS specific Ram structure */
@@ -272,10 +275,10 @@ ICC_Initialize(
 
 
 
-    ICC_Initialized       = ICC_Config_Ptr->ICC_Initialized_Shared;
-    ICC_Channels_Ram      = ICC_Config_Ptr->ICC_Channels_Ram_Shared;
-    ICC_Fifo_Ram          = ICC_Config_Ptr->ICC_Fifo_Ram_Shared;
-    ICC_Node_Sig_Fifo_Ram = ICC_Config_Ptr->ICC_Node_Sig_Fifo_Ram_Shared;
+    ICC_Initialized          = ICC_Config_Ptr->ICC_Initialized_Shared;
+    ICC_Channels_Ram         = ICC_Config_Ptr->ICC_Channels_Ram_Shared;
+    ICC_Fifo_Ram             = ICC_Config_Ptr->ICC_Fifo_Ram_Shared;
+    ICC_Node_Sig_Fifo_Ram    = ICC_Config_Ptr->ICC_Node_Sig_Fifo_Ram_Shared;
 
     for (i=0; i<ICC_Config_Ptr->Channels_Count; i++) {
 
@@ -319,12 +322,14 @@ ICC_Initialize(
         /* initialize TX fifo */
         ICC_FIFO_Init (  channel_ram->fifos_ram[  ICC_TX_FIFO ][ ICC_GET_CORE_ID ],
                         &channel_conf->fifos_cfg[ ICC_TX_FIFO ],
-                        &ICC_Fifo_Os_Ram    [ i ][ ICC_TX_FIFO ] );
+                        &ICC_Fifo_Os_Ram    [ i ][ ICC_TX_FIFO ],
+                         1 );
 
         /* initialize RX fifo */
         ICC_FIFO_Init (  channel_ram->fifos_ram[  ICC_RX_FIFO ][ ICC_GET_CORE_ID ],
                         &channel_conf->fifos_cfg[ ICC_RX_FIFO ],
-                        &ICC_Fifo_Os_Ram    [ i ][ ICC_RX_FIFO ] );
+                        &ICC_Fifo_Os_Ram    [ i ][ ICC_RX_FIFO ],
+                         0 );
 
 
         ICC_DCACHE_FLUSH_MLINES((addr_t)channel_ram, sizeof(ICC_Channel_Ram_t) );
@@ -341,8 +346,14 @@ ICC_Initialize(
 
     ICC_CHECK_ERR_CODE( ICC_OS_Initialize( ICC_Config_Ptr ) );
 
+    #ifdef ICC_CFG_HEARTBEAT_ENABLED
+    ICC_Heartbeat_State  = ICC_HEARTBEAT_STATE_UNINIT;
+    #endif
+
     (*ICC_Initialized)[ ICC_GET_CORE_ID ] = ICC_NODE_STATE_INIT;
     ICC_DCACHE_FLUSH_MLINES( (addr_t)&((*ICC_Initialized)[ ICC_GET_CORE_ID ]), sizeof(unsigned int) );
+
+    ICC_CHECK_ERR_CODE( ICC_OS_Init_Interrupts() );
 
     #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
     ICC_HW_Trigger_Local_Interrupt( ICC_CFG_HW_LOCAL_IRQ ); /**< trigger local interrupt */
@@ -1159,7 +1170,7 @@ ICC_Msg_Recv(
 
             * rx_msg_size = ( msg_header <= rx_user_buffer_size ) ? msg_header : rx_user_buffer_size;
 
-            return_code = ICC_FIFO_Peek( fifo_ram, rx_user_buffer, * rx_msg_size );
+            return_code = ICC_FIFO_Peek( fifo_ram, rx_user_buffer, (* rx_msg_size)+4 );
 
         } else {
 
@@ -1228,6 +1239,11 @@ ICC_Remote_Event_Handler(void)
     int i;
     volatile ICC_Signal_Fifo_Ram_t * sig_fifo_remote_ptr;
 
+    #ifdef ICC_CFG_HEARTBEAT_ENABLED
+    const ICC_Heartbeat_Os_Config_t * HB_OS_config;
+    unsigned int hb_channel_id;
+    #endif
+    
     ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_CPU2CPU_IRQ);
 
 
@@ -1238,9 +1254,17 @@ ICC_Remote_Event_Handler(void)
         return;
     }
 
+
     /* FIFOs events available ? */
     if ( 1 /* TBD */ )
     {
+
+        #ifdef ICC_CFG_HEARTBEAT_ENABLED
+        HB_OS_config = ICC_Config_Ptr->ICC_Heartbeat_Os_Config;
+        hb_channel_id = HB_OS_config->channel_id;
+        #endif
+
+
         /*
          * dequeue events in FIFO priority order
          */
@@ -1249,9 +1273,13 @@ ICC_Remote_Event_Handler(void)
             const ICC_Channel_Config_t  * channel_cfg  = &ICC_Config_Ptr->Channels_Ptr[i];
             ICC_Fifo_Ram_t        * fifo_ram;
 
+            #ifdef ICC_CFG_HEARTBEAT_ENABLED
+            if ((i == hb_channel_id) && ((ICC_Heartbeat_State == ICC_HEARTBEAT_STATE_ERROR) || (ICC_Heartbeat_State == ICC_HEARTBEAT_STATE_UNINIT))) continue; /**< skip HeartBeat channel if HB not initialized */
+            #endif
+
             /* RX fifo */
 
-            fifo_ram = (ICC_Fifo_Ram_t *) &((*ICC_Fifo_Ram)[i][ ICC_RX_FIFO ]);
+            fifo_ram = (ICC_Fifo_Ram_t *)&((*ICC_Fifo_Ram)[i][ ICC_RX_FIFO ]);
 
             while ( ICC_FIFO_Msg_Wr_Sig_Pending( fifo_ram ) )
             {
@@ -1259,9 +1287,10 @@ ICC_Remote_Event_Handler(void)
                     channel_cfg->Channel_Rx_Cb(i);
                 }
 
-#ifndef ICC_CFG_NO_TIMEOUT
-                ICC_OS_Set_Event(i, ICC_RX_FIFO); /**< wake-up RX blocked task */
-#endif   /* not ICC_CFG_NO_TIMEOUT */
+
+                #ifndef ICC_CFG_NO_TIMEOUT
+                if ( channel_cfg->fifos_cfg[ ICC_RX_FIFO ].fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED ) ICC_OS_Set_Event(i, ICC_RX_FIFO); /**< wake-up RX blocked task */
+                #endif   /* not ICC_CFG_NO_TIMEOUT */
 
                 ICC_FIFO_Msg_Wr_Ack( fifo_ram ); /**< Ack WR notification */
             }
@@ -1273,16 +1302,15 @@ ICC_Remote_Event_Handler(void)
 
             while ( ICC_FIFO_Msg_Rd_Sig_Pending( fifo_ram ) )
             {
-
                 if (( 0 != fifo_ram->pending_send_msg_size ) && ( ICC_SUCCESS == ICC_Fifo_Msg_Fits( (ICC_Fifo_Ram_t *) fifo_ram, fifo_ram->pending_send_msg_size ) ) ) {
 
                     if (NULL_PTR != channel_cfg->Channel_Tx_Cb) {
                         channel_cfg->Channel_Tx_Cb(i);
                     }
 
-#ifndef ICC_CFG_NO_TIMEOUT
-                    ICC_OS_Set_Event(i, ICC_TX_FIFO); /**< wake-up TX blocked task */
-#endif /* not ICC_CFG_NO_TIMEOUT */
+                    #ifndef ICC_CFG_NO_TIMEOUT
+                    if ( channel_cfg->fifos_cfg[ ICC_TX_FIFO ].fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED ) ICC_OS_Set_Event(i, ICC_TX_FIFO); /**< wake-up TX blocked task */
+                    #endif /* not ICC_CFG_NO_TIMEOUT */
 
                 }
 
@@ -1338,7 +1366,7 @@ ICC_Remote_Event_Handler(void)
     }
 
 
-}
+}  /* end ICC_Remote_Event_Handler */
 
 
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
@@ -1392,7 +1420,6 @@ ICC_Local_Event_Handler(void)
 
 #endif
 
-#ifndef ICC_CFG_NO_TIMEOUT
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
 
@@ -1420,22 +1447,48 @@ ICC_Heartbeat_Get_State( ICC_Heartbeat_State_t * state )
  *
  * Called by each core to initialize the Heartbeat mechanism.
  *
- * ICC_ERR_NODE_NOT_INIT         - Local node is not initialized
- * ICC_ERR_HEARTBEAT_INITIALIZED - ICC Heartbeat mechanism was already initialized
- * ICC_ERR_HEARTBEAT_RUNNING     - ICC Heartbeat mechanism was already running
- * ICC_ERR_GENERAL               - TBD
- * ICC_SUCCESS                   - OK
+ * ICC_ERR_NODE_NOT_INIT           - Local node is not initialized
+ * ICC_ERR_HEARTBEAT_INITIALIZED   - ICC Heartbeat mechanism was already initialized
+ * ICC_ERR_HEARTBEAT_RUNNING       - ICC Heartbeat mechanism was already running
+ * ICC_ERR_GENERAL                 - TBD
+ * ICC_SUCCESS                     - OK
  *
  */
 
 ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t
-ICC_Heartbeat_Initialize( void )
+ICC_Heartbeat_Initialize(
+                          ICC_IN unsigned int runId   /**< the current runId */
+                        )
 {
-    ICC_Err_t return_code;
-    ICC_Node_State_t node_state;
+    ICC_Err_t             return_code;
+    ICC_Err_t             err_code;
+
+    ICC_Node_State_t      node_state;
     ICC_Heartbeat_State_t crt_state;
+
+    typedef struct {
+        ICC_Header_t        header;
+        ICC_Heartbeat_Msg_t actual_rcv_msg;
+    } peek_msg_t;
+
+    peek_msg_t          rcv_msg_p_header;
+
+    ICC_Heartbeat_Msg_t rcv_msg;
+
+    ICC_Msg_Size_t      actual_size;
+
+    const unsigned int hb_msg_size = sizeof(ICC_Heartbeat_Msg_t);
+
     const ICC_Heartbeat_Os_Config_t * HB_OS_config = ICC_Config_Ptr->ICC_Heartbeat_Os_Config;
+
+    ICC_Heartbeat_RunId = runId; /**< set the current runId */
+
+    ICC_HEARTBEAT_CHECK_ERR_CODE( ICC_OS_Clear_Rate_Event( HB_OS_config->channel_id, ICC_TX_FIFO ) );          /**< clear Rate event */
+
+    ICC_HEARTBEAT_CHECK_ERR_CODE( ICC_OS_Clear_Event( HB_OS_config->channel_id, ICC_TX_FIFO, ICC_EVENT_ACTIVITY_ISR | ICC_EVENT_TIMEOUT_ALM )); /**< clear TX event */
+    ICC_HEARTBEAT_CHECK_ERR_CODE( ICC_OS_Clear_Event( HB_OS_config->channel_id, ICC_RX_FIFO, ICC_EVENT_ACTIVITY_ISR | ICC_EVENT_TIMEOUT_ALM )); /**< clear RX event */
+
 
     /* check if the local endpoint was initialized */
     ICC_CHECK_ERR_CODE( ICC_Get_Node_State( ICC_NODE_LOCAL, &node_state ) );
@@ -1443,7 +1496,7 @@ ICC_Heartbeat_Initialize( void )
         return ICC_ERR_NODE_NOT_INIT;
     }
 
-    /* check if the Heartbeat mechanism is in other state then UNINIT */
+    /* check if the Heartbeat mechanism is in other state than UNINIT */
     ICC_CHECK_ERR_CODE( ICC_Heartbeat_Get_State( &crt_state ) );
     if( crt_state == ICC_HEARTBEAT_STATE_INIT ) {
         return ICC_ERR_HEARTBEAT_INITIALIZED;
@@ -1453,8 +1506,38 @@ ICC_Heartbeat_Initialize( void )
             return ICC_ERR_HEARTBEAT_RUNNING;
     }
 
-    /* Open the Heartbeat channel assigned */
+    /* Open the assigned Heartbeat channel */
     ICC_HEARTBEAT_CHECK_ERR_CODE( ICC_Open_Channel( HB_OS_config->channel_id ) );
+
+
+    /* in order to re-synchronize we need to remove messages send by the other node in a previous run, if any */
+    do {
+
+        err_code = ICC_Msg_Recv( HB_OS_config->channel_id, &rcv_msg_p_header, hb_msg_size,  &actual_size, ICC_WAIT_ZERO, ICC_RX_PEEK_MSG );
+
+        if ((err_code != ICC_SUCCESS) && (err_code != ICC_ERR_EMPTY))
+        {
+            return err_code;
+        } else {
+
+            if (err_code == ICC_ERR_EMPTY) {
+
+                break; /**< no message available */
+            } else {
+
+                if (rcv_msg_p_header.actual_rcv_msg.run != ICC_Heartbeat_RunId)
+                {
+                    /* a message from the previous run must be removed */
+                    ICC_HEARTBEAT_CHECK_ERR_CODE( ICC_Msg_Recv( HB_OS_config->channel_id, &rcv_msg, hb_msg_size,  &actual_size, ICC_WAIT_ZERO, ICC_RX_NORMAL ) );
+                } else {
+                    /* it's the starting message - nothing to do */
+                    break;
+                }
+            }
+        }
+
+    } while(1);
+
 
     ICC_Heartbeat_State = ICC_HEARTBEAT_STATE_INIT;
 
@@ -1497,9 +1580,9 @@ ICC_Heartbeat_Finalize( void )
 
     ICC_Heartbeat_State = ICC_HEARTBEAT_STATE_UNINIT;
 
-    if( crt_state == ICC_HEARTBEAT_STATE_RUNNING ) {
+    if (( crt_state == ICC_HEARTBEAT_STATE_RUNNING ) || ( crt_state == ICC_HEARTBEAT_STATE_ERROR)) {
 
-        ICC_HEARTBEAT_CHECK_ERR_CODE( ICC_OS_Cancel_Recurrent_Alarm(  HB_OS_config->channel_id, ICC_TX_FIFO ) );  /**<  Cancel the alarm for HEARTBEAT send task*/
+        ICC_OS_Cancel_Recurrent_Alarm(  HB_OS_config->channel_id, ICC_TX_FIFO );  /**<  Cancel the alarm for HEARTBEAT send task*/
 
         ICC_HEARTBEAT_CHECK_ERR_CODE( ICC_OS_Set_Rate_Event(  HB_OS_config->channel_id, ICC_TX_FIFO ) );          /**< wake-up Rate send blocked task if any */
 
@@ -1507,7 +1590,7 @@ ICC_Heartbeat_Finalize( void )
         ICC_HEARTBEAT_CHECK_ERR_CODE( ICC_OS_Set_Event( HB_OS_config->channel_id, ICC_RX_FIFO ) );                /**< wake-up RX blocked task if any */
 
     }
-    /* Close the Heartbeat channel assigned */
+    /* Close the assigned Heartbeat channel  */
     ICC_HEARTBEAT_CHECK_ERR_CODE( ICC_Close_Channel(  HB_OS_config->channel_id ) );
 
     return ICC_SUCCESS;
@@ -1535,9 +1618,14 @@ ICC_Heartbeat_Runnable( void )
     ICC_Node_State_t node_state;
     ICC_Heartbeat_State_t crt_state;
     const ICC_Heartbeat_Os_Config_t * HB_OS_config = ICC_Config_Ptr->ICC_Heartbeat_Os_Config;
-    unsigned int hb_msg_size = sizeof(unsigned int);
-    ICC_Msg_Size_t  actual_size, crt_msg_id = 0, rcv_msg_id;
 
+    const unsigned int hb_msg_size = sizeof(ICC_Heartbeat_Msg_t);
+    ICC_Msg_Size_t  actual_size;
+
+    ICC_Heartbeat_Msg_t rcv_msg, crt_msg;
+
+    crt_msg.run = ICC_Heartbeat_RunId;
+    crt_msg.val = ICC_CFG_HEARTBEAT_STARTING_MSG;
 
     /* check if the local endpoint was initialized */
     ICC_CHECK_ERR_CODE( ICC_Get_Node_State( ICC_NODE_LOCAL, &node_state ) );
@@ -1601,7 +1689,25 @@ ICC_Heartbeat_Runnable( void )
         }
 
 
-        err_code = ICC_Msg_Send( HB_OS_config->channel_id, &crt_msg_id, hb_msg_size, HB_OS_config->txrx_timeout );
+        err_code = ICC_Msg_Send( HB_OS_config->channel_id, &crt_msg, hb_msg_size, HB_OS_config->txrx_timeout );
+
+        if( err_code == ICC_ERR_NODE_DEINITIALIZED ) {
+            break;
+        }
+        else {
+            ICC_HEARTBEAT_CHECK_ERR_CODE( err_code );
+        }
+
+
+        /* check the Heartbeat mechanism state */
+        ICC_HEARTBEAT_CHECK_ERR_CODE( ICC_Heartbeat_Get_State( &crt_state ) );
+
+        if( ICC_HEARTBEAT_STATE_RUNNING != crt_state ) {
+            break;
+        }
+
+
+        err_code = ICC_Msg_Recv( HB_OS_config->channel_id, &rcv_msg, hb_msg_size,  &actual_size, HB_OS_config->txrx_timeout, ICC_RX_NORMAL );
 
         if( err_code == ICC_ERR_NODE_DEINITIALIZED ) {
             break;
@@ -1617,29 +1723,12 @@ ICC_Heartbeat_Runnable( void )
             break;
         }
 
-
-        err_code = ICC_Msg_Recv( HB_OS_config->channel_id, &rcv_msg_id, hb_msg_size,  &actual_size, HB_OS_config->txrx_timeout, ICC_RX_NORMAL );
-
-        if( err_code == ICC_ERR_NODE_DEINITIALIZED ) {
-            break;
-        }
-        else {
-            ICC_HEARTBEAT_CHECK_ERR_CODE( err_code );
-        }
-
-        /* check the Heartbeat mechanism state */
-        ICC_HEARTBEAT_CHECK_ERR_CODE( ICC_Heartbeat_Get_State( &crt_state ) );
-
-        if( ICC_HEARTBEAT_STATE_RUNNING != crt_state ) {
-            break;
-        }
-
-        if( rcv_msg_id  != crt_msg_id) {
+        if (( rcv_msg.val  != crt_msg.val) || ( rcv_msg.run  != crt_msg.run)) {
             ICC_Heartbeat_State = ICC_HEARTBEAT_STATE_ERROR;
             return ICC_ERR_HEARTBEAT_WRONGSEQ;
         }
 
-        crt_msg_id++;
+        crt_msg.val++;
 
 
     }
@@ -1650,7 +1739,8 @@ ICC_Heartbeat_Runnable( void )
 
 #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
-#endif /* no ICC_CFG_NO_TIMEOUT */
+
+
 #define ICC_STOP_SEC_TEXT_CODE
 #include "ICC_MemMap.h"
 
