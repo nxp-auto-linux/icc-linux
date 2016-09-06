@@ -14,10 +14,10 @@
  *   Peripheral           : 
  *   Dependencies         : none
  *
- *   SW Version           : 0.8.0
- *   Build Version        : SAC58R_ICC_0.8.0
- *
- *   (c) Copyright 2014 Freescale Semiconductor Inc.
+*   SW Version           : 0.8.0
+*   Build Version        : S32V234_ICC_0.8.0
+*
+*   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
 *   
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -47,7 +47,7 @@
 
 
 
-/* Rayleigh */
+/* Treerunner */
 #define ICC_HW_SEMA4_V2
 #define ICC_HW_SEMA4_BASE       (0x40101000UL)
 #define ICC_HW_MSCM_BASE        (0x40002000UL)
