@@ -17,7 +17,7 @@
 *   SW Version           : 0.8.0
 *   Build Version        : S32V234_ICC_0.8.0
 *
-*   (c) Copyright 2014 Freescale Semiconductor Inc.
+*   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
 *   
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -61,9 +61,7 @@ extern "C"
 #include <asm/io.h>
 #include <asm/atomic.h>
 
-
-#define ICC_DRIVER_NAME      "icc_lib"
-#define INT_CPU_INT0         32
+#include <linux/interrupt.h>
 
 /*
  * Implement Os API using Linux specifics
@@ -165,8 +163,6 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
 
     int i, j;
 
-
-
     ICC_Fifo_Os_Ram_t       * fifo_os_ram;
     ICC_Fifo_Config_t       * fifo_config;
     ICC_Fifo_Ram_t          * fifo_ram;
@@ -227,6 +223,13 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
     return ICC_SUCCESS;
 }
 
+extern struct device * ICC_get_device(void);
+extern char * ICC_get_device_name(void);
+extern unsigned int ICC_get_shared_irq(void);
+#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+extern unsigned int ICC_get_local_irq(void);
+#endif
+
 
 /*
  * OS specific initialization of interrupts
@@ -240,16 +243,21 @@ ICC_Err_t ICC_OS_Init_Interrupts( void )
        ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_CPU2CPU_IRQ);
     }
 
+    char * device_name = ICC_get_device_name();
+    struct device * dev = ICC_get_device();
+    unsigned int shared_irq = ICC_get_shared_irq();
+
     /* request interrupt line for inter-core notifications */
-    if (request_irq(INT_CPU_INT0 + ICC_CFG_HW_CPU2CPU_IRQ, ICC_Cpu2Cpu_ISR_Handler, 0, ICC_DRIVER_NAME, NULL) != 0) {
+    if (devm_request_irq(dev, shared_irq, ICC_Cpu2Cpu_ISR_Handler, 0, device_name, NULL) != 0) {
         printk (KERN_ALERT "Failed to register interrupt\n");
         return ICC_ERR_OS_LINUX_REGISTER_IRQ;
     }
 
     #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+        unsigned int local_irq = ICC_get_local_irq();
         ICC_HW_Clear_Local_Interrupt(ICC_CFG_HW_LOCAL_IRQ);
         /* request interrupt line for local core notifications */
-        if (request_irq(INT_CPU_INT0 + ICC_CFG_HW_LOCAL_IRQ, ICC_Local_ISR_Handler, 0, ICC_DRIVER_NAME, NULL) != 0) {
+        if (devm_request_irq(dev, local_irq, ICC_Local_ISR_Handler, 0, device_name, NULL) != 0) {
             printk (KERN_ALERT "Failed to register local interrupt\n");
             return ICC_ERR_OS_LINUX_REGISTER_IRQ;
         }
@@ -269,11 +277,16 @@ ICC_OS_Finalize(void)
     ICC_Fifo_Os_Ram_t        * fifo_os_ram;
 #endif /* no ICC_CFG_NO_TIMEOUT */
 
+    struct device * dev = ICC_get_device();
+
     /* unregister interrupt line used for inter-core notifications */
-    free_irq(INT_CPU_INT0 + ICC_CFG_HW_CPU2CPU_IRQ, NULL);
+    unsigned int shared_irq = ICC_get_shared_irq();
+    devm_free_irq(dev, shared_irq, NULL);
 
     /* unregister interrupt line used for notifications on the local node */
     #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+        unsigned int local_irq = ICC_get_local_irq();
+        devm_free_irq(dev, local_irq, NULL);
         free_irq(INT_CPU_INT0 + ICC_CFG_HW_LOCAL_IRQ, NULL);
     #endif
 

@@ -4,7 +4,7 @@ PWD := $(shell pwd)
 # contains host specific definitions
 include ../common_cfg.mak
 
-kbuild:
+kbuild: copy
 	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) V=1 -C $(KERNELDIR) M=$(PWD)
 
 modules_install: kbuild
@@ -20,5 +20,11 @@ clean:
 	-rm -f *~ Module.symvers Module.markers modules.order
 	find . -name "*.cmd" -o -name "*.o" -o -name "*.mod.c" -o -name "*.ko" | xargs rm -f
 
+copy:
+	@if [ ! -f "../ICC_module/Module.symvers" ]; then \
+		echo '../ICC_module/Module.symvers not found.'; \
+		$(MAKE) -C $(PWD)/../ICC_module KERNEL_SRC=$(KERNEL_SRC); \
+	fi;
+	cp ../ICC_module/Module.symvers .
 
 .PHONY: clean

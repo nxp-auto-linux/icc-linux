@@ -16,7 +16,7 @@
 *
 *   Build Version        :
 *
-*   (c) Copyright 2014 Freescale Semiconductor Inc.
+*   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
 *   
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -39,13 +39,13 @@
 #include <linux/kernel.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
-
+#include <linux/delay.h>
 
 #include "ICC_Linux_Sample.h"
 
 MODULE_DESCRIPTION("ICC Sample application");
 MODULE_AUTHOR("Freescale Semiconductor");
-MODULE_LICENSE("Freescale");
+MODULE_LICENSE("GPL");
 
 #define BASEMINOR   0
 #define COUNT       1
@@ -77,7 +77,7 @@ static int ICC_Sample_dev_open(struct inode *inode, struct file *file)
 
 static int ICC_Sample_dev_release(struct inode *inode, struct file *file)
 {
-    struct ICC_Sample_device_data *data = (struct ICC_Sample_device_data *) file->private_data;
+    file->private_data = NULL;
 
     return 0;
 }
@@ -131,9 +131,12 @@ static int ICC_Sample_dev_exit(void)
 
     unregister_chrdev_region(dev_no, NUM_MINORS);
     printk(LOG_LEVEL "Finishing unregister the ICC_Sample_dev \n");
+
+    // wait for any thread activity to Finishing
+    msleep(100);
+
     return err;
 }
-
 
 
 module_init(ICC_Sample_dev_init);

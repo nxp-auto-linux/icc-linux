@@ -18,7 +18,7 @@
 *   SW Version           : 0.8.0
 *   Build Version        : S32V234_ICC_0.8.0
 *
-*   (c) Copyright 2014 Freescale Semiconductor Inc.
+*   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
 *   All Rights Reserved.
 ==================================================================================================*/
 /*==================================================================================================
@@ -197,8 +197,8 @@ const
 ICC_Heartbeat_Os_Config_t
 ICC_Heartbeat_Os_Config0 = {
 	ICC_CFG0_HEARTBEAT_CHANNEL_ID,
-	1000,
-	8000,
+	ICC_RATE_US,
+	ICC_TXRX_TIMEOUT,
 #ifdef ICC_BUILD_FOR_M4
 	#ifdef ICC_FSL_AUTOSAR_OS
 		OsEvent_HB_RATE,

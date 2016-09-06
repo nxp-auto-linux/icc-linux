@@ -16,8 +16,8 @@
 *
 *   Build Version        :
 *
-*   (c) Copyright 2014 Freescale Semiconductor Inc.
-*   
+*   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
 *   as published by the Free Software Foundation; either version 2
@@ -27,7 +27,7 @@
 *   but WITHOUT ANY WARRANTY; without even the implied warranty of
 *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *   GNU General Public License for more details.
-*   
+*
 *   You should have received a copy of the GNU General Public License
 *   along with this program; if not, write to the Free Software
 *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
@@ -67,9 +67,10 @@ volatile unsigned int watch_CB_Node;
 unsigned char snd_buffer[SND_BUF_SIZE];
 unsigned char rcv_buffer[RCV_BUF_SIZE];
 
+volatile atomic_t thread_on = { 1 };
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
-    /* heartbeat flag which determine if the node is prepare for the heartbeat mechanism */
+    /* heartbeat flag which determine if the node is prepared for the heartbeat mechanism */
     volatile atomic_t heartbeat_on;
 #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
@@ -77,25 +78,27 @@ unsigned char rcv_buffer[RCV_BUF_SIZE];
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
 int ICC_HeartBeat_kthread(void *data)
 {
-   int err;
-   int i;
-   
-   unsigned int runID = 1;
-    
-    do {
-   
+    int err;
+    int i;
+
+    unsigned int runID = 1;
+
+    while (atomic_read(&thread_on)) {
+
        err = ICC_Heartbeat_Initialize(runID);
        printk("ICC_Heartbeat_Initialize return: %d\n", err);
-       
+
        err = ICC_Heartbeat_Runnable();
        printk("ICC_Heartbeat_Runnable return  : %d\n", err);
-       
+
        err = ICC_Heartbeat_Finalize();
        printk("ICC_Heartbeat_Finalize return  : %d\n", err);
-       
+
        runID++;
-       
-    } while (1); 
+
+    };
+
+    printk("ICC_HeartBeat_kthread stopped\n");
 
     return 0;
 }
@@ -107,17 +110,17 @@ int ICC_Data_kthread(void *data)
     ICC_Err_t      icc_status;
     ICC_Timeout_t  timeout;
     ICC_Msg_Size_t rx_msg_size;
-    
+
     const unsigned int channel_id = 1; /**< the data channel */
-    
+
     if( ICC_Config0.Channels_Ptr[channel_id].fifos_cfg[ICC_RX_FIFO].fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED ) {
         timeout = ICC_WAIT_FOREVER;
     } else {
         timeout = ICC_WAIT_ZERO;
     }
 
-    while (1) {
-    
+    while (atomic_read(&thread_on)) {
+
         /* RX */
         icc_status = ICC_Msg_Recv( channel_id, rcv_buffer, RCV_BUF_SIZE, &rx_msg_size, ICC_WAIT_FOREVER, ICC_RX_NORMAL );
         if( icc_status != ICC_SUCCESS )
@@ -125,14 +128,12 @@ int ICC_Data_kthread(void *data)
             /* printk("POP failed with err %d \n", icc_status ); */
             /* return; */
             watch_Ch_Rx_ko[channel_id]++;
-            
+
         } else {
             watch_Ch_Rx_ok[channel_id]++;
             /*printk("POP: Receive message [%d] from [%u] via ch [%u]: %s \n", watch_Ch_Rx_ok[channel_id], ICC_GET_REMOTE_CORE_ID, channel_id, rcv_buffer );*/
         }
 
-        
-        
         /* TX */
         memcpy(snd_buffer,"Hello_AUTOSAR", 14 );
 
@@ -148,9 +149,10 @@ int ICC_Data_kthread(void *data)
         }
 
     }; /* end while(1) */
-    
+
+    printk("ICC_Data_kthread stopped\n");
+
     return 0;
-    
 }
 
 void USER_ICC_Callback_Rx_CB_App( ICC_IN const ICC_Channel_t   channel_id /**< the id of the channel that received a message */ )
@@ -163,7 +165,7 @@ void USER_ICC_Callback_Rx_CB_App( ICC_IN const ICC_Channel_t   channel_id /**< t
     #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
     watch_CB_Rx[channel_id]++;
-    
+
 }
 
 void USER_ICC_Callback_Tx_CB_App(
@@ -188,7 +190,7 @@ void USER_ICC_Node_State_Update_CB_App(
                                       )
 {
     watch_CB_Node++;
-    
+
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
         if( node_state == ICC_NODE_STATE_INIT )
         {
@@ -206,7 +208,7 @@ int Start_ICC_Sample(void)
 
     struct task_struct *task_data;
     struct task_struct *task_hb;
-    
+
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
     atomic_set( &heartbeat_on, 0 );
     #endif
@@ -216,16 +218,16 @@ int Start_ICC_Sample(void)
         watch_CB_Rx[i]=0;
         watch_CB_Tx[i]=0;
         watch_CB_Ch[i]=0;
-        
+
         watch_Ch_Rx_ok[i]=0;
         watch_Ch_Tx_ok[i]=0;
-        
+
         watch_Ch_Rx_ko[i]=0;
         watch_Ch_Tx_ko[i]=0;
     }
 
     watch_CB_Node=0;
-    
+
     /* initialize ICC */
     if ((return_code = ICC_Initialize( &ICC_Config0 )) != ICC_SUCCESS) {
 
@@ -233,9 +235,9 @@ int Start_ICC_Sample(void)
 
         return return_code;
     }
-    
+
     printk("ICC_Initialize ... done\n");
-    
+
     /* open communication channels */
     for (i = 0; i < ICC_Config0.Channels_Count; i++)
     {
@@ -243,23 +245,25 @@ int Start_ICC_Sample(void)
         #ifdef ICC_CFG_HEARTBEAT_ENABLED
             if( i != ICC_Config0.ICC_Heartbeat_Os_Config->channel_id )
         #endif /* ICC_CFG_HEARTBEAT_ENABLED */
-        
+
         ICC_CHECK_ERR_CODE(ICC_Open_Channel(i));
-    
+
     }
-    
+
     printk("Opening all channels ... done\n");
+
+    atomic_set(&thread_on, 1);
 
     task_data = kthread_run( ICC_Data_kthread, NULL, "%s_kthread_%d", "ICC_Data", 0 );
     printk("ICC data kthread %s: started\n", task_data->comm );
 
-    
+
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
         while( atomic_read( &heartbeat_on) == 0 );
         task_hb = kthread_run( ICC_HeartBeat_kthread, NULL, "%s_kthread_%d", "HB", 0 );
         printk("ICC HB kthread %s: started\n", task_hb->comm );
     #endif
-    
+
     return ICC_SUCCESS;
 }
 
@@ -267,6 +271,8 @@ int Start_ICC_Sample(void)
 int Stop_ICC_Sample(void)
 {
     ICC_Err_t return_code;
+
+    atomic_set(&thread_on, 0);
 
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
         ICC_CHECK_ERR_CODE(ICC_Heartbeat_Finalize());

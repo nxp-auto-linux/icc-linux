@@ -16,8 +16,8 @@
 *
 *   Build Version        :
 *
-*   (c) Copyright 2014 Freescale Semiconductor Inc.
-*   
+*   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
 *   as published by the Free Software Foundation; either version 2
@@ -27,7 +27,7 @@
 *   but WITHOUT ANY WARRANTY; without even the implied warranty of
 *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *   GNU General Public License for more details.
-*   
+*
 *   You should have received a copy of the GNU General Public License
 *   along with this program; if not, write to the Free Software
 *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
@@ -43,11 +43,27 @@
 #include <linux/io.h>
 #include <linux/mm.h>
 
+#include <linux/of_address.h>
+#include <linux/interrupt.h>
+#include <linux/of_platform.h>
+#include <linux/of_irq.h>
+
 #include "ICC_Api.h"
+#include "ICC_Config.h"
 
 MODULE_DESCRIPTION("ICC device");
 MODULE_AUTHOR("Freescale Semiconductor");
-MODULE_LICENSE("Freescale");
+MODULE_LICENSE("GPL");
+
+// this macro may come from outside, e.g. from the makefile or bitbake compile flags
+#ifndef ICC_CONFIG_OFFSET
+#ifdef ICC_CFG_HEARTBEAT_ENABLED
+    #define ICC_CONFIG_OFFSET 0x00001ca0
+#else
+    #define ICC_CONFIG_OFFSET 0x00001c98
+#endif
+#endif  /* ICC_CONFIG_OFFSET */
+
 
 #define MODULE_NAME     "ICC"
 #define BASEMINOR   0
@@ -63,12 +79,76 @@ struct ICC_device_data {
     struct cdev cdev;
 };
 
+struct ICC_platform_data {
+    struct device * dev;
+    unsigned int shared_irq;
+    unsigned int local_irq;
+};
+
 struct ICC_device_data devs[NUM_MINORS];
 static dev_t dev_no;
 
-ICC_Config_t * ICC_Config_Ptr_M4;
+struct ICC_platform_data * icc_data = NULL;
 
+ICC_Config_t * ICC_Config_Ptr_M4 = NULL;
 
+static struct of_device_id ICC_dt_ids[] = {
+    {
+        .compatible = "fsl,s32v234-icc",
+    },
+    { /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, ICC_dt_ids);
+
+static int ICC_probe(struct platform_device *pdev)
+{
+    icc_data = devm_kzalloc(&pdev->dev, sizeof(*icc_data), GFP_KERNEL);
+    if (!icc_data)
+        return -ENOMEM;
+
+    icc_data->dev = &pdev->dev;
+    icc_data->shared_irq = platform_get_irq(pdev, ICC_CFG_HW_CPU2CPU_IRQ);
+#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+    icc_data->local_irq = platform_get_irq(pdev, ICC_CFG_HW_LOCAL_IRQ);
+#endif
+
+    platform_set_drvdata(pdev, icc_data);
+
+    return 0;
+}
+
+static int ICC_remove(struct platform_device *pdev)
+{
+    if (icc_data) {
+        platform_set_drvdata(pdev, NULL);
+        devm_kfree(&pdev->dev, icc_data);
+        icc_data = NULL;
+    }
+    return 0;
+}
+
+static int ICC_suspend(struct device *dev)
+{
+    return 0;
+}
+
+static int ICC_resume(struct device *dev)
+{
+    return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(ICC_pm_ops, ICC_suspend, ICC_resume);
+
+static struct platform_driver ICC_driver = {
+	.probe		= ICC_probe,
+	.remove		= ICC_remove,
+	.driver		= {
+		.name	= MODULE_NAME,
+		.owner	= THIS_MODULE,
+		.of_match_table	= ICC_dt_ids,
+		.pm	= &ICC_pm_ops,
+	},
+};
 
 static int ICC_dev_open(struct inode *inode, struct file *file)
 {
@@ -96,37 +176,61 @@ static const struct file_operations ICC_fops = {
     .release = ICC_dev_release,
 };
 
-char * ICC_Shared_Virt_Base_Addr;
+char * ICC_Shared_Virt_Base_Addr = NULL;
+struct resource * ICC_Mem_Region = NULL;
 
-static int ICC_dev_init(void)
+static void local_cleanup(void)
+{
+    if (ICC_Shared_Virt_Base_Addr) {
+        iounmap(ICC_Shared_Virt_Base_Addr);
+        ICC_Shared_Virt_Base_Addr = NULL;
+        ICC_Config_Ptr_M4 = NULL;
+    }
+
+    if (ICC_Mem_Region) {
+        release_mem_region(IRAM_BASE_ADDR, 0x40000);
+    }
+    platform_driver_unregister(&ICC_driver);
+}
+
+static int __init ICC_dev_init(void)
 {
     int err;
     int i;
 
-    if (!request_mem_region(IRAM_BASE_ADDR, 0x40000, "ICC_shmem")) {
-            printk ("Failed to request mem region!\n");
-            return -ENOMEM;
+    printk(LOG_LEVEL "[ICC_dev_init] Freescale ICC linux driver\n");
+
+    err = platform_driver_register(&ICC_driver);
+    if (err) {
+        return err;
+    }
+
+    ICC_Mem_Region = request_mem_region(IRAM_BASE_ADDR, 0x40000, "ICC_shmem");
+    if (!ICC_Mem_Region) {
+        printk (KERN_ERR "[ICC_dev_init] Failed to request mem region!\n");
+        err = -ENOMEM;
+        goto cleanup;
     }
 
     ICC_Shared_Virt_Base_Addr = ioremap_nocache(IRAM_BASE_ADDR, 0x40000);
-    printk( "return %16llx size is %d\n", ICC_Shared_Virt_Base_Addr, sizeof(char * ) );
+    printk(LOG_LEVEL "[ICC_dev_init] return %16llx size is %d\n", ICC_Shared_Virt_Base_Addr, sizeof(char * ) );
     if( !ICC_Shared_Virt_Base_Addr ){
-            printk(LOG_LEVEL "ICC_Shared_Virt_Base_Addr virtual mapping has failed for 0x%08x\n", IRAM_BASE_ADDR);
+        printk(KERN_ERR "[ICC_dev_init] ICC_Shared_Virt_Base_Addr virtual mapping has failed for 0x%08x\n", IRAM_BASE_ADDR);
+        err = -ENOMEM;
+        goto cleanup;
     }
 
-
-    ICC_Config_Ptr_M4 = (ICC_Config_t *)(ICC_Shared_Virt_Base_Addr + 0x00001ca0 );  /**<  ICC_Config on m4 MAP file = 0x3f041c20 */
+    ICC_Config_Ptr_M4 = (ICC_Config_t *)(ICC_Shared_Virt_Base_Addr + ICC_CONFIG_OFFSET );
 
     /* register device */
     err = alloc_chrdev_region(&dev_no, BASEMINOR, NUM_MINORS, MODULE_NAME); 
 
     if (err < 0) {
-        printk(LOG_LEVEL "Major number allocation has failed\n");
-        return err;
+        printk(KERN_ERR "[ICC_dev_init] Major number allocation has failed\n");
+        goto cleanup;
     }
 
     printk(LOG_LEVEL "[ICC_dev_init] Major number %d\n", MAJOR(dev_no));
-
 
     /* initialize each device */
     for (i = 0; i < NUM_MINORS; i++) {
@@ -134,12 +238,17 @@ static int ICC_dev_init(void)
         cdev_add(&devs[i].cdev, MKDEV(MAJOR(dev_no), i),1);
     }
 
-    printk(LOG_LEVEL "[ICC_Config] 0x%08x \n", ICC_Config_Ptr_M4);
+    printk(LOG_LEVEL "[ICC_dev_init] 0x%08x \n", ICC_Config_Ptr_M4);
 
     return 0;
+
+cleanup:
+    local_cleanup();
+
+    return err;
 }
 
-static void ICC_dev_exit(void)
+static void __exit ICC_dev_exit(void)
 {
     int i;
 
@@ -148,12 +257,47 @@ static void ICC_dev_exit(void)
 
     unregister_chrdev_region(dev_no, NUM_MINORS);
 
-    iounmap(ICC_Config_Ptr_M4);
-    release_mem_region(IRAM_BASE_ADDR, 0x40000);
+    local_cleanup();
 
     printk(LOG_LEVEL "[ICC_dev_exit] \n");
 }
 
+struct device * ICC_get_device(void)
+{
+    if (icc_data) {
+        return icc_data->dev;
+    }
+
+    printk(KERN_ERR "[ICC_get_device] Invalid (NULL) internal data\n");
+    return NULL;
+}
+
+char * ICC_get_device_name(void)
+{
+    return MODULE_NAME;
+}
+
+unsigned int ICC_get_shared_irq(void)
+{
+    if (icc_data) {
+        return icc_data->shared_irq;
+    }
+
+    printk(KERN_ERR "[ICC_get_shared_irq] Invalid (NULL) internal data\n");
+    return (unsigned int)(-1);
+}
+
+#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+unsigned int ICC_get_local_irq(void)
+{
+    if (icc_data) {
+        return icc_data->local_irq;
+    }
+
+    printk(KERN_ERR "[ICC_get_local_irq] Invalid (NULL) internal data\n");
+    return (unsigned int)(-1);
+}
+#endif
 
 /**
  * Exporting ICC API functions to be used by other kernel modules

@@ -19,7 +19,7 @@
 *   SW Version           : 0.8.0
 *   Build Version        : S32V234_ICC_0.8.0
 *
-*   (c) Copyright 2014 Freescale Semiconductor Inc.
+*   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
 *   All Rights Reserved.
 ==================================================================================================*/
 /*==================================================================================================
@@ -47,11 +47,15 @@
 
 /*
  * Heartbeat mechanism is enabled in at least one configuration
+ * TODO: fix this - currently the heartbeat is not synchronized
+ * between Autosar and Linux
  */
-#define ICC_CFG_HEARTBEAT_ENABLED
+//#define ICC_CFG_HEARTBEAT_ENABLED
 
 #include "ICC_Types.h" /**< Yes, this must be here */
 
+#define ICC_RATE_US          (75)         /**<  sent messages rate */
+#define ICC_TXRX_TIMEOUT     (ICC_RATE_US * 8)
 
 /*
  * ICC configured channels ID
