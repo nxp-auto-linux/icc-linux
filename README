@@ -1,0 +1,86 @@
+Freescale ARM Inter Core Communication for Linux - S32V234 (Treerunner)
+=======================================================================
+
+This package contains the S32V234 (Treerunner) port for the Linux part of the 
+Freescale ARM Inter Core Communication(ICC) product.
+It is assumed that this git repo has been cloned to a local directory, e.g. 
+'/path/to/icc'.
+
+ICC is designed to work on ARM platforms with two cores.
+Prior to being used it needs to be integrated with the Operating Systems running
+on each core.
+
+This linux package provides the Linux source code required for building the Linux
+ICC module (ICC_dev.ko) in '/path/to/icc/release/iccs32v234/sample/linux_app/ICC_module',
+the Linux ICC Sample module (ICC_Sample.ko) in 
+'/path/to/icc/release/iccs32v234/sample/linux_app/ICC_Sample_module',
+as well as a binary image for the AUTOSAR ICC pre-built sample application
+(icc_sample_asr.bin) in '/path/to/icc/release/iccs32v234/sample/autosar_app'
+which is required to be loaded on the M4 core prior to loading the Linux modules.
+
+Updating the device tree
+------------------------
+In order to have the ICC demo functional, we need to configure the interrupts
+to be used by ICC in the Linux kernel device tree. For this, add the following
+block to s32v234.dtsi under the 'soc' node:
+	icc-linux {
+		compatible = "fsl,s32v234-icc";
+		interrupts = < 0 0 4 >,
+			     < 0 1 4 >;
+	};
+This .dtsi file is usually located in folder
+'/path/to/kernel/sources/arch/arm64/boot/dts/freescale/s32v234.dtsi'.
+
+Building the modules
+--------------------
+In order to build the modules, the following variables must be set in the Linux
+shell:
+
+ARCH=arm64
+CROSS_COMPILE=the cross toolchain specific prefix for the build tools (e.g.:
+	/path/to/bsp/build_*_release/tmp/sysroots/x86_64-linux/usr/bin/aarch64-fsl-linux/aarch64-fsl-linux-
+	for yocto builds or 
+	/path/to/toolchain/bin/aarch64-linux-gnu- for stand-alone toolchains)
+KERNEL_SRC=path to the kernel sources
+KERNELDIR=path to the kernel binaries (containing Module.symvers)
+
+The modules can be built from the shell by running 'make' from the sources root
+directory ('/path/to/icc').
+The binaries will be generated in the directories:
+'/path/to/icc/release/iccs32v234/sample/linux_app/ICC_module' and 
+'/path/to/icc/release/iccs32v234/sample/linux_app/ICC_Sample_module'.
+
+Running the AUTOSAR image on M4
+-------------------------------
+This can be achieved using the latest u-boot build, which has support for this
+task.
+The AUTOSAR sample binary image must be copied to a FAT partition on your 
+SD card (e.g. the one containing the kernel image and the dtb, assumed to be
+the first partition on the SD card).
+
+From the u-boot prompt, run the following commands:
+=> initsram 0x3E809000 0x200000; fatload mmc 0:1 0x3E809000 /icc_sample_asr.bin; startm4 0x3e809200
+Then boot the kernel.
+
+Running the ICC demo
+--------------------
+There is no spectacular output when the demo is running. If there's something
+wrong, there will be error messages displayed by the Linux modules.
+After starting the M4 image, booting the kernel and inserting the ICC modules,
+one could monitor the ICC interrupt and see its evolution:
+
+s32v234evb:~$ cat /proc/interrupts 
+           CPU0
+  3:      85099       GIC  27 Edge      arch_timer
+ 15:   11155761       GIC  32 Level     ICC             <-- the ICC interrupt
+ 18:          0       GIC  40 Level     edma-tx_0-15
+.....
+
+If the line for ICC changes, then everything is running ok.
+
+Additional information
+----------------------
+
+For more information on the release, please see the release notes in
+sub-directory release/iccs32v234/release_notes, the ICC User Manual in
+release/iccs32v234/doc and the ICC section from the Linux BSP User Manual.
