@@ -193,8 +193,10 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
 #endif /* no ICC_CFG_NO_TIMEOUT */
 
     /* assign waitqueue for each fifo and semaphore */
-    for (i = 0; i < ICC_CFG_NO_CHANNELS_CONF0; i++) {
-        for (j = 0; j < 2; j++) {
+    for (i = 0; i < ICC_CFG_NO_CHANNELS_CONF0; i++)
+    {
+        for (j = 0; j < 2; j++)
+        {
             fifo_ram    = &((*ICC_Fifo_Ram)[i][j]);
             fifo_os_ram = fifo_ram -> fifo_os_ram[ ICC_GET_CORE_ID ];
             fifo_config = fifo_ram -> fifo_config[ ICC_GET_CORE_ID ];
@@ -213,8 +215,8 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
 
     ICC_HW_MSCM_VIRT_BASE = ioremap_nocache(ICC_HW_MSCM_BASE, 0x1000);
 
-    if (NULL == ICC_HW_MSCM_VIRT_BASE) {
-
+    if (NULL == ICC_HW_MSCM_VIRT_BASE)
+    {
         printk (KERN_ALERT "MSCM ioremap failed\n");
 
         return ICC_ERR_GENERAL;
@@ -238,17 +240,18 @@ ICC_ATTR_SEC_TEXT_CODE
 extern
 ICC_Err_t ICC_OS_Init_Interrupts( void )
 {
-
-    if ( ICC_NODE_STATE_UNINIT == (*ICC_Initialized)[ ICC_GET_REMOTE_CORE_ID ] )  {
-       ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_CPU2CPU_IRQ);
-    }
-
     char * device_name = ICC_get_device_name();
     struct device * dev = ICC_get_device();
     unsigned int shared_irq = ICC_get_shared_irq();
 
+    if ( ICC_NODE_STATE_UNINIT == (*ICC_Initialized)[ ICC_GET_REMOTE_CORE_ID ] )
+    {
+       ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_CPU2CPU_IRQ);
+    }
+
     /* request interrupt line for inter-core notifications */
-    if (devm_request_irq(dev, shared_irq, ICC_Cpu2Cpu_ISR_Handler, 0, device_name, NULL) != 0) {
+    if (devm_request_irq(dev, shared_irq, ICC_Cpu2Cpu_ISR_Handler, 0, device_name, NULL) != 0)
+    {
         printk (KERN_ALERT "Failed to register interrupt\n");
         return ICC_ERR_OS_LINUX_REGISTER_IRQ;
     }
@@ -382,10 +385,10 @@ ICC_OS_Wait_Event( ICC_IN ICC_Channel_t ch_id,
 
     ICC_Timeout_t timeout = fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]->timeout;
 
-    if (timeout != 0) {
-        
-        switch (fifo_id) {
-
+    if (timeout != 0)
+    {
+        switch (fifo_id)
+        {
             case ICC_TX_FIFO:
                 current_status = fifo_ram->rd[ICC_GET_CORE_ID];
                 ret = wait_event_interruptible_timeout (*(fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]->wait_queue),
@@ -421,8 +424,8 @@ ICC_OS_Wait_Event( ICC_IN ICC_Channel_t ch_id,
         fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]->timeout = 0;
     } else {
 
-        switch (fifo_id) {
-
+        switch (fifo_id)
+        {
             case ICC_TX_FIFO:
                 current_status = fifo_ram->rd[ICC_GET_CORE_ID];
                 ret = wait_event_interruptible (*(fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]->wait_queue),
@@ -448,7 +451,6 @@ ICC_OS_Wait_Event( ICC_IN ICC_Channel_t ch_id,
             return ICC_ERR_OS_LINUX_ERESTARTSYS;
 
         fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]->event_type = ICC_EVENT_ACTIVITY_ISR;
-
 
     }
 
@@ -527,7 +529,8 @@ ICC_OS_Set_Event( ICC_IN ICC_Channel_t ch_id,
 
     wait_queue_head_t    * fifo_wq   = fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]->wait_queue;
 
-    if (waitqueue_active( fifo_wq )) {
+    if (waitqueue_active( fifo_wq ))
+    {
         wake_up_interruptible( fifo_wq );
     }
 
@@ -550,7 +553,8 @@ ICC_OS_Set_Rate_Event( ICC_IN ICC_Channel_t ch_id,
         return ICC_ERR_OS_LINUX_WRONGCHNID;
     }
 
-    if (waitqueue_active( rate_wait_queue ))  {
+    if( waitqueue_active( rate_wait_queue ) )
+    {
         wake_up_interruptible( rate_wait_queue );
     }
 
@@ -577,7 +581,8 @@ ICC_OS_Wait_Rate_Event( ICC_IN ICC_Channel_t ch_id,
         return ICC_ERR_OS_LINUX_WRONGCHNID;
     }
 
-    if ( HB_OS_config->rate_ticks != 0) {
+    if ( HB_OS_config->rate_ticks != 0 )
+    {
         atomic_set(&rate_cond, 0);
         ret = wait_event_interruptible_timeout (
                                 *(rate_wait_queue),
@@ -629,7 +634,11 @@ ICC_OS_Set_Recurrent_Rel_Alarm( ICC_IN ICC_Channel_t ch_id,
         return ICC_ERR_OS_LINUX_WRONGCHNID;
     }
     ret = mod_timer(&timer, jiffies + usecs_to_jiffies(rate_timeout));
-    if (( ret != 0) && ( ret != 1))
+    /* check whether mod_timer has modified the timer successfully or not
+     * (i.e. mod_timer of an inactive timer returns 0, mod_timer of an active timer returns 1)
+     * see mod_timer documentation
+     */
+    if( (ret != 0) && (ret != 1) )
         return ICC_ERR_OS_LINUX_SETTIMER;
 
 

@@ -63,6 +63,12 @@ extern "C"
 #define ICC_FIFO_FLAG_TIMEOUT_ENABLED  (0x00000001UL)
 #define ICC_FIFO_FLAG_TIMEOUT_DISABLED (0x00000000UL)
 
+/*
+ * Magic string used for memory alignment and synchronization between
+ * Autosar and Linux shared memory buffers.
+ * The Linux modules are locating the main configuration object by searching
+ * the SRAM shared memory block for this magic string.
+ */
 #define ICC_CONFIG_MAGIC		"1CC_C0NF1G_BL0CK"
 #define ICC_CONFIG_MAGIC_SIZE		16
 

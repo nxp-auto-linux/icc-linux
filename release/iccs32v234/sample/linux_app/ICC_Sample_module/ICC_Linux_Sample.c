@@ -207,9 +207,10 @@ int Start_ICC_Sample(void)
     ICC_Err_t return_code;
 
     struct task_struct *task_data;
-    struct task_struct *task_hb;
 
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
+    struct task_struct *task_hb;
+
     atomic_set( &heartbeat_on, 0 );
     #endif
 
