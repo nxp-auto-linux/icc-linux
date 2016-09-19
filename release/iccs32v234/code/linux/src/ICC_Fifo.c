@@ -110,8 +110,8 @@ ICC_FIFO_Init(ICC_FIFO_IN       ICC_Fifo_Ram_t       * queue_ICC,
               ICC_FIFO_IN       ICC_Fifo_Os_Ram_t    * fifo_os_ram,
               ICC_FIFO_IN       unsigned int           init)
 {
-    queue_ICC->fifo_config[ ICC_GET_CORE_ID ] = fifo_conf; /**< set link to fifo configuration from channel structure */
-    queue_ICC->fifo_os_ram[ ICC_GET_CORE_ID ] = fifo_os_ram;
+    ICC_CROSS_ASSIGN(queue_ICC->fifo_config[ ICC_GET_CORE_ID ], fifo_conf); /**< set link to fifo configuration from channel structure */
+    ICC_CROSS_ASSIGN(queue_ICC->fifo_os_ram[ ICC_GET_CORE_ID ], fifo_os_ram);
 
     queue_ICC->rd[ ICC_GET_CORE_ID ]          = 0;
     queue_ICC->wr[ ICC_GET_CORE_ID ]          = 0;
@@ -139,7 +139,7 @@ ICC_FIFO_Push_Header(ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
                      ICC_FIFO_IN ICC_Header_t     * header)
 {
 
-    const ICC_Fifo_Config_t * fifo_cfg = queue_ICC->fifo_config[ ICC_GET_CORE_ID ];  /**< shortcut variable */
+    const ICC_Fifo_Config_t * fifo_cfg = ICC_CROSS_VALUE_OF(queue_ICC->fifo_config[ ICC_GET_CORE_ID ]);  /**< shortcut variable */
     unsigned int excess_align, wrapped_around, gap_to_end;
     void * intermediate_data = NULL_PTR;
     void * fifo_ptr = NULL_PTR;
@@ -156,7 +156,7 @@ ICC_FIFO_Push_Header(ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
     if ( ((wrapped_around == 0U) && (ICC_HEADER_SIZE <= gap_to_end)) || (wrapped_around == 1U))
     {
 
-        fifo_ptr = fifo_cfg->fifo_buffer_ptr + queue_ICC->tail;
+        fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr) + queue_ICC->tail;
         memcpy(fifo_ptr, header, ICC_HEADER_SIZE);
         ALIGN_WRITE(ICC_HEADER_SIZE);
 
@@ -165,7 +165,7 @@ ICC_FIFO_Push_Header(ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
     else
     {
         if ( (wrapped_around == 0U) && (gap_to_end < ICC_HEADER_SIZE) ) {
-            fifo_ptr = fifo_cfg->fifo_buffer_ptr + queue_ICC->tail;
+            fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr) + queue_ICC->tail;
             memcpy(fifo_ptr, header, gap_to_end);
 
             ICC_DCACHE_FLUSH_MLINES( (addr_t) fifo_ptr, gap_to_end );
@@ -173,7 +173,7 @@ ICC_FIFO_Push_Header(ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
             /* write the remained data */
             queue_ICC->tail = 0;
 
-            fifo_ptr = fifo_cfg->fifo_buffer_ptr;
+            fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr);
             intermediate_data = (char *)header + gap_to_end;
             memcpy(fifo_ptr, intermediate_data, ICC_HEADER_SIZE - gap_to_end);
 
@@ -196,7 +196,7 @@ ICC_Err_t
 ICC_FIFO_Pop_Header(ICC_FIFO_IN  ICC_Fifo_Ram_t   * queue_ICC,
                     ICC_FIFO_OUT ICC_Header_t     * header)
 {
-        const ICC_Fifo_Config_t * fifo_cfg = queue_ICC->fifo_config[ ICC_GET_CORE_ID ]; /**< shortcut variable */
+        const ICC_Fifo_Config_t * fifo_cfg = ICC_CROSS_VALUE_OF(queue_ICC->fifo_config[ ICC_GET_CORE_ID ]); /**< shortcut variable */
         unsigned int excess_align, pending_bytes, wrapped_around, gap_to_end;
         void * fifo_ptr = NULL_PTR;
 
@@ -218,7 +218,7 @@ ICC_FIFO_Pop_Header(ICC_FIFO_IN  ICC_Fifo_Ram_t   * queue_ICC,
         {
             if ( ((wrapped_around != 0U) && (ICC_HEADER_SIZE <= gap_to_end)) || (wrapped_around == 0U))
             {
-                fifo_ptr = fifo_cfg->fifo_buffer_ptr + queue_ICC->head;
+                fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr) + queue_ICC->head;
 
                 ICC_DCACHE_INVALIDATE_MLINES( (addr_t) fifo_ptr, ICC_HEADER_SIZE );
 
@@ -228,14 +228,14 @@ ICC_FIFO_Pop_Header(ICC_FIFO_IN  ICC_Fifo_Ram_t   * queue_ICC,
             else
             {
                 if ( (wrapped_around != 0U) && (gap_to_end < ICC_HEADER_SIZE) ) {
-                    fifo_ptr = fifo_cfg->fifo_buffer_ptr + queue_ICC->head;
+                    fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr) + queue_ICC->head;
 
                     ICC_DCACHE_INVALIDATE_MLINES( (addr_t) fifo_ptr, gap_to_end );
 
                     memcpy(header, fifo_ptr, gap_to_end);  /* firstly, copy until the end of the buffer */
 
                     queue_ICC->head = 0;                   /* place head at the beginning of the buffer */
-                    fifo_ptr = fifo_cfg->fifo_buffer_ptr;
+                    fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr);
                     header = (ICC_Header_t *)( (char*)header + gap_to_end );
 
                     ICC_DCACHE_INVALIDATE_MLINES( (addr_t) fifo_ptr, ICC_HEADER_SIZE - gap_to_end );
@@ -265,7 +265,7 @@ ICC_FIFO_Peek_Header(ICC_FIFO_IN  ICC_Fifo_Ram_t   * queue_ICC,
 
     unsigned int pending_bytes, wrapped_around, gap_to_end;
     void * fifo_ptr = NULL_PTR;
-    const ICC_Fifo_Config_t * fifo_cfg = queue_ICC->fifo_config[ ICC_GET_CORE_ID ];  /**< shortcut variable */;
+    const ICC_Fifo_Config_t * fifo_cfg = ICC_CROSS_VALUE_OF(queue_ICC->fifo_config[ ICC_GET_CORE_ID ]);  /**< shortcut variable */;
 
     /* ICC_FIFO_Pending will do cache invalidation for queue_ICC->tail and queue_ICC->head */
 
@@ -283,7 +283,7 @@ ICC_FIFO_Peek_Header(ICC_FIFO_IN  ICC_Fifo_Ram_t   * queue_ICC,
     {
         if ( ((wrapped_around != 0U) && (ICC_HEADER_SIZE <= gap_to_end)) || (wrapped_around == 0U))
         {
-            fifo_ptr = fifo_cfg->fifo_buffer_ptr + queue_ICC->head;
+            fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr) + queue_ICC->head;
 
             ICC_DCACHE_INVALIDATE_MLINES( (addr_t) fifo_ptr, ICC_HEADER_SIZE );
 
@@ -292,7 +292,7 @@ ICC_FIFO_Peek_Header(ICC_FIFO_IN  ICC_Fifo_Ram_t   * queue_ICC,
         else
         {
             if ( (wrapped_around != 0U) && (gap_to_end < ICC_HEADER_SIZE) ) {
-                fifo_ptr = fifo_cfg->fifo_buffer_ptr + queue_ICC->head;
+                fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr) + queue_ICC->head;
 
                 ICC_DCACHE_INVALIDATE_MLINES( (addr_t) fifo_ptr, gap_to_end );
 
@@ -301,7 +301,7 @@ ICC_FIFO_Peek_Header(ICC_FIFO_IN  ICC_Fifo_Ram_t   * queue_ICC,
                 ICC_DCACHE_INVALIDATE_MLINES( (addr_t) fifo_cfg->fifo_buffer_ptr, ICC_HEADER_SIZE - gap_to_end );
 
                 header = (ICC_Header_t *)( (char*)header + gap_to_end );
-                memcpy(header, fifo_cfg->fifo_buffer_ptr, ICC_HEADER_SIZE - gap_to_end); /* copy the rest of the data*/
+                memcpy(header, ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr), ICC_HEADER_SIZE - gap_to_end); /* copy the rest of the data*/
             }
         }
     }
@@ -323,7 +323,7 @@ ICC_FIFO_Push( ICC_FIFO_IN ICC_Fifo_Ram_t    * queue_ICC,
 {
     unsigned int excess_align, wrapped_around, gap_to_end;
     void * intermediate_data = NULL_PTR, * fifo_ptr = NULL_PTR;
-    const ICC_Fifo_Config_t * fifo_cfg = queue_ICC->fifo_config[ ICC_GET_CORE_ID ];  /**< shortcut variable */;
+    const ICC_Fifo_Config_t * fifo_cfg = ICC_CROSS_VALUE_OF(queue_ICC->fifo_config[ ICC_GET_CORE_ID ]);  /**< shortcut variable */;
 
 
     ICC_DCACHE_INVALIDATE_MLINES( (addr_t) &queue_ICC->head, sizeof(unsigned int) );
@@ -337,7 +337,7 @@ ICC_FIFO_Push( ICC_FIFO_IN ICC_Fifo_Ram_t    * queue_ICC,
 
     if ( ((wrapped_around == 0U) && (size <= gap_to_end)) || (wrapped_around != 0U))
     {
-        fifo_ptr = fifo_cfg->fifo_buffer_ptr + queue_ICC->tail;
+        fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr) + queue_ICC->tail;
         memcpy(fifo_ptr, data, size);
         ALIGN_WRITE(size);
 
@@ -347,14 +347,14 @@ ICC_FIFO_Push( ICC_FIFO_IN ICC_Fifo_Ram_t    * queue_ICC,
     else
     {
         if ( (wrapped_around == 0U) && (gap_to_end < size) ) {
-            fifo_ptr = fifo_cfg->fifo_buffer_ptr + queue_ICC->tail;
+            fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr) + queue_ICC->tail;
             memcpy(fifo_ptr, data, gap_to_end);
 
             ICC_DCACHE_FLUSH_MLINES( (addr_t) fifo_ptr, gap_to_end );
 
             /* write the remained data */
             queue_ICC->tail = 0;
-            fifo_ptr = fifo_cfg->fifo_buffer_ptr;
+            fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr);
             intermediate_data = (char *)data + gap_to_end;
             memcpy(fifo_ptr, intermediate_data, size - gap_to_end);
             ALIGN_WRITE(size - gap_to_end);
@@ -377,7 +377,7 @@ ICC_FIFO_Pop( ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
               ICC_FIFO_OUT void        * data,
               ICC_FIFO_IN unsigned int   size )
 {
-    const ICC_Fifo_Config_t * fifo_cfg = queue_ICC->fifo_config[ ICC_GET_CORE_ID ]; /**< shortcut variable */
+    const ICC_Fifo_Config_t * fifo_cfg = ICC_CROSS_VALUE_OF(queue_ICC->fifo_config[ ICC_GET_CORE_ID ]); /**< shortcut variable */
     unsigned int excess_align, pending_bytes, wrapped_around, gap_to_end;
     void * fifo_ptr = NULL_PTR;
 
@@ -399,7 +399,7 @@ ICC_FIFO_Pop( ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
     {
         if ( ((wrapped_around != 0U) && (size <= gap_to_end)) || (wrapped_around == 0U)) 
         {
-            fifo_ptr = fifo_cfg->fifo_buffer_ptr + queue_ICC->head;
+            fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr) + queue_ICC->head;
             if (NULL_PTR != data){
 
                 ICC_DCACHE_INVALIDATE_MLINES( (addr_t) fifo_ptr, size );
@@ -411,7 +411,7 @@ ICC_FIFO_Pop( ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
         else
         {
             if ( (wrapped_around != 0U) && (gap_to_end < size) ) {
-                fifo_ptr = fifo_cfg->fifo_buffer_ptr + queue_ICC->head;
+                fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr) + queue_ICC->head;
                 if (NULL_PTR != data){
 
                     ICC_DCACHE_INVALIDATE_MLINES( (addr_t) fifo_ptr, gap_to_end );
@@ -420,7 +420,7 @@ ICC_FIFO_Pop( ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
                 }
 
                 queue_ICC->head = 0;    /* place head at the beginning of the buffer */
-                fifo_ptr = fifo_cfg->fifo_buffer_ptr;
+                fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr);
 
                 if (NULL_PTR != data){
                     data = data + gap_to_end;
@@ -450,7 +450,7 @@ ICC_FIFO_Peek( ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
                ICC_FIFO_OUT void         * data,
                ICC_FIFO_IN unsigned int   size )
 {
-    const ICC_Fifo_Config_t * fifo_cfg = queue_ICC->fifo_config[ ICC_GET_CORE_ID ];  /**< shortcut variable */
+    const ICC_Fifo_Config_t * fifo_cfg = ICC_CROSS_VALUE_OF(queue_ICC->fifo_config[ ICC_GET_CORE_ID ]);  /**< shortcut variable */
     unsigned int pending_bytes, wrapped_around, gap_to_end;
     void * fifo_ptr = NULL_PTR;
 
@@ -470,7 +470,7 @@ ICC_FIFO_Peek( ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
     {
         if ( ((wrapped_around != 0U) && (size <= gap_to_end)) || (wrapped_around == 0U)) 
         {
-            fifo_ptr = fifo_cfg->fifo_buffer_ptr + queue_ICC->head;
+            fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr) + queue_ICC->head;
 
             ICC_DCACHE_INVALIDATE_MLINES( (addr_t) fifo_ptr, size );
 
@@ -479,7 +479,7 @@ ICC_FIFO_Peek( ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
         else
         {
             if ( (wrapped_around != 0U) && (gap_to_end < size) ) {
-                fifo_ptr = fifo_cfg->fifo_buffer_ptr + queue_ICC->head;
+                fifo_ptr = ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr) + queue_ICC->head;
 
                 ICC_DCACHE_INVALIDATE_MLINES( (addr_t) fifo_ptr, gap_to_end );
 
@@ -489,7 +489,7 @@ ICC_FIFO_Peek( ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
 
                 ICC_DCACHE_INVALIDATE_MLINES( (addr_t) fifo_cfg->fifo_buffer_ptr, size - gap_to_end );
 
-                memcpy(data, fifo_cfg->fifo_buffer_ptr, size - gap_to_end); /* copy the rest of the data*/
+                memcpy(data, ICC_CROSS_VALUE_OF(fifo_cfg->fifo_buffer_ptr), size - gap_to_end); /* copy the rest of the data*/
             }
         }
     }
@@ -505,7 +505,7 @@ unsigned int
 ICC_FIFO_Pending( ICC_FIFO_IN  ICC_Fifo_Ram_t   * queue_ICC )
 {
 
-    const ICC_Fifo_Config_t * fifo_cfg = queue_ICC->fifo_config[ ICC_GET_CORE_ID ]; /**< shortcut variable */
+    const ICC_Fifo_Config_t * fifo_cfg = ICC_CROSS_VALUE_OF(queue_ICC->fifo_config[ ICC_GET_CORE_ID ]); /**< shortcut variable */
     unsigned int wrapped_around;
     int gap_to_end, distance_to_tail;
 
@@ -540,8 +540,7 @@ unsigned int
 ICC_FIFO_Free( ICC_FIFO_IN ICC_Fifo_Ram_t    * queue_ICC )
 {
     unsigned int wrapped_around, gap_to_end, distance_to_head;
-    const ICC_Fifo_Config_t * fifo_cfg = queue_ICC->fifo_config[ ICC_GET_CORE_ID ]; /**< shortcut variable */;
-
+    const ICC_Fifo_Config_t * fifo_cfg = ICC_CROSS_VALUE_OF(queue_ICC->fifo_config[ ICC_GET_CORE_ID ]); /**< shortcut variable */;
 
     ICC_DCACHE_INVALIDATE_MLINES( (addr_t) &queue_ICC->tail, sizeof(unsigned int) );
     ICC_DCACHE_INVALIDATE_MLINES( (addr_t) &queue_ICC->head, sizeof(unsigned int) );
@@ -581,7 +580,7 @@ ICC_Err_t
 ICC_Fifo_Msg_Fits( ICC_FIFO_IN  ICC_Fifo_Ram_t * queue_ICC,
                    ICC_FIFO_IN  unsigned int     msg_size  )
 {
-    const ICC_Fifo_Config_t * fifo_cfg = queue_ICC->fifo_config[ ICC_GET_CORE_ID ]; /**< shortcut variable */
+    const ICC_Fifo_Config_t * fifo_cfg = ICC_CROSS_VALUE_OF(queue_ICC->fifo_config[ ICC_GET_CORE_ID ]); /**< shortcut variable */
     unsigned int excess_align, free_bytes, wrapped_around, real_size, gap_to_end;
     unsigned int size = ICC_HEADER_SIZE + msg_size;                                    /* calculate HEADER_SIZE + msg_size */
 

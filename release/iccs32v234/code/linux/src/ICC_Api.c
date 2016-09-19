@@ -71,6 +71,8 @@ extern "C"
                 return_code = tmp_return_code;                   \
             }
 
+
+
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
 
 #define ICC_CFG_HEARTBEAT_STARTING_MSG  (0x00001UL)  /**< the value of the initial msg the HB mechanism sends/expects */
@@ -80,8 +82,8 @@ extern "C"
              if (ICC_SUCCESS != return_code) {                                                 \
                  ICC_Heartbeat_State = ICC_HEARTBEAT_STATE_ERROR;                             \
                  if (  ((*ICC_Initialized)[ ICC_GET_CORE_ID ] != ICC_NODE_STATE_UNINIT) &&  \
-                       (NULL_PTR != ICC_Config_Ptr->Node_Update_Cb) ) {                       \
-                     ICC_Config_Ptr->Node_Update_Cb( ICC_NODE_REMOTE, ICC_NODE_STATE_DEAD); \
+                       (NULL_PTR != ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Node_Update_Cb)) ) {                       \
+                     ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Node_Update_Cb)( ICC_NODE_REMOTE, ICC_NODE_STATE_DEAD); \
                  }                                                                            \
                  return return_code;                                                          \
              }
@@ -101,13 +103,13 @@ extern "C"
         extern const
         ICC_Config_t * ICC_Config_Ptr_M4;          /**< pointer to M4 current configuration */
 
-        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile unsigned int          (* ICC_Initialized)[2]  = NULL_PTR;                            /**< shows if ICC is initialized */
-        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_Channel_Ram_t      * ICC_Channels_Ram     = NULL_PTR;                            /**< runtime structure for each channel */
-        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_Fifo_Ram_t        (* ICC_Fifo_Ram)[ ICC_CFG_MAX_CHANNELS ][ 2 /* tx/rx */ ] = NULL_PTR;    /**< fifos_ram ordered priority wise for each node */
-        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_Signal_Fifo_Ram_t (* ICC_Node_Sig_Fifo_Ram)[ 2 /* coreId */ ] = NULL_PTR;        /**< signal fifo for each node */
+        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_PTR_VECTOR(u32)      ICC_Initialized  = NULL_PTR;                            /**< shows if ICC is initialized */
+        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_Channel_Ram_t      * ICC_Channels_Ram = NULL_PTR;                            /**< runtime structure for each channel */
+        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_PTR_MATRIX(ICC_Fifo_Ram_t)        ICC_Fifo_Ram = NULL_PTR;    /**< fifos_ram ordered priority wise for each node */
+        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_PTR_VECTOR(ICC_Signal_Fifo_Ram_t) ICC_Node_Sig_Fifo_Ram = NULL_PTR;        /**< signal fifo for each node */
         #ifdef ICC_CFG_HEARTBEAT_ENABLED
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_Heartbeat_State_t    ICC_Heartbeat_State  = ICC_HEARTBEAT_STATE_UNINIT;          /**< shows ICC_Heartbeat mechanism state */
-        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile unsigned int             ICC_Heartbeat_RunId  = 0;                                   /**< the current RunId for the HB mechanism */
+        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile u32                      ICC_Heartbeat_RunId  = 0;                                   /**< the current RunId for the HB mechanism */
         #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
         ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS ICC_Fifo_Os_Ram_t ICC_Fifo_Os_Ram_APP[ ICC_CFG_MAX_CHANNELS ][ 2 /* tx/rx */ ];   /**< Fifo OS specific Ram structure */
@@ -188,7 +190,7 @@ ICC_Compare_Fifo_Conf( const ICC_Fifo_Config_t * fifo_config_APP,
 ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t 
 ICC_Initialize( 
-                ICC_IN const ICC_Config_t * config 
+                ICC_IN ICC_Config_t * config
               )
 {
 
@@ -223,7 +225,7 @@ ICC_Initialize(
 
     {
         int j;
-        const ICC_Fifo_Config_t    * fifo_config_M4;
+        ICC_Fifo_Config_t    * fifo_config_M4;
         const ICC_Channel_Config_t * channel_conf_M4;
 
         ICC_Fifo_Config_t          * fifo_config_APP;
@@ -232,7 +234,7 @@ ICC_Initialize(
          * Configuration validation VS other core
          */
 
-        if (ICC_Config_Ptr_M4->Channels_Count != ICC_Config_Ptr->Channels_Count) {
+        if (ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->Channels_Count) != ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Count)) {
 
             return ICC_ERR_CONFIG_MATCH_FAILED;
         }
@@ -242,16 +244,16 @@ ICC_Initialize(
          * update configuration structure on APP side
          */
 
-        ICC_Config_Ptr->ICC_Initialized_Shared       = (unsigned int *)      ICC_OS_Phys_To_Virt(ICC_Config_Ptr_M4->ICC_Initialized_Shared);
-        ICC_Config_Ptr->ICC_Channels_Ram_Shared      = (ICC_Channel_Ram_t *) ICC_OS_Phys_To_Virt(ICC_Config_Ptr_M4->ICC_Channels_Ram_Shared);
-        ICC_Config_Ptr->ICC_Fifo_Ram_Shared          = (ICC_Fifo_Ram_t *)    ICC_OS_Phys_To_Virt(ICC_Config_Ptr_M4->ICC_Fifo_Ram_Shared);
-        ICC_Config_Ptr->ICC_Node_Sig_Fifo_Ram_Shared = (ICC_Fifo_Ram_t *)    ICC_OS_Phys_To_Virt(ICC_Config_Ptr_M4->ICC_Node_Sig_Fifo_Ram_Shared);
+        ICC_CROSS_ASSIGN(ICC_Config_Ptr->ICC_Initialized_Shared, (ICC_PTR_VECTOR(u32)) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->ICC_Initialized_Shared)));
+        ICC_CROSS_ASSIGN(ICC_Config_Ptr->ICC_Channels_Ram_Shared, (ICC_Channel_Ram_t *) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->ICC_Channels_Ram_Shared)));
+        ICC_CROSS_ASSIGN(ICC_Config_Ptr->ICC_Fifo_Ram_Shared, (ICC_PTR_MATRIX(ICC_Fifo_Ram_t)) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->ICC_Fifo_Ram_Shared)));
+        ICC_CROSS_ASSIGN(ICC_Config_Ptr->ICC_Node_Sig_Fifo_Ram_Shared, (ICC_PTR_VECTOR(ICC_Signal_Fifo_Ram_t)) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->ICC_Node_Sig_Fifo_Ram_Shared)));
 
 
-        for (i=0; i<ICC_Config_Ptr->Channels_Count; i++) {
+        for (i = 0; i < ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Count); i++) {
 
-            channel_conf    = &ICC_Config_Ptr->Channels_Ptr[i];
-            channel_conf_M4 = ICC_OS_Phys_To_Virt(&ICC_Config_Ptr_M4->Channels_Ptr[i]);
+            channel_conf    = &ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Ptr)[i];
+            channel_conf_M4 = (ICC_Channel_Config_t *) ICC_OS_Phys_To_Virt(&(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->Channels_Ptr)[i]));
 
             for (j=0; j<2; j++) {
                 fifo_config_APP = &channel_conf->fifos_cfg[ j ];
@@ -265,7 +267,7 @@ ICC_Initialize(
                 /*
                  * TBD: if address re-mapping is needed then it must be done here
                  */
-                fifo_config_APP->fifo_buffer_ptr = (unsigned char *) ICC_OS_Phys_To_Virt(fifo_config_M4->fifo_buffer_ptr);
+                ICC_CROSS_ASSIGN(fifo_config_APP->fifo_buffer_ptr, (u8 *) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(fifo_config_M4->fifo_buffer_ptr)));
             }
         }
 
@@ -275,16 +277,16 @@ ICC_Initialize(
 
 
 
-    ICC_Initialized          = ICC_Config_Ptr->ICC_Initialized_Shared;
-    ICC_Channels_Ram         = ICC_Config_Ptr->ICC_Channels_Ram_Shared;
-    ICC_Fifo_Ram             = ICC_Config_Ptr->ICC_Fifo_Ram_Shared;
-    ICC_Node_Sig_Fifo_Ram    = ICC_Config_Ptr->ICC_Node_Sig_Fifo_Ram_Shared;
+    ICC_Initialized          = ICC_CROSS_VALUE_OF(ICC_Config_Ptr->ICC_Initialized_Shared);
+    ICC_Channels_Ram         = ICC_CROSS_VALUE_OF(ICC_Config_Ptr->ICC_Channels_Ram_Shared);
+    ICC_Fifo_Ram             = ICC_CROSS_VALUE_OF(ICC_Config_Ptr->ICC_Fifo_Ram_Shared);
+    ICC_Node_Sig_Fifo_Ram    = ICC_CROSS_VALUE_OF(ICC_Config_Ptr->ICC_Node_Sig_Fifo_Ram_Shared);
 
-    for (i=0; i<ICC_Config_Ptr->Channels_Count; i++) {
+    for (i = 0; i < ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Count); i++) {
 
         ICC_Channel_State_t    channel_new_state;
 
-        channel_conf = &ICC_Config_Ptr->Channels_Ptr[i];
+        channel_conf = &(ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Ptr)[i]);
 
         channel_ram = &ICC_Channels_Ram[i];
 
@@ -316,17 +318,17 @@ ICC_Initialize(
         /*
          * link each Fifo priority wise
          */
-        channel_ram->fifos_ram[ ICC_TX_FIFO ][ ICC_GET_CORE_ID ] = (ICC_Fifo_Ram_t*) &((*ICC_Fifo_Ram)[ channel_conf->fifos_cfg[ ICC_TX_FIFO ].fifo_prio ][ ICC_TX_FIFO ]);
-        channel_ram->fifos_ram[ ICC_RX_FIFO ][ ICC_GET_CORE_ID ] = (ICC_Fifo_Ram_t*) &((*ICC_Fifo_Ram)[ channel_conf->fifos_cfg[ ICC_RX_FIFO ].fifo_prio ][ ICC_RX_FIFO ]);
+        ICC_CROSS_ASSIGN(channel_ram->fifos_ram[ ICC_TX_FIFO ][ ICC_GET_CORE_ID ], (ICC_Fifo_Ram_t*) &((*ICC_Fifo_Ram)[ channel_conf->fifos_cfg[ ICC_TX_FIFO ].fifo_prio ][ ICC_TX_FIFO ]));
+        ICC_CROSS_ASSIGN(channel_ram->fifos_ram[ ICC_RX_FIFO ][ ICC_GET_CORE_ID ], (ICC_Fifo_Ram_t*) &((*ICC_Fifo_Ram)[ channel_conf->fifos_cfg[ ICC_RX_FIFO ].fifo_prio ][ ICC_RX_FIFO ]));
 
         /* initialize TX fifo */
-        ICC_FIFO_Init (  channel_ram->fifos_ram[  ICC_TX_FIFO ][ ICC_GET_CORE_ID ],
+        ICC_FIFO_Init ( ICC_CROSS_VALUE_OF(channel_ram->fifos_ram[  ICC_TX_FIFO ][ ICC_GET_CORE_ID ]),
                         &channel_conf->fifos_cfg[ ICC_TX_FIFO ],
                         &ICC_Fifo_Os_Ram    [ i ][ ICC_TX_FIFO ],
                          1 );
 
         /* initialize RX fifo */
-        ICC_FIFO_Init (  channel_ram->fifos_ram[  ICC_RX_FIFO ][ ICC_GET_CORE_ID ],
+        ICC_FIFO_Init ( ICC_CROSS_VALUE_OF(channel_ram->fifos_ram[ ICC_RX_FIFO ][ ICC_GET_CORE_ID ]),
                         &channel_conf->fifos_cfg[ ICC_RX_FIFO ],
                         &ICC_Fifo_Os_Ram    [ i ][ ICC_RX_FIFO ],
                          0 );
@@ -396,7 +398,7 @@ ICC_Finalize( void )
 
 
 
-    for (i=0; i<ICC_Config_Ptr->Channels_Count; i++) {
+    for (i = 0; i < ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Count); i++) {
 
         channel_ram = &ICC_Channels_Ram[i];
 
@@ -410,15 +412,15 @@ ICC_Finalize( void )
 
 #ifndef ICC_CFG_NO_TIMEOUT
 
-            fifo_ram = channel_ram->fifos_ram[ ICC_RX_FIFO ][ ICC_GET_CORE_ID ];
-            fifo_config = fifo_ram->fifo_config[ ICC_GET_CORE_ID ];
+            fifo_ram = ICC_CROSS_VALUE_OF(channel_ram->fifos_ram[ ICC_RX_FIFO ][ ICC_GET_CORE_ID ]);
+            fifo_config = ICC_CROSS_VALUE_OF(fifo_ram->fifo_config[ ICC_GET_CORE_ID ]);
 
             if (0 != (fifo_config->fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED)) {
                 ICC_CHECK_ERR_CODE( ICC_OS_Set_Event(i, ICC_RX_FIFO) ); /**< wake-up RX blocked task if any */
             }
 
-            fifo_ram = channel_ram->fifos_ram[ ICC_TX_FIFO ][ ICC_GET_CORE_ID ];
-            fifo_config = fifo_ram->fifo_config[ ICC_GET_CORE_ID ];
+            fifo_ram = ICC_CROSS_VALUE_OF(channel_ram->fifos_ram[ ICC_TX_FIFO ][ ICC_GET_CORE_ID ]);
+            fifo_config = ICC_CROSS_VALUE_OF(fifo_ram->fifo_config[ ICC_GET_CORE_ID ]);
 
             if (0 != (fifo_config->fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED)) {
                 ICC_CHECK_ERR_CODE( ICC_OS_Set_Event(i, ICC_TX_FIFO) ); /**< wake-up TX blocked task if any */
@@ -526,7 +528,7 @@ ICC_Open_Channel(
     }
 
     /* check valid channel id parameter */
-    if (channel_id >= ICC_Config_Ptr->Channels_Count) {
+    if (channel_id >= ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Count)) {
         return ICC_ERR_PARAM_CHAN_INVALID;
     }
 
@@ -586,7 +588,7 @@ ICC_Close_Channel(
     }
 
     /* check valid channel id parameter */
-    if (channel_id >= ICC_Config_Ptr->Channels_Count) {
+    if (channel_id >= ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Count)) {
         return ICC_ERR_PARAM_CHAN_INVALID;
     }
 
@@ -618,9 +620,6 @@ ICC_Close_Channel(
 }
 
 
-
-
-
 /**
  *
  * Interrogate state of caller side of specified channel
@@ -649,7 +648,7 @@ ICC_Get_Channel_State(
     }
 
     /* check valid channel id parameter */
-    if (channel_id >= ICC_Config_Ptr->Channels_Count) {
+    if (channel_id >= ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Count)) {
         return ICC_ERR_PARAM_CHAN_INVALID;
     }
 
@@ -704,13 +703,13 @@ ICC_Get_Channel_Free(
         }
 
         /* check valid channel id parameter */
-        if (channel_id >= ICC_Config_Ptr->Channels_Count) {
+        if (channel_id >= ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Count)) {
             return ICC_ERR_PARAM_CHAN_INVALID;
         }
 
         channel_ram = &ICC_Channels_Ram[ channel_id ];
 
-        fifo_ram = channel_ram->fifos_ram[ ICC_TX_FIFO ][ ICC_GET_CORE_ID ];
+        fifo_ram = ICC_CROSS_VALUE_OF(channel_ram->fifos_ram[ ICC_TX_FIFO ][ ICC_GET_CORE_ID ]);
 
         /* Subtract the size of the header */
         * channel_free_bytes = ICC_FIFO_Free(fifo_ram);
@@ -751,20 +750,19 @@ ICC_Get_Channel_Pending(
         }
 
         /* check valid channel id parameter */
-        if (channel_id >= ICC_Config_Ptr->Channels_Count){
+        if (channel_id >= ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Count)){
             return ICC_ERR_PARAM_CHAN_INVALID;
         }
 
         channel_ram = &ICC_Channels_Ram[ channel_id ];
 
-        fifo_ram = channel_ram->fifos_ram[ ICC_TX_FIFO ][ ICC_GET_CORE_ID ];
+        fifo_ram = ICC_CROSS_VALUE_OF(channel_ram->fifos_ram[ ICC_TX_FIFO ][ ICC_GET_CORE_ID ]);
 
         * channel_pending_bytes = ICC_FIFO_Pending(fifo_ram);
 
         return ICC_SUCCESS;
 
 }
-
 
 
 /**
@@ -795,13 +793,13 @@ ICC_Get_Next_Msg_Size(
         }
 
         /* check valid channel id parameter */
-        if (channel_id >= ICC_Config_Ptr->Channels_Count) {
+        if (channel_id >= ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Count)) {
             return ICC_ERR_PARAM_CHAN_INVALID;
         }
 
         channel_ram = &ICC_Channels_Ram[ channel_id ];
 
-        fifo_ram = channel_ram->fifos_ram[ ICC_TX_FIFO ][ ICC_GET_CORE_ID ];
+        fifo_ram = ICC_CROSS_VALUE_OF(channel_ram->fifos_ram[ ICC_TX_FIFO ][ ICC_GET_CORE_ID ]);
 
         ICC_CHECK_ERR_CODE( ICC_FIFO_Peek_Header(fifo_ram, next_msg_size) );
 
@@ -864,7 +862,7 @@ ICC_Msg_Send (
     }
 
     /* check valid channel id parameter */
-    if (channel_id >= ICC_Config_Ptr->Channels_Count) {
+    if (channel_id >= ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Count)) {
         return ICC_ERR_PARAM_CHAN_INVALID;
     }
 
@@ -887,9 +885,9 @@ ICC_Msg_Send (
         return ICC_ERR_CHAN_ENDPOINT_CLOSED;
     }
 
-    fifo_ram = channel_ram->fifos_ram[ ICC_TX_FIFO ][ ICC_GET_CORE_ID ];
+    fifo_ram = ICC_CROSS_VALUE_OF(channel_ram->fifos_ram[ ICC_TX_FIFO ][ ICC_GET_CORE_ID ]);
 
-    fifo_config = fifo_ram->fifo_config[ ICC_GET_CORE_ID ];
+    fifo_config = ICC_CROSS_VALUE_OF(fifo_ram->fifo_config[ ICC_GET_CORE_ID ]);
 
     /* check the message is not larger than maximum configured for this channel */
     if (tx_user_buffer_size > fifo_config->max_msg_size) {
@@ -1000,11 +998,6 @@ ICC_Msg_Send (
 }
 
 
- 
-
-
-
-
 /**
  *
  * Message Receive: immediate / timeout / block forever
@@ -1060,7 +1053,7 @@ ICC_Msg_Recv(
     }
 
     /* check valid channel id parameter */
-    if (channel_id >= ICC_Config_Ptr->Channels_Count) {
+    if (channel_id >= ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Count)) {
         return ICC_ERR_PARAM_CHAN_INVALID;
     }
 
@@ -1087,9 +1080,9 @@ ICC_Msg_Recv(
         return ICC_ERR_CHAN_ENDPOINT_CLOSED;
     }
 
-    fifo_ram = channel_ram->fifos_ram[ ICC_RX_FIFO ][ ICC_GET_CORE_ID ];
+    fifo_ram = ICC_CROSS_VALUE_OF(channel_ram->fifos_ram[ ICC_RX_FIFO ][ ICC_GET_CORE_ID ]);
 
-    fifo_config = fifo_ram->fifo_config[ ICC_GET_CORE_ID ];
+    fifo_config = ICC_CROSS_VALUE_OF(fifo_ram->fifo_config[ ICC_GET_CORE_ID ]);
 
     if ( (0 == (fifo_config->fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED)) && (ICC_WAIT_ZERO != timeout_val)) {
         return ICC_ERR_TIMEOUT_NOT_CONF;
@@ -1226,7 +1219,6 @@ ICC_Msg_Recv(
 }
 
 
-
 /*
  * Handle ICC events from local and remote core
  * Called from OS specific ICC interrupt handler
@@ -1260,7 +1252,7 @@ ICC_Remote_Event_Handler(void)
     {
 
         #ifdef ICC_CFG_HEARTBEAT_ENABLED
-        HB_OS_config = ICC_Config_Ptr->ICC_Heartbeat_Os_Config;
+        HB_OS_config = ICC_CROSS_VALUE_OF(ICC_Config_Ptr->ICC_Heartbeat_Os_Config);
         hb_channel_id = HB_OS_config->channel_id;
         #endif
 
@@ -1268,9 +1260,9 @@ ICC_Remote_Event_Handler(void)
         /*
          * dequeue events in FIFO priority order
          */
-        for (i=ICC_Config_Ptr->Channels_Count-1; i>=0; i--)
+        for (i = ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Count) - 1; i >= 0; i--)
         {
-            const ICC_Channel_Config_t  * channel_cfg  = &ICC_Config_Ptr->Channels_Ptr[i];
+            const ICC_Channel_Config_t  * channel_cfg  = &ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Ptr)[i];
             ICC_Fifo_Ram_t        * fifo_ram;
 
             #ifdef ICC_CFG_HEARTBEAT_ENABLED
@@ -1283,10 +1275,9 @@ ICC_Remote_Event_Handler(void)
 
             while ( ICC_FIFO_Msg_Wr_Sig_Pending( fifo_ram ) )
             {
-                if (NULL_PTR != channel_cfg->Channel_Rx_Cb) {
-                    channel_cfg->Channel_Rx_Cb(i);
+                if (NULL_PTR != ICC_CROSS_VALUE_OF(channel_cfg->Channel_Rx_Cb)) {
+                    ICC_CROSS_VALUE_OF(channel_cfg->Channel_Rx_Cb)(i);
                 }
-
 
                 #ifndef ICC_CFG_NO_TIMEOUT
                 if ( channel_cfg->fifos_cfg[ ICC_RX_FIFO ].fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED ) ICC_OS_Set_Event(i, ICC_RX_FIFO); /**< wake-up RX blocked task */
@@ -1294,7 +1285,6 @@ ICC_Remote_Event_Handler(void)
 
                 ICC_FIFO_Msg_Wr_Ack( fifo_ram ); /**< Ack WR notification */
             }
-
 
             /* TX fifo */
 
@@ -1304,8 +1294,8 @@ ICC_Remote_Event_Handler(void)
             {
                 if (( 0 != fifo_ram->pending_send_msg_size ) && ( ICC_SUCCESS == ICC_Fifo_Msg_Fits( (ICC_Fifo_Ram_t *) fifo_ram, fifo_ram->pending_send_msg_size ) ) ) {
 
-                    if (NULL_PTR != channel_cfg->Channel_Tx_Cb) {
-                        channel_cfg->Channel_Tx_Cb(i);
+                    if (NULL_PTR != ICC_CROSS_VALUE_OF(channel_cfg->Channel_Tx_Cb)) {
+                        ICC_CROSS_VALUE_OF(channel_cfg->Channel_Tx_Cb)(i);
                     }
 
                     #ifndef ICC_CFG_NO_TIMEOUT
@@ -1325,9 +1315,9 @@ ICC_Remote_Event_Handler(void)
     /* Channels event available ? */
     if ( 1 /* TBD */ )
     {
-        for (i = ICC_Config_Ptr->Channels_Count-1; i >= 0; i--)
+        for (i = ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Count) - 1; i >= 0; i--)
         {
-            const ICC_Channel_Config_t  * channel_cfg  = &ICC_Config_Ptr->Channels_Ptr[i];
+            const ICC_Channel_Config_t  * channel_cfg  = &ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Channels_Ptr)[i];
             volatile ICC_Channel_Ram_t     * channel_ram  = &ICC_Channels_Ram[i];
             ICC_Signal_t            signal;
             sig_fifo_remote_ptr = &channel_ram->sig_fifo_remote[ ICC_GET_REMOTE_CORE_ID ];
@@ -1336,8 +1326,8 @@ ICC_Remote_Event_Handler(void)
 
                 if ( ICC_SUCCESS == ICC_Sig_Fifo_Dequeue_Signal( (ICC_Signal_Fifo_Ram_t *) sig_fifo_remote_ptr, &signal )) {
 
-                    if (NULL_PTR != channel_cfg->Channel_Update_Cb) {
-                        channel_cfg->Channel_Update_Cb(i, (ICC_Channel_State_t) signal);
+                    if (NULL_PTR != ICC_CROSS_VALUE_OF(channel_cfg->Channel_Update_Cb)) {
+                        ICC_CROSS_VALUE_OF(channel_cfg->Channel_Update_Cb)(i, (ICC_Channel_State_t) signal);
                     }
                 }
 
@@ -1356,10 +1346,11 @@ ICC_Remote_Event_Handler(void)
 
         ICC_Signal_t            signal;
 
+
         if ( ICC_SUCCESS == ICC_Sig_Fifo_Dequeue_Signal( (ICC_Signal_Fifo_Ram_t *) sig_fifo_remote_ptr, &signal )) {
 
-            if (NULL_PTR != ICC_Config_Ptr->Node_Update_Cb) {
-                ICC_Config_Ptr->Node_Update_Cb( ICC_NODE_REMOTE, (ICC_Node_State_t) signal);
+            if (NULL_PTR != ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Node_Update_Cb)) {
+                ICC_CROSS_VALUE_OF(ICC_Config_Ptr->Node_Update_Cb)( ICC_NODE_REMOTE, (ICC_Node_State_t) signal);
             }
         }
 
@@ -1421,6 +1412,7 @@ ICC_Local_Event_Handler(void)
 #endif
 
 
+
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
 
 /**
@@ -1480,7 +1472,7 @@ ICC_Heartbeat_Initialize(
 
     const unsigned int hb_msg_size = sizeof(ICC_Heartbeat_Msg_t);
 
-    const ICC_Heartbeat_Os_Config_t * HB_OS_config = ICC_Config_Ptr->ICC_Heartbeat_Os_Config;
+    const ICC_Heartbeat_Os_Config_t * HB_OS_config = ICC_CROSS_VALUE_OF(ICC_Config_Ptr->ICC_Heartbeat_Os_Config);
 
     ICC_Heartbeat_RunId = runId; /**< set the current runId */
 
@@ -1564,7 +1556,7 @@ ICC_Heartbeat_Finalize( void )
     ICC_Err_t return_code;
     ICC_Node_State_t node_state;
     ICC_Heartbeat_State_t crt_state;
-    const ICC_Heartbeat_Os_Config_t * HB_OS_config = ICC_Config_Ptr->ICC_Heartbeat_Os_Config;
+    const ICC_Heartbeat_Os_Config_t * HB_OS_config = ICC_CROSS_VALUE_OF(ICC_Config_Ptr->ICC_Heartbeat_Os_Config);
 
     /* check if the local endpoint was initialized */
     ICC_CHECK_ERR_CODE( ICC_Get_Node_State( ICC_NODE_LOCAL, &node_state ) );
@@ -1617,7 +1609,7 @@ ICC_Heartbeat_Runnable( void )
     ICC_Err_t return_code, err_code;
     ICC_Node_State_t node_state;
     ICC_Heartbeat_State_t crt_state;
-    const ICC_Heartbeat_Os_Config_t * HB_OS_config = ICC_Config_Ptr->ICC_Heartbeat_Os_Config;
+    const ICC_Heartbeat_Os_Config_t * HB_OS_config = ICC_CROSS_VALUE_OF(ICC_Config_Ptr->ICC_Heartbeat_Os_Config);
 
     const unsigned int hb_msg_size = sizeof(ICC_Heartbeat_Msg_t);
     ICC_Msg_Size_t  actual_size;

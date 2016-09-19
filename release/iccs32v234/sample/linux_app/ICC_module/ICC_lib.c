@@ -55,7 +55,10 @@ MODULE_DESCRIPTION("ICC device");
 MODULE_AUTHOR("Freescale Semiconductor");
 MODULE_LICENSE("GPL");
 
-// this macro may come from outside, e.g. from the makefile or bitbake compile flags
+/* this macro may come from outside, e.g. from the makefile or bitbake compile flags.
+ * it represents the offset in the shared memory block, for the main config object.
+ * it can be used as a backwards compatibility solution to the config magic string.
+ */
 #ifndef ICC_CONFIG_OFFSET
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
     #define ICC_CONFIG_OFFSET 0x00001ca0

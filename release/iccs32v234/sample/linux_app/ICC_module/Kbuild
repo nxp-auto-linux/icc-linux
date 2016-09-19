@@ -2,7 +2,7 @@
 SRC_ROOT := $(PWD)/../../..
 CONFIG_USED = $(SRC_ROOT)/sample/config/include
 
-EXTRA_CFLAGS += -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums
+EXTRA_CFLAGS += -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums -DICC_MIX_32_64_SUPPORT
 
 INCLUDE_DEPENDENCIES := -I$(SRC_ROOT)/code/linux/inc \
                         -I$(SRC_ROOT)/code/linux/os \
