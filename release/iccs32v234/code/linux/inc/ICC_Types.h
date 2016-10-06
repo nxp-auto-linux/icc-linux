@@ -46,6 +46,12 @@ extern "C"
 {
 #endif
 
+#ifdef __GNUC__
+#define ICC_ALIGN(n) __attribute__ ((aligned (n)))
+#else
+#warning "Struct alignment not suported - ICC may not work."
+#define ICC_ALIGN(n)
+#endif
 
 #include "ICC_Err.h"  /**< the Error codes */
 #include "ICC_Os_Types.h"
@@ -59,6 +65,7 @@ extern "C"
 #define ICC_IN  /**< input  parameter */
 #define ICC_OUT /**< output parameter */
 
+#include "ICC_Cross_Types.h"
 
 #define ICC_FIFO_FLAG_TIMEOUT_ENABLED  (0x00000001UL)
 #define ICC_FIFO_FLAG_TIMEOUT_DISABLED (0x00000000UL)
@@ -69,8 +76,8 @@ extern "C"
  * The Linux modules are locating the main configuration object by searching
  * the SRAM shared memory block for this magic string.
  */
-#define ICC_CONFIG_MAGIC		"1CC_C0NF1G_BL0CK"
-#define ICC_CONFIG_MAGIC_SIZE		16
+#define ICC_CONFIG_MAGIC         "1CC_C0NF1G_BL0CK"
+#define ICC_CONFIG_MAGIC_SIZE    16
 
 /*==================================================================================================
                                  STRUCTURES AND OTHER TYPEDEFS
@@ -214,51 +221,57 @@ typedef struct {
 
     ICC_Signal_t signals_received[ ICC_CFG_MAX_SIGNALS ]; /**< queue for received signals */
 
-    unsigned int signal_queue_head;                        /**< queue head */
-    unsigned int signal_queue_tail;                        /**< queue tail */
+    u32 signal_queue_head;                        /**< queue head */
+    u32 signal_queue_tail;                        /**< queue tail */
 
-} ICC_Signal_Fifo_Ram_t;
+} ICC_ALIGN(8) ICC_Signal_Fifo_Ram_t;
 
+ICC_CROSS_PTR_DEFINE(u8);
 
 /*
  * ICC basic FIFO configuration structure
  */
 typedef struct {
 
-    u8             * fifo_buffer_ptr;    /**< pointer to the Fifo buffer (statically allocated on M4 side) */
-    const ICC_Prio_t      fifo_prio;          /**< FIFO priority relative to all FIFOs in the same direction */
-    const u32        fifo_size;          /**< FIFO buffer size  */
+    ICC_CROSS_PTR_DECLARE(u8)   fifo_buffer_ptr;    /**< pointer to the Fifo buffer (statically allocated on M4 side) */
 
-    const ICC_Msg_Size_t  max_msg_size;       /**< maximum message size to be transmitted using this fifo */
+    const ICC_Prio_t            fifo_prio;          /**< FIFO priority relative to all FIFOs in the same direction */
+    const u32                   fifo_size;          /**< FIFO buffer size  */
 
-    const u32        alignment;          /**< message alignment in FIFO buffer : [1,2,4,8, ...] in bytes */
+    const ICC_Msg_Size_t        max_msg_size;       /**< maximum message size to be transmitted using this fifo */
 
-    const u32        fifo_flags;         /**< store fifo configuration flags */
+    const u32                   alignment;          /**< message alignment in FIFO buffer : [1,2,4,8, ...] in bytes */
 
-} ICC_Fifo_Config_t;
+    const u32                   fifo_flags;         /**< store fifo configuration flags */
+
+} ICC_ALIGN(8) ICC_Fifo_Config_t;
 
 
+ICC_CROSS_PTR_DEFINE(ICC_Fifo_Config_t);
+ICC_CROSS_PTR_DEFINE(ICC_Fifo_Os_Ram_t);
 
 /*
  * the generic fifo structure
  */
 typedef struct {
 
-    const ICC_Fifo_Config_t * fifo_config[ 2 /* coreId */ ];     /**< link to Fifo configuration: avoid duplication at runtime/use config instead, [ core_id ] */
+    ICC_CROSS_PTR_DECLARE(ICC_Fifo_Config_t) fifo_config[2 /* coreId */];     /**< link to Fifo configuration: avoid duplication at runtime/use config instead, [ core_id ] */
 
-    ICC_Fifo_Os_Ram_t       * fifo_os_ram[ 2 /* coreId */ ];     /**< pointer to Fifo OS ram structure, [ core_id ] */
+    ICC_CROSS_PTR_DECLARE(ICC_Fifo_Os_Ram_t) fifo_os_ram[2 /* coreId */];     /**< pointer to Fifo OS ram structure, [ core_id ] */
 
-    u32                                           head;     /**< consumer/reader index position */
-    u32                                           tail;     /**< producer/writer index position */
+    u32                                      head;     /**< consumer/reader index position */
+    u32                                      tail;     /**< producer/writer index position */
 
-    u32                           wr[ 2 /* coreId */ ];     /**< WR Sig and Ack */
-    u32                           rd[ 2 /* coreId */ ];     /**< RD Sig and Ack */
+    u32                                      wr[ 2 /* coreId */ ];     /**< WR Sig and Ack */
+    u32                                      rd[ 2 /* coreId */ ];     /**< RD Sig and Ack */
 
-    u32                          pending_send_msg_size;     /**< the size of the pending message */
+    u32                                      pending_send_msg_size;     /**< the size of the pending message */
 
-} ICC_Fifo_Ram_t;
+} ICC_ALIGN(8) ICC_Fifo_Ram_t;
 
 
+
+ICC_CROSS_PTR_DEFINE(ICC_Fifo_Ram_t);
 
 /*
  * Channel runtime structure
@@ -267,12 +280,16 @@ typedef struct {
 
         ICC_Endpoint_State_t     endpoint_state[ 2 /* coreId */ ]; /**< end point state for each side of communication, 0 for Core0 endpoint, 1 for Core1 endpoint */
 
-        ICC_Fifo_Ram_t         * fifos_ram[ 2 /* tx/rx */ ][ 2 /* coreId */ ]; /**< pointer to the FIFO ram structure, one for each direction [ tx/rx fifo ][ core_id ] */
+        ICC_CROSS_PTR_DECLARE(ICC_Fifo_Ram_t) fifos_ram[ 2 /* tx/rx */ ][ 2 /* coreId */ ]; /**< pointer to the FIFO ram structure, one for each direction [ tx/rx fifo ][ core_id ] */
 
         ICC_Signal_Fifo_Ram_t    sig_fifo_remote[ 2 /* tx/rx */ ]; /**< the channel signal queue, one for each direction */
 
-} ICC_Channel_Ram_t;
+} ICC_ALIGN(8) ICC_Channel_Ram_t;
 
+
+ICC_CROSS_DEFINE(ICC_Callback_Channel_State_Update_t);
+ICC_CROSS_DEFINE(ICC_Callback_Rx_t);
+ICC_CROSS_DEFINE(ICC_Callback_Tx_t);
 
 /*
  * ICC channel configuration structure
@@ -293,40 +310,55 @@ typedef struct {
  */
 typedef struct {
 
-    ICC_Fifo_Config_t                   fifos_cfg[ 2 /* tx/rx */ ];      /**< one FIFO for each direction */
+    ICC_Fifo_Config_t                                      fifos_cfg[ 2 /* tx/rx */ ];      /**< one FIFO for each direction */
 
-    ICC_Callback_Channel_State_Update_t Channel_Update_Cb; /**< channel state update call back function, different symbol on each side */
+    ICC_CROSS_DECLARE(ICC_Callback_Channel_State_Update_t) Channel_Update_Cb; /**< channel state update call back function, different symbol on each side */
 
-    ICC_Callback_Rx_t                   Channel_Rx_Cb;     /**< channel Rx call back function, different symbol for each side */
-    ICC_Callback_Tx_t                   Channel_Tx_Cb;     /**< channel Tx call back function, different symbol for each side */
+    ICC_CROSS_DECLARE(ICC_Callback_Rx_t)                   Channel_Rx_Cb;     /**< channel Rx call back function, different symbol for each side */
+    ICC_CROSS_DECLARE(ICC_Callback_Tx_t)                   Channel_Tx_Cb;     /**< channel Tx call back function, different symbol for each side */
 
-} ICC_Channel_Config_t;
+} ICC_ALIGN(8) ICC_Channel_Config_t;
 
+ICC_DEFINE_PTR_VECTOR(u32, 2);
+ICC_DEFINE_PTR_MATRIX(ICC_Fifo_Ram_t, 2);
+ICC_DEFINE_PTR_VECTOR(ICC_Signal_Fifo_Ram_t, 2);
+
+ICC_CROSS_DEFINE(u32);
+ICC_CROSS_PTR_DEFINE(void);
+ICC_CROSS_PTR_DEFINE(ICC_Channel_Config_t);
+#ifdef ICC_CFG_HEARTBEAT_ENABLED
+    ICC_CROSS_PTR_DEFINE(ICC_Heartbeat_Os_Config_t);
+#endif
+ICC_CROSS_DEFINE(ICC_Callback_Node_State_Update_t);
+ICC_CROSS_PTR_VECTOR_DEFINE(u32);
+ICC_CROSS_PTR_DEFINE(ICC_Channel_Ram_t);
+ICC_CROSS_PTR_MATRIX_DEFINE(ICC_Fifo_Ram_t);
+ICC_CROSS_PTR_VECTOR_DEFINE(ICC_Signal_Fifo_Ram_t);
 
 /*
  * ICC top level configuration structure to be passed to ICC_Initialize function
  */
 typedef struct {
 
-    const char                  Config_Magic[ICC_CONFIG_MAGIC_SIZE];
+    const char                                          Config_Magic[ICC_CONFIG_MAGIC_SIZE];
 
-    const u64                   Channels_Count;                      /**< number  of configured channels */
-    const ICC_Channel_Config_t       * Channels_Ptr;                      /*l*< pointer to configured channels */
+    const ICC_CROSS_DECLARE(u32)                        Channels_Count;                    /**< number  of configured channels */
+    const ICC_CROSS_PTR_DECLARE(ICC_Channel_Config_t)   Channels_Ptr;                      /**< pointer to configured channels */
 
-    void                             * ICC_Fifo_Os_Config_not_used_on_linux;   /**< not used on application side */
+    const ICC_CROSS_PTR_DECLARE(void)                   ICC_Fifo_Os_Config_Not_Used_On_Linux;
 
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
-        const ICC_Heartbeat_Os_Config_t * ICC_Heartbeat_Os_Config;             /**< pointer to Heartbeat OS configuration */
-    #endif
+        const ICC_CROSS_PTR_DECLARE(ICC_Heartbeat_Os_Config_t)     ICC_Heartbeat_Os_Config;             /**< pointer to Heartbeat OS configuration */
+    #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
-    ICC_Callback_Node_State_Update_t        Node_Update_Cb;                    /**< node update call back function, different symbol for each side */
+    ICC_CROSS_DECLARE(ICC_Callback_Node_State_Update_t)     Node_Update_Cb;                    /**< node update call back function, different symbol for each side */
 
-    volatile u32                            (* ICC_Initialized_Shared)[2];        /**< pointer to shared variable */
-    volatile ICC_Channel_Ram_t               * ICC_Channels_Ram_Shared;           /**< pointer to shared variable */
-    volatile ICC_Fifo_Ram_t                 (* ICC_Fifo_Ram_Shared) [][2];        /**< pointer to shared variable */
-    volatile ICC_Signal_Fifo_Ram_t          (* ICC_Node_Sig_Fifo_Ram_Shared) [2]; /**< pointer to shared variable */
+    volatile ICC_CROSS_PTR_VECTOR_DECLARE(u32)              ICC_Initialized_Shared;        /**< pointer to shared variable */
+    volatile ICC_CROSS_PTR_DECLARE(ICC_Channel_Ram_t)       ICC_Channels_Ram_Shared;           /**< pointer to shared variable */
+    volatile ICC_CROSS_PTR_MATRIX_DECLARE(ICC_Fifo_Ram_t)   ICC_Fifo_Ram_Shared;        /**< pointer to shared variable */
+    volatile ICC_CROSS_PTR_VECTOR_DECLARE(ICC_Signal_Fifo_Ram_t)    ICC_Node_Sig_Fifo_Ram_Shared; /**< pointer to shared variable */
 
-} __attribute__ ((aligned (16), packed)) ICC_Config_t;
+} ICC_ALIGN(16) ICC_Config_t;
 
 
 #ifdef __cplusplus

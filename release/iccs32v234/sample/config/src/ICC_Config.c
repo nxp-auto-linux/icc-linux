@@ -43,10 +43,6 @@
 #ifdef ICC_FSL_AUTOSAR_OS
 
 
-
-
-
-
     #define ICC_CFG0_CH_0_FIFO_0_TAE_SIZE       (1UL)
     #define ICC_CFG0_CH_0_FIFO_1_TAE_SIZE       (1UL)
 
@@ -135,15 +131,12 @@
  * in case it's needed for other OS delete this #ifdef
  */
 
+#ifdef ICC_FSL_AUTOSAR_OS
 
 ICC_ATTR_SEC_CONST_UNSPECIFIED
 const
 ICC_Fifo_Os_Config_t
-ICC_Fifo_Os_Config0[ ICC_CFG_NO_CHANNELS_CONF0 ][ 2 ] = {
-
-#ifdef ICC_FSL_AUTOSAR_OS
-
-
+ICC_Fifo_Os_Config0[][ 2 ] = {
 
         /* channel 0 */
         {
@@ -176,8 +169,9 @@ ICC_Fifo_Os_Config0[ ICC_CFG_NO_CHANNELS_CONF0 ][ 2 ] = {
                 }
         }
 
-#endif /* ICC_FSL_AUTOSAR_OS */
 };
+
+#endif /* ICC_FSL_AUTOSAR_OS */
 
 #define ICC_STOP_SEC_CONST_UNSPECIFIED
 #include "ICC_MemMap.h"
@@ -284,9 +278,9 @@ ICC_Cfg0_ChannelsConfig[ ICC_CFG_NO_CHANNELS_CONF0 ] = {
             /* fifo 0 */
             {{
                 #ifdef ICC_BUILD_FOR_M4
-                    cfg_0_ch_0_fifo_0_buffer, /**< the statically allocated buffer */
+            		ICC_CROSS_INIT(cfg_0_ch_0_fifo_0_buffer), /**< the statically allocated buffer */
                 #else
-                    NULL_PTR, /**< updated at runtime on APP side */
+					ICC_CROSS_INIT(NULL_PTR), /**< updated at runtime on APP side */
                 #endif
 
                 0,    /**< prio */
@@ -299,9 +293,9 @@ ICC_Cfg0_ChannelsConfig[ ICC_CFG_NO_CHANNELS_CONF0 ] = {
             /* fifo 1 */
             {
                 #ifdef ICC_BUILD_FOR_M4
-                    cfg_0_ch_0_fifo_1_buffer, /**< the statically allocated buffer */
+            		ICC_CROSS_INIT(cfg_0_ch_0_fifo_1_buffer), /**< the statically allocated buffer */
                 #else
-                    NULL_PTR, /**< updated at runtime on APP side */
+					ICC_CROSS_INIT(NULL_PTR), /**< updated at runtime on APP side */
                 #endif
 
                 0,    /**< prio */
@@ -313,23 +307,23 @@ ICC_Cfg0_ChannelsConfig[ ICC_CFG_NO_CHANNELS_CONF0 ] = {
 
             /* channel state update call back */
             #ifdef ICC_BUILD_FOR_M4
-                USER_ICC_Callback_Channel_State_Update_CB_M4,
+			    ICC_CROSS_INIT(USER_ICC_Callback_Channel_State_Update_CB_M4),
             #else
-                USER_ICC_Callback_Channel_State_Update_CB_App,
+				ICC_CROSS_INIT(USER_ICC_Callback_Channel_State_Update_CB_App),
             #endif
 
             /* channel Rx call back */
             #ifdef ICC_BUILD_FOR_M4
-                USER_ICC_Callback_Rx_CB_M4,
+				ICC_CROSS_INIT(USER_ICC_Callback_Rx_CB_M4),
             #else
-                USER_ICC_Callback_Rx_CB_App,
+				ICC_CROSS_INIT(USER_ICC_Callback_Rx_CB_App),
             #endif
 
             /* channel Tx call back */
             #ifdef ICC_BUILD_FOR_M4
-                USER_ICC_Callback_Tx_CB_M4,
+				ICC_CROSS_INIT(USER_ICC_Callback_Tx_CB_M4),
             #else
-                USER_ICC_Callback_Tx_CB_App
+				ICC_CROSS_INIT(USER_ICC_Callback_Tx_CB_App)
             #endif
     },
     /* channel 1 */
@@ -337,9 +331,9 @@ ICC_Cfg0_ChannelsConfig[ ICC_CFG_NO_CHANNELS_CONF0 ] = {
             /* fifo 0 */
             {{
                 #ifdef ICC_BUILD_FOR_M4
-                    cfg_0_ch_1_fifo_0_buffer, /**< the statically allocated buffer */
+            		ICC_CROSS_INIT(cfg_0_ch_1_fifo_0_buffer), /**< the statically allocated buffer */
                 #else
-                    NULL_PTR, /**< updated at runtime on APP side */
+					ICC_CROSS_INIT(NULL_PTR), /**< updated at runtime on APP side */
                 #endif
 
                 1,    /**< prio */
@@ -352,9 +346,9 @@ ICC_Cfg0_ChannelsConfig[ ICC_CFG_NO_CHANNELS_CONF0 ] = {
             /* fifo 1 */
             {
                 #ifdef ICC_BUILD_FOR_M4
-                    cfg_0_ch_1_fifo_1_buffer, /**< the statically allocated buffer */
+            		ICC_CROSS_INIT(cfg_0_ch_1_fifo_1_buffer), /**< the statically allocated buffer */
                 #else
-                    NULL_PTR, /**< updated at runtime on APP side */
+					ICC_CROSS_INIT(NULL_PTR), /**< updated at runtime on APP side */
                 #endif
 
                 1,    /**< prio */
@@ -366,23 +360,23 @@ ICC_Cfg0_ChannelsConfig[ ICC_CFG_NO_CHANNELS_CONF0 ] = {
 
             /* channel state update call back */
             #ifdef ICC_BUILD_FOR_M4
-                USER_ICC_Callback_Channel_State_Update_CB_M4,
+			    ICC_CROSS_INIT(USER_ICC_Callback_Channel_State_Update_CB_M4),
             #else
-                USER_ICC_Callback_Channel_State_Update_CB_App,
+				ICC_CROSS_INIT(USER_ICC_Callback_Channel_State_Update_CB_App),
             #endif
 
             /* channel Rx call back */
             #ifdef ICC_BUILD_FOR_M4
-                USER_ICC_Callback_Rx_CB_M4,
+				ICC_CROSS_INIT(USER_ICC_Callback_Rx_CB_M4),
             #else
-                USER_ICC_Callback_Rx_CB_App,
+				ICC_CROSS_INIT(USER_ICC_Callback_Rx_CB_App),
             #endif
 
             /* channel Tx call back */
             #ifdef ICC_BUILD_FOR_M4
-                USER_ICC_Callback_Tx_CB_M4,
+				ICC_CROSS_INIT(USER_ICC_Callback_Tx_CB_M4),
             #else
-                USER_ICC_Callback_Tx_CB_App
+				ICC_CROSS_INIT(USER_ICC_Callback_Tx_CB_App)
             #endif
     }
 };
@@ -425,52 +419,49 @@ ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
 #endif
 ICC_Config_t ICC_Config0 = {
         ICC_CONFIG_MAGIC,
-        ICC_CFG_NO_CHANNELS_CONF0,           /**< number of configured ICC channels in this configuration */
-        ICC_Cfg0_ChannelsConfig,             /**< ICC channels */
+        ICC_CROSS_INIT(ICC_CFG_NO_CHANNELS_CONF0),           /**< number of configured ICC channels in this configuration */
+		ICC_CROSS_INIT(ICC_Cfg0_ChannelsConfig),             /**< ICC channels */
 
         #ifdef ICC_BUILD_FOR_M4
-            &ICC_Fifo_Os_Config0,            /**< pointer to Fifo Os configuration */
+		    ICC_CROSS_INIT(&ICC_Fifo_Os_Config0),            /**< pointer to Fifo Os configuration */
         #else
-            NULL_PTR,                        /**< currently not used for APP core */
+			ICC_CROSS_INIT(NULL_PTR),                        /**< currently not used for APP core */
         #endif
 
         #ifdef ICC_CFG_HEARTBEAT_ENABLED
-            &ICC_Heartbeat_Os_Config0,  /** < pointer to Heartbeat OS configuration */
+			ICC_CROSS_INIT(&ICC_Heartbeat_Os_Config0),  /** < pointer to Heartbeat OS configuration */
         #endif
 
         #ifdef ICC_BUILD_FOR_M4
-            USER_ICC_Node_State_Update_CB_M4, /**< Node state update call-back M4 */
+			ICC_CROSS_INIT(USER_ICC_Node_State_Update_CB_M4), /**< Node state update call-back M4 */
         #else
-            USER_ICC_Node_State_Update_CB_App, /**< Node state update call-back APP */
+			ICC_CROSS_INIT(USER_ICC_Node_State_Update_CB_App), /**< Node state update call-back APP */
         #endif
 
         #ifdef ICC_BUILD_FOR_M4
-            &ICC_Initialized_Shared,          /**<  pointer to shared variable */
+			ICC_CROSS_INIT(&ICC_Initialized_Shared),          /**<  pointer to shared variable */
         #else
-            NULL_PTR,
+			ICC_CROSS_INIT(NULL_PTR),
         #endif
 
         #ifdef ICC_BUILD_FOR_M4
-            ICC_Channels_Ram_Shared,         /**<  pointer to shared variable */
+			ICC_CROSS_INIT(ICC_Channels_Ram_Shared),         /**<  pointer to shared variable */
         #else
-            NULL_PTR,
+			ICC_CROSS_INIT(NULL_PTR),
         #endif
 
         #ifdef ICC_BUILD_FOR_M4
-            &ICC_Fifo_Ram_Shared,            /**<  pointer to shared variable */
+			ICC_CROSS_INIT(&ICC_Fifo_Ram_Shared),            /**<  pointer to shared variable */
         #else
-            NULL_PTR,
+			ICC_CROSS_INIT(NULL_PTR),
         #endif
 
         #ifdef ICC_BUILD_FOR_M4
-            &ICC_Node_Sig_Fifo_Ram_Shared,       /**<  pointer to shared variable */
+			ICC_CROSS_INIT(&ICC_Node_Sig_Fifo_Ram_Shared),       /**<  pointer to shared variable */
         #else
-            NULL_PTR,
+			ICC_CROSS_INIT(NULL_PTR),
         #endif
-
 };
-
-
 
 
 

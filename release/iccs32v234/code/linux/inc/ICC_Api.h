@@ -100,7 +100,7 @@ ICC_ATTR_SEC_TEXT_CODE
 extern
 ICC_Err_t
 ICC_Initialize(
-                ICC_IN const ICC_Config_t * config
+                ICC_IN ICC_Config_t * config
               );
 
 /**
@@ -382,8 +382,6 @@ ICC_ATTR_SEC_TEXT_CODE
 extern
 ICC_Err_t
 ICC_Heartbeat_Finalize( void );
-
-
 
 /**
  *

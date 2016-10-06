@@ -113,7 +113,7 @@ int ICC_Data_kthread(void *data)
 
     const unsigned int channel_id = 1; /**< the data channel */
 
-    if( ICC_Config0.Channels_Ptr[channel_id].fifos_cfg[ICC_RX_FIFO].fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED ) {
+    if ( ICC_CROSS_VALUE_OF(ICC_Config0.Channels_Ptr)[channel_id].fifos_cfg[ICC_RX_FIFO].fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED ) {
         timeout = ICC_WAIT_FOREVER;
     } else {
         timeout = ICC_WAIT_ZERO;
@@ -240,11 +240,11 @@ int Start_ICC_Sample(void)
     printk("ICC_Initialize ... done\n");
 
     /* open communication channels */
-    for (i = 0; i < ICC_Config0.Channels_Count; i++)
+    for (i = 0; i < ICC_CROSS_VALUE_OF(ICC_Config0.Channels_Count); i++)
     {
 
         #ifdef ICC_CFG_HEARTBEAT_ENABLED
-            if( i != ICC_Config0.ICC_Heartbeat_Os_Config->channel_id )
+            if( i != ICC_CROSS_VALUE_OF(ICC_Config0.ICC_Heartbeat_Os_Config)->channel_id )
         #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
         ICC_CHECK_ERR_CODE(ICC_Open_Channel(i));
