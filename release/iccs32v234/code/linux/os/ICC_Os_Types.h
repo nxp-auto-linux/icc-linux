@@ -89,8 +89,8 @@ typedef struct {
 
 } ICC_Fifo_Os_Ram_t;
 
-
-
+/* placeholder type */
+typedef uint32_t ICC_Fifo_Os_Config_t;
 
 #ifndef ICC_CFG_NO_TIMEOUT
 

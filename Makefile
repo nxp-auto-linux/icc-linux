@@ -19,11 +19,23 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+# CONFIG can be one of:
+# RTOS (for RTOS/Linux on the same board)
+# EP or RC (for Linux over PCIE)
+CONFIG ?= RTOS
+
+ifeq ($(CONFIG),RTOS)
 SRC := $(shell pwd)/release/iccs32v234/sample/linux_app
 MODULE_SRC := $(SRC)/ICC_module
 SAMPLE_MODULE_SRC := $(SRC)/ICC_Sample_module
+else
+SRC := $(shell pwd)/release/iccs32v234/sample/linux2linux_app
+MODULE_SRC := $(SRC)/ICC_module_$(CONFIG)
+SAMPLE_MODULE_SRC := $(SRC)/ICC_Sample_module_$(CONFIG)
+endif
 
-.PHONY: build sample modules_install clean
+
+.PHONY: build modules_install clean
 
 all: build
 

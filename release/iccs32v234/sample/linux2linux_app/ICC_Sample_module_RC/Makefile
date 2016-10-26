@@ -12,20 +12,20 @@ modules_install: kbuild
 	@echo Copying ICC headers to toolchain
 	mkdir -p "$(DESTDIR)/usr/include/linux"
 	cp -f "$(PWD)/../../../code/linux/inc/ICC_Api.h" "$(DESTDIR)/usr/include/linux/"
-	@echo Copying M4 AUTOSAR binary to toolchain
-	mkdir -p "$(DESTDIR)/opt/AUTOSAR"
-	cp -f "$(PWD)/../../autosar_app/icc_sample_asr.bin" "$(DESTDIR)/opt/AUTOSAR"
 
 clean:
 	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(PWD) clean
 	-rm -f *~ Module.symvers Module.markers modules.order
 	find . -name "*.cmd" -o -name "*.o" -o -name "*.mod.c" -o -name "*.ko" | xargs rm -f
+	find $(PWD)/../ICC_Sample_module_common -name "*.cmd" -o -name "*.o" | xargs rm -f
+	find $(PWD)/../../config/src -name "*.cmd" -o -name "*.o" | xargs rm -f
+	rm -rf $(PWD)/../ICC_Sample_module_common/.tmp_versions
 
 copy:
-	@if [ ! -f "../ICC_module/Module.symvers" ]; then \
-		echo '../ICC_module/Module.symvers not found.'; \
-		$(MAKE) -C $(PWD)/../ICC_module KERNEL_SRC=$(KERNEL_SRC); \
+	@if [ ! -f "../ICC_module_RC/Module.symvers" ]; then \
+		echo '../ICC_module_RC/Module.symvers not found.'; \
+		$(MAKE) -C $(PWD)/../ICC_module_RC KERNEL_SRC=$(KERNEL_SRC); \
 	fi;
-	cp ../ICC_module/Module.symvers .
+	cp ../ICC_module_RC/Module.symvers .
 
 .PHONY: clean

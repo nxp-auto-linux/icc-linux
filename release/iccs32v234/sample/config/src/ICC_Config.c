@@ -130,6 +130,7 @@
  * Structure needed only for Autosar OS
  * in case it's needed for other OS delete this #ifdef
  */
+#ifdef ICC_BUILD_FOR_M4
 
 #ifdef ICC_FSL_AUTOSAR_OS
 
@@ -171,7 +172,17 @@ ICC_Fifo_Os_Config0[][ 2 ] = {
 
 };
 
+#else
+
+ICC_ATTR_SEC_CONST_UNSPECIFIED
+const
+ICC_Fifo_Os_Config_t
+ICC_Fifo_Os_Config0[][ 2 ] = {{ 0 }};
+
 #endif /* ICC_FSL_AUTOSAR_OS */
+
+#endif /* ICC_BUILD_FOR_M4 */
+
 
 #define ICC_STOP_SEC_CONST_UNSPECIFIED
 #include "ICC_MemMap.h"

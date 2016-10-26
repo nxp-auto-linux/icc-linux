@@ -91,10 +91,10 @@ union Cross_Vector_ ## t { \
 #define ICC_CROSS_PTR_MATRIX_DECLARE(t) PMatrix_ ## t
 #define ICC_CROSS_PTR_VECTOR_DECLARE(t) PVector_ ## t
 
-#if (defined(__LP64__) || !defined(_LP64))
-#define ICC_CROSS_INIT(t) t
+#if (defined(__LP64__) || defined(_LP64))
+#define ICC_CROSS_INIT(t) (t)
 #else
-#define ICC_CROSS_INIT(t) t, NULL_PTR
+#define ICC_CROSS_INIT(t) (t), (NULL_PTR)
 #endif
 #define ICC_CROSS_ASSIGN(dest, source) (dest = source)
 #define ICC_CROSS_COPY(dest, source) (dest = source)
