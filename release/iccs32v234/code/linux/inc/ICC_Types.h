@@ -341,6 +341,7 @@ ICC_CROSS_PTR_VECTOR_DEFINE(ICC_Signal_Fifo_Ram_t);
 typedef struct {
 
     const char                                          Config_Magic[ICC_CONFIG_MAGIC_SIZE];
+    u64                                                 This_Ptr;
 
     const ICC_CROSS_DECLARE(u32)                        Channels_Count;                    /**< number  of configured channels */
     const ICC_CROSS_PTR_DECLARE(ICC_Channel_Config_t)   Channels_Ptr;                      /**< pointer to configured channels */

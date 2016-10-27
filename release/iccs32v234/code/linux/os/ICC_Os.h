@@ -18,7 +18,7 @@
 *   Build Version        : S32V234_ICC_0.8.0
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
-*   
+*
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
 *   as published by the Free Software Foundation; either version 2
@@ -28,7 +28,7 @@
 *   but WITHOUT ANY WARRANTY; without even the implied warranty of
 *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 *   GNU General Public License for more details.
-*   
+*
 *   You should have received a copy of the GNU General Public License
 *   along with this program; if not, write to the Free Software
 *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
@@ -59,11 +59,21 @@ extern "C"
     /*
      * APP side OS alternatives
      */
-
-        extern char * ICC_Shared_Virt_Base_Addr;
-		#define ICC_OS_Phys_To_Virt(phys_addr) \
-				(((char*)(((unsigned int)phys_addr) & 0xFFFFFFFF) - (char*)ICC_SHARED_PHYS_BASE_ADDR) + ICC_Shared_Virt_Base_Addr)
-
+#ifdef ICC_LINUX2LINUX
+#ifndef ICC_BUILD_FOR_M4
+	extern ICC_Config_t * ICC_Config_Ptr_M4;
+	extern ICC_Config_t * ICC_Config_Ptr_M4_Remote;
+	/* Synchronize virtual addresses between the two sides of the PCIe
+	   We're not working with physical addresses, but the name of the macro
+	     is kept for backwards compatibility */
+	#define ICC_OS_Phys_To_Virt(phys_addr) \
+		((char*)((u64)(phys_addr) - (u64)ICC_Config_Ptr_M4_Remote + (u64)ICC_Config_Ptr_M4))
+#endif
+#else
+    extern char * ICC_Shared_Virt_Base_Addr;
+	#define ICC_OS_Phys_To_Virt(phys_addr) \
+			(((char*)(((unsigned int)phys_addr) & 0xFFFFFFFF) - (char*)ICC_SHARED_PHYS_BASE_ADDR) + ICC_Shared_Virt_Base_Addr)
+#endif
 
 
 #define ICC_START_SEC_TEXT_CODE

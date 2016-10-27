@@ -1,0 +1,8 @@
+Test for the relocation of ICC static config objects
+====================================================
+
+Requirements:
+- native x86 (32/64 bit) gcc available from path  
+
+The test will compare memory layout of the static ICC config variables 
+with per variables initialized in a customdefined buffer.

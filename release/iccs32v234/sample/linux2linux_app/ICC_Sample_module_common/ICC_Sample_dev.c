@@ -41,6 +41,7 @@
 #include <linux/cdev.h>
 #include <linux/delay.h>
 
+#include "ICC_Config.h"
 #include "ICC_Linux_Sample.h"
 
 MODULE_DESCRIPTION("ICC Sample application");
@@ -53,7 +54,6 @@ MODULE_LICENSE("GPL");
 #define LOG_LEVEL       KERN_ALERT
 #define MODULE_NAME     "ICC_Sample"
 #define NUM_MINORS      1
-
 
 struct ICC_Sample_device_data {
     struct cdev cdev;
@@ -82,8 +82,6 @@ static int ICC_Sample_dev_release(struct inode *inode, struct file *file)
     return 0;
 }
 
-
-
 static const struct file_operations ICC_Sample_fops = {
     .owner  = THIS_MODULE,
     .open   = ICC_Sample_dev_open,
@@ -111,6 +109,11 @@ static int ICC_Sample_dev_init(void)
         cdev_init(&devs[i].cdev, &ICC_Sample_fops);
         cdev_add(&devs[i].cdev, MKDEV(MAJOR(dev_no), i),1);
     }
+
+#ifdef ICC_BUILD_FOR_M4
+    /* Re-locate the objects in ICC_Config.c, at address IRAM_BASE_ADDR + 4 (first u32 is used for polling/synchronization) */
+    ICC_Relocate_Config();
+#endif
 
     /* Start the ICC Linux Sample */
     if ( Start_ICC_Sample() != 0 ) err=-1;

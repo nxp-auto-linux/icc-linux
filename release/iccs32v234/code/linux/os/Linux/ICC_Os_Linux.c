@@ -72,7 +72,10 @@ extern "C"
 
     ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS extern ICC_Fifo_Ram_t (* ICC_Fifo_Ram)[ ICC_CFG_MAX_CHANNELS ][ 2 ];
     ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA extern volatile unsigned int          (* ICC_Initialized)[2];
+
+#ifndef ICC_DO_NOT_USE_INTERRUPTS
     ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS char * ICC_HW_MSCM_VIRT_BASE;
+#endif
 
 #ifndef ICC_CFG_NO_TIMEOUT
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
@@ -212,6 +215,7 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
         }
     }
 
+#ifndef ICC_DO_NOT_USE_INTERRUPTS
 
     ICC_HW_MSCM_VIRT_BASE = ioremap_nocache(ICC_HW_MSCM_BASE, 0x1000);
 
@@ -222,8 +226,12 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
         return ICC_ERR_GENERAL;
     }
 
+#endif
+
     return ICC_SUCCESS;
 }
+
+#ifndef ICC_DO_NOT_USE_INTERRUPTS
 
 extern struct device * ICC_get_device(void);
 extern char * ICC_get_device_name(void);
@@ -232,6 +240,10 @@ extern unsigned int ICC_get_shared_irq(void);
 extern unsigned int ICC_get_local_irq(void);
 #endif
 
+extern
+void ICC_Clear_Notify_Remote(void);
+
+#endif
 
 /*
  * OS specific initialization of interrupts
@@ -240,13 +252,14 @@ ICC_ATTR_SEC_TEXT_CODE
 extern
 ICC_Err_t ICC_OS_Init_Interrupts( void )
 {
+#ifndef ICC_DO_NOT_USE_INTERRUPTS
     char * device_name = ICC_get_device_name();
     struct device * dev = ICC_get_device();
     unsigned int shared_irq = ICC_get_shared_irq();
 
     if ( ICC_NODE_STATE_UNINIT == (*ICC_Initialized)[ ICC_GET_REMOTE_CORE_ID ] )
     {
-       ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_CPU2CPU_IRQ);
+       ICC_Clear_Notify_Remote();
     }
 
     /* request interrupt line for inter-core notifications */
@@ -258,13 +271,18 @@ ICC_Err_t ICC_OS_Init_Interrupts( void )
 
     #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
         unsigned int local_irq = ICC_get_local_irq();
-        ICC_HW_Clear_Local_Interrupt(ICC_CFG_HW_LOCAL_IRQ);
+        ICC_Clear_Notify_Local();
+
+    #ifndef ICC_DO_NOT_USE_INTERRUPTS
         /* request interrupt line for local core notifications */
         if (devm_request_irq(dev, local_irq, ICC_Local_ISR_Handler, 0, device_name, NULL) != 0) {
             printk (KERN_ALERT "Failed to register local interrupt\n");
             return ICC_ERR_OS_LINUX_REGISTER_IRQ;
         }
     #endif
+    #endif
+
+#endif
 
     return ICC_SUCCESS;
 }
@@ -280,6 +298,8 @@ ICC_OS_Finalize(void)
     ICC_Fifo_Os_Ram_t        * fifo_os_ram;
 #endif /* no ICC_CFG_NO_TIMEOUT */
 
+#ifndef ICC_DO_NOT_USE_INTERRUPTS
+
     struct device * dev = ICC_get_device();
 
     /* unregister interrupt line used for inter-core notifications */
@@ -294,6 +314,8 @@ ICC_OS_Finalize(void)
     #endif
 
     iounmap(ICC_HW_MSCM_VIRT_BASE);
+
+#endif
 
 #ifndef ICC_CFG_NO_TIMEOUT
     /* free the waitqueue */

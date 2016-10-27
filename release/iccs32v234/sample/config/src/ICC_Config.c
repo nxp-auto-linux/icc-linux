@@ -31,7 +31,11 @@
 #include "ICC_Types.h"
 
 
-
+#if (defined(ICC_LINUX2LINUX) && defined(ICC_BUILD_FOR_M4))
+#define STATIC_ALLOC static
+#else
+#define STATIC_ALLOC
+#endif
 
 
 #ifdef ICC_BUILD_FOR_M4
@@ -176,6 +180,7 @@ ICC_Fifo_Os_Config0[][ 2 ] = {
 
 ICC_ATTR_SEC_CONST_UNSPECIFIED
 const
+STATIC_ALLOC
 ICC_Fifo_Os_Config_t
 ICC_Fifo_Os_Config0[][ 2 ] = {{ 0 }};
 
@@ -199,6 +204,7 @@ ICC_Fifo_Os_Config0[][ 2 ] = {{ 0 }};
 
 ICC_ATTR_SEC_CONST_UNSPECIFIED
 const
+STATIC_ALLOC
 ICC_Heartbeat_Os_Config_t
 ICC_Heartbeat_Os_Config0 = {
 	ICC_CFG0_HEARTBEAT_CHANNEL_ID,
@@ -243,11 +249,11 @@ ICC_Heartbeat_Os_Config0 = {
 
 
 
-    ICC_ATTR_ALIGN_VAR ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_BSS unsigned char cfg_0_ch_0_fifo_0_buffer[ ICC_CFG0_CH_0_FIFO_0_SIZE ];
-    ICC_ATTR_ALIGN_VAR ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_BSS unsigned char cfg_0_ch_0_fifo_1_buffer[ ICC_CFG0_CH_0_FIFO_1_SIZE ];
+    ICC_ATTR_ALIGN_VAR ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_BSS STATIC_ALLOC unsigned char cfg_0_ch_0_fifo_0_buffer[ ICC_CFG0_CH_0_FIFO_0_SIZE ];
+    ICC_ATTR_ALIGN_VAR ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_BSS STATIC_ALLOC unsigned char cfg_0_ch_0_fifo_1_buffer[ ICC_CFG0_CH_0_FIFO_1_SIZE ];
 
-    ICC_ATTR_ALIGN_VAR ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_BSS unsigned char cfg_0_ch_1_fifo_0_buffer[ ICC_CFG0_CH_1_FIFO_0_SIZE ];
-    ICC_ATTR_ALIGN_VAR ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_BSS unsigned char cfg_0_ch_1_fifo_1_buffer[ ICC_CFG0_CH_1_FIFO_1_SIZE ];
+    ICC_ATTR_ALIGN_VAR ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_BSS STATIC_ALLOC unsigned char cfg_0_ch_1_fifo_0_buffer[ ICC_CFG0_CH_1_FIFO_0_SIZE ];
+    ICC_ATTR_ALIGN_VAR ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_BSS STATIC_ALLOC unsigned char cfg_0_ch_1_fifo_1_buffer[ ICC_CFG0_CH_1_FIFO_1_SIZE ];
 
 
 
@@ -281,6 +287,7 @@ ICC_Heartbeat_Os_Config0 = {
 #else
     ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
 #endif
+STATIC_ALLOC
 ICC_Channel_Config_t
 ICC_Cfg0_ChannelsConfig[ ICC_CFG_NO_CHANNELS_CONF0 ] = {
 
@@ -399,6 +406,21 @@ ICC_Cfg0_ChannelsConfig[ ICC_CFG_NO_CHANNELS_CONF0 ] = {
 
     /* multicore shared variables allocated on M4 side only */
 
+#ifdef ICC_LINUX2LINUX
+
+    /* multicore shared variables allocated on M4 side only */
+
+    ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
+    volatile
+    struct ICC_Runtime_Shared_t ICC_Runtime_Shared = {
+        { ICC_NODE_STATE_UNINIT, ICC_NODE_STATE_UNINIT },
+        {{ 0 }}
+    };
+
+    #define ICC_RUNTIME_SHARED(field) (ICC_Runtime_Shared.field)
+
+#else
+
     extern
     ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_BSS
     volatile
@@ -418,9 +440,11 @@ ICC_Cfg0_ChannelsConfig[ ICC_CFG_NO_CHANNELS_CONF0 ] = {
     volatile
     ICC_Signal_Fifo_Ram_t  ICC_Node_Sig_Fifo_Ram_Shared[ 2 ];               /**< signal fifo for each node */
 
+    #define ICC_RUNTIME_SHARED(field) (field)
+
 #endif
 
-
+#endif
 
 
 #ifdef ICC_BUILD_FOR_M4
@@ -428,8 +452,12 @@ const ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
 #else
 ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
 #endif
+STATIC_ALLOC
 ICC_Config_t ICC_Config0 = {
         ICC_CONFIG_MAGIC,
+        NULL,               /**< This_Ptr is NULL for static defined objects.
+                                 Relocated objects must populate it with their own virtual address */
+
         ICC_CROSS_INIT(ICC_CFG_NO_CHANNELS_CONF0),           /**< number of configured ICC channels in this configuration */
 		ICC_CROSS_INIT(ICC_Cfg0_ChannelsConfig),             /**< ICC channels */
 
@@ -450,25 +478,25 @@ ICC_Config_t ICC_Config0 = {
         #endif
 
         #ifdef ICC_BUILD_FOR_M4
-			ICC_CROSS_INIT(&ICC_Initialized_Shared),          /**<  pointer to shared variable */
+			ICC_CROSS_INIT(&ICC_RUNTIME_SHARED(ICC_Initialized_Shared)),          /**<  pointer to shared variable */
         #else
 			ICC_CROSS_INIT(NULL_PTR),
         #endif
 
         #ifdef ICC_BUILD_FOR_M4
-			ICC_CROSS_INIT(ICC_Channels_Ram_Shared),         /**<  pointer to shared variable */
+			ICC_CROSS_INIT(ICC_RUNTIME_SHARED(ICC_Channels_Ram_Shared)),         /**<  pointer to shared variable */
         #else
 			ICC_CROSS_INIT(NULL_PTR),
         #endif
 
         #ifdef ICC_BUILD_FOR_M4
-			ICC_CROSS_INIT(&ICC_Fifo_Ram_Shared),            /**<  pointer to shared variable */
+			ICC_CROSS_INIT(&ICC_RUNTIME_SHARED(ICC_Fifo_Ram_Shared)),            /**<  pointer to shared variable */
         #else
 			ICC_CROSS_INIT(NULL_PTR),
         #endif
 
         #ifdef ICC_BUILD_FOR_M4
-			ICC_CROSS_INIT(&ICC_Node_Sig_Fifo_Ram_Shared),       /**<  pointer to shared variable */
+			ICC_CROSS_INIT(&ICC_RUNTIME_SHARED(ICC_Node_Sig_Fifo_Ram_Shared)),       /**<  pointer to shared variable */
         #else
 			ICC_CROSS_INIT(NULL_PTR),
         #endif
@@ -485,5 +513,55 @@ ICC_Config_t ICC_Config0 = {
 #endif
 
 
+#if (defined(ICC_LINUX2LINUX) && defined(ICC_BUILD_FOR_M4))
 
+RELOCATABLE(ICC_Fifo_Os_Config0);
+
+RELOCATABLE(ICC_Cfg0_ChannelsConfig);
+
+#ifdef ICC_CFG_HEARTBEAT_ENABLED
+RELOCATABLE(ICC_Heartbeat_Os_Config0);
+#endif
+
+ICC_Config_t * RELOCATED_PTR(ICC_Config0);
+
+RELOCATABLE(ICC_Runtime_Shared);
+
+extern char * ICC_Shared_Virt_Base_Addr;
+
+/*
+ * This function relocates the main ICC config object and its dependencies
+ * to a destination buffer received as argument.
+ * The function returns the pointer where data was relocated.
+ *
+ * TODO: move this to ICC_lib.c or another location after the relocation of ICC_Config_t
+ * is done transparently for the inner members.
+*/
+extern char * ICC_Relocate_Config(void)
+{
+    char * dest = ICC_Shared_Virt_Base_Addr;
+
+    if (dest == NULL) {
+        printk(KERN_ERR "Null destination: unable to relocate configuration\n");
+        return NULL;
+    }
+
+    RELOCATE_ICC_Fifo_Os_Config_t_Array(dest, ICC_Fifo_Os_Config0);
+
+    RELOCATE_ICC_Channel_Config_t_Array(dest, ICC_Cfg0_ChannelsConfig);
+
+    RELOCATE_ICC_Runtime_Shared_t(dest, ICC_Runtime_Shared);
+
+    RELOCATE_ICC_Config_t(dest, ICC_Config0);
+
+#ifdef ICC_CFG_HEARTBEAT_ENABLED
+    RELOCATE_ICC_Config_t_Heartbeat(dest, ICC_Config0);
+#endif
+
+    return ICC_Shared_Virt_Base_Addr;
+}
+
+EXPORT_SYMBOL(ICC_Relocate_Config);
+
+#endif
 

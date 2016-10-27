@@ -2,7 +2,7 @@
 SRC_ROOT := $(PWD)/../../..
 CONFIG_USED = $(SRC_ROOT)/sample/config/include
 
-EXTRA_CFLAGS += -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums -DICC_MIX_32_64_SUPPORT -DICC_LINUX2LINUX
+EXTRA_CFLAGS += -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums -DICC_MIX_32_64_SUPPORT -DICC_LINUX2LINUX -DICC_DO_NOT_USE_INTERRUPTS
 
 INCLUDE_DEPENDENCIES := -I$(SRC_ROOT)/code/linux/inc \
                         -I$(SRC_ROOT)/code/linux/os \
@@ -10,7 +10,7 @@ INCLUDE_DEPENDENCIES := -I$(SRC_ROOT)/code/linux/inc \
                         -I$(SRC_ROOT)/code/linux/hw \
                         -I$(CONFIG_USED)\
                         -I$(PWD)\
-                        -I(PWD)/../ICC_module_common
+                        -I$(PWD)/../ICC_module_common
 
 ifneq ($(CC),$(LD))
 	# bitbake calls $(CROSS_COMPILE)LD for linking instead of $(CROSS_COMPILE)GCC

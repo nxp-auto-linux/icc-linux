@@ -51,6 +51,8 @@
              return_code = icc_function_to_call;                \
              if (ICC_SUCCESS != return_code) return return_code
 
+/* see all traffic in kernel log */
+#define ICC_SAMPLE_LOG(...) printk(__VA_ARGS__)
 
 volatile unsigned int watch_CB_Rx[2];
 volatile unsigned int watch_CB_Tx[2];
@@ -86,13 +88,13 @@ int ICC_HeartBeat_kthread(void *data)
     while (atomic_read(&thread_on)) {
 
        err = ICC_Heartbeat_Initialize(runID);
-       printk("ICC_Heartbeat_Initialize return: %d\n", err);
+       ICC_SAMPLE_LOG("ICC_Heartbeat_Initialize return: %d\n", err);
 
        err = ICC_Heartbeat_Runnable();
-       printk("ICC_Heartbeat_Runnable return  : %d\n", err);
+       ICC_SAMPLE_LOG("ICC_Heartbeat_Runnable return  : %d\n", err);
 
        err = ICC_Heartbeat_Finalize();
-       printk("ICC_Heartbeat_Finalize return  : %d\n", err);
+       ICC_SAMPLE_LOG("ICC_Heartbeat_Finalize return  : %d\n", err);
 
        runID++;
 
@@ -105,55 +107,151 @@ int ICC_HeartBeat_kthread(void *data)
 #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
 
-int ICC_Data_kthread(void *data)
+#define VERBOSE_LOG
+
+#ifdef ICC_BUILD_FOR_M4
+#define SEND_TEXT "Hello_RootComplex"
+#else
+#define SEND_TEXT "Hello_EndPoint"
+#endif
+#define SEND_TEXT_SIZE sizeof(SEND_TEXT) + 1
+
+const unsigned int channel_id = 1; /**< the data channel */
+
+inline ICC_Err_t ICC_Data_Send(ICC_Timeout_t timeout)
 {
-    ICC_Err_t      icc_status;
-    ICC_Timeout_t  timeout;
+    ICC_Err_t      icc_status = ICC_SUCCESS;
+
+    /* TX */
+    memcpy( snd_buffer, SEND_TEXT, SEND_TEXT_SIZE );
+
+    icc_status = ICC_Msg_Send( channel_id, snd_buffer, SEND_TEXT_SIZE, timeout);
+    if( icc_status != ICC_SUCCESS )
+    {
+        ICC_SAMPLE_LOG("SEND failed: err code:%d\n", icc_status);
+        /* return; */
+        watch_Ch_Tx_ko[channel_id]++;
+    } else {
+        watch_Ch_Tx_ok[channel_id]++;
+        ICC_SAMPLE_LOG("Push: Tx message [%d] to [%u] via ch [%u]: %s \n",
+                watch_Ch_Tx_ok[channel_id], ICC_GET_REMOTE_CORE_ID,
+                channel_id, snd_buffer );
+    }
+
+    return icc_status;
+}
+
+inline ICC_Err_t ICC_Data_Receive(ICC_Timeout_t timeout)
+{
+    ICC_Err_t      icc_status = ICC_SUCCESS;
     ICC_Msg_Size_t rx_msg_size;
 
-    const unsigned int channel_id = 1; /**< the data channel */
+    /* RX */
+    icc_status = ICC_Msg_Recv( channel_id, rcv_buffer, RCV_BUF_SIZE,
+            &rx_msg_size, timeout, ICC_RX_NORMAL );
+    if( icc_status != ICC_SUCCESS )
+    {
+        ICC_SAMPLE_LOG("POP failed with err %d \n", icc_status );
+        /* return; */
+        watch_Ch_Rx_ko[channel_id]++;
 
-    if ( ICC_CROSS_VALUE_OF(ICC_Config0.Channels_Ptr)[channel_id].fifos_cfg[ICC_RX_FIFO].fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED ) {
+    } else {
+        watch_Ch_Rx_ok[channel_id]++;
+        ICC_SAMPLE_LOG("POP: Receive message [%d] from [%u] via ch [%u]: %s \n",
+                watch_Ch_Rx_ok[channel_id], ICC_GET_REMOTE_CORE_ID,
+                channel_id, rcv_buffer );
+    }
+
+    return icc_status;
+}
+
+int ICC_Data_kthread(void *data)
+{
+    ICC_Err_t      icc_status = ICC_SUCCESS;
+    ICC_Timeout_t  timeout = ICC_WAIT_FOREVER;
+
+    /* Ignore the timeout for now */
+    /*if ( ICC_CROSS_VALUE_OF(ICC_Default_Config_Ptr->Channels_Ptr)[channel_id].fifos_cfg[ICC_RX_FIFO].fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED ) {
         timeout = ICC_WAIT_FOREVER;
     } else {
         timeout = ICC_WAIT_ZERO;
-    }
+    }*/
 
-    while (atomic_read(&thread_on)) {
+    while ((icc_status == ICC_SUCCESS) && atomic_read(&thread_on)) {
 
-        /* RX */
-        icc_status = ICC_Msg_Recv( channel_id, rcv_buffer, RCV_BUF_SIZE, &rx_msg_size, ICC_WAIT_FOREVER, ICC_RX_NORMAL );
-        if( icc_status != ICC_SUCCESS )
-        {
-            /* printk("POP failed with err %d \n", icc_status ); */
-            /* return; */
-            watch_Ch_Rx_ko[channel_id]++;
+#ifdef ICC_BUILD_FOR_M4
 
-        } else {
-            watch_Ch_Rx_ok[channel_id]++;
-            /*printk("POP: Receive message [%d] from [%u] via ch [%u]: %s \n", watch_Ch_Rx_ok[channel_id], ICC_GET_REMOTE_CORE_ID, channel_id, rcv_buffer );*/
-        }
+        icc_status = ICC_Data_Send(timeout);
 
-        /* TX */
-        memcpy(snd_buffer,"Hello_AUTOSAR", 14 );
+        icc_status = ICC_Data_Receive(timeout);
 
-        icc_status = ICC_Msg_Send( channel_id, snd_buffer, 14, ICC_WAIT_FOREVER);
-        if( icc_status != ICC_SUCCESS )
-        {
-            /* printk("SEND failed: err code:%d\n", icc_status); */
-            /* return; */
-            watch_Ch_Tx_ko[channel_id]++;
-        } else {
-            watch_Ch_Tx_ok[channel_id]++;
-            /* printk("Push: Tx message [%d] to [%u] via ch [%u]: %s \n", watch_Ch_Tx_ok[channel_id], ICC_GET_REMOTE_CORE_ID, channel_id, snd_buffer ); */
-        }
+#else
+
+        icc_status = ICC_Data_Receive(timeout);
+
+        icc_status = ICC_Data_Send(timeout);
+#endif
 
     }; /* end while(1) */
 
     printk("ICC_Data_kthread stopped\n");
 
-    return 0;
+    return icc_status;
 }
+
+/*-----------------------------------------------------------*/
+
+#ifdef ICC_BUILD_FOR_M4
+
+/*
+ * ICC callback for RX free buffer.
+ */
+void USER_ICC_Callback_Rx_CB_M4( ICC_IN const ICC_Channel_t channel_id ) /** The id of the channel that received a message. */
+{
+
+    #ifdef ICC_CFG_HEARTBEAT_ENABLED
+        if( channel_id == 0 ){
+            return;
+        }
+    #endif /* ICC_CFG_HEARTBEAT_ENABLED */
+
+    watch_CB_Rx[channel_id]++;
+}
+
+/*
+ * ICC callback for TX free buffer; no blocking calls allowed.
+ */
+void USER_ICC_Callback_Tx_CB_M4( ICC_IN const ICC_Channel_t channel_id ) /**< The id of the channel that just "received" free space. */
+{
+    watch_CB_Tx[channel_id]++;
+}
+
+/*
+ * ICC callback for channel transitioning to a new state.
+ */
+void USER_ICC_Callback_Channel_State_Update_CB_M4( ICC_IN const ICC_Channel_t       channel_id, /** The id of the channel that transitioned to a new state. */
+                                                   ICC_IN const ICC_Channel_State_t channel_state ) /** The new state that the channel transitioned to. */
+{
+    watch_CB_Ch[channel_id]++;
+}
+
+/*
+ * ICC callback for node transitioning to a new state.
+ */
+void USER_ICC_Node_State_Update_CB_M4( ICC_IN const ICC_Node_t       node_id, /** The id of the node that transitioned to a new state. */
+                                       ICC_IN const ICC_Node_State_t node_state ) /** The new state the node transitioned to. */
+{
+	watch_CB_Node++;
+
+    #ifdef ICC_CFG_HEARTBEAT_ENABLED
+        if( node_state == ICC_NODE_STATE_INIT )
+        {
+            atomic_set( &heartbeat_on, 1);
+        }
+    #endif /*ICC_CFG_HEARTBEAT_ENABLED*/
+}
+
+#else
 
 void USER_ICC_Callback_Rx_CB_App( ICC_IN const ICC_Channel_t   channel_id /**< the id of the channel that received a message */ )
 {
@@ -199,6 +297,7 @@ void USER_ICC_Node_State_Update_CB_App(
     #endif /*ICC_CFG_HEARTBEAT_ENABLED*/
 }
 
+#endif  /* ICC_BUILD_FOR_M4 */
 
 /* Start_ICC_Sample - starts the sample code */
 int Start_ICC_Sample(void)
@@ -230,7 +329,7 @@ int Start_ICC_Sample(void)
     watch_CB_Node=0;
 
     /* initialize ICC */
-    if ((return_code = ICC_Initialize( &ICC_Config0 )) != ICC_SUCCESS) {
+    if ((return_code = ICC_Initialize( ICC_Default_Config_Ptr )) != ICC_SUCCESS) {
 
         printk("Start_ICC_Sample: ICC_Initialize failed with error code: %d\n", return_code);
 
@@ -240,11 +339,11 @@ int Start_ICC_Sample(void)
     printk("ICC_Initialize ... done\n");
 
     /* open communication channels */
-    for (i = 0; i < ICC_CROSS_VALUE_OF(ICC_Config0.Channels_Count); i++)
+    for (i = 0; i < ICC_CROSS_VALUE_OF(ICC_Default_Config_Ptr->Channels_Count); i++)
     {
 
         #ifdef ICC_CFG_HEARTBEAT_ENABLED
-            if( i != ICC_CROSS_VALUE_OF(ICC_Config0.ICC_Heartbeat_Os_Config)->channel_id )
+            if( i != ICC_CROSS_VALUE_OF(ICC_Default_Config_Ptr->ICC_Heartbeat_Os_Config)->channel_id )
         #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
         ICC_CHECK_ERR_CODE(ICC_Open_Channel(i));
