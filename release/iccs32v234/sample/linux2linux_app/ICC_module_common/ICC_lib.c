@@ -62,13 +62,12 @@ MODULE_LICENSE("GPL");
 #define PARAM_PERM      S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP
 
 //#define USE_INTERRUPTS
+#define S32V_PCIE_EP_CUSTOM_SUPPORT
 
 /* FIXME remove hardcoding of addresses. */
 
 #define EP_PCIE_BASE_ADDR 0x72000000
 #define EP_DDR_ADDR 0x8FF00000
-#define EP_PCIE_DBI      0x72ffc000 /* PCIe DBI for S32V, from dtb */
-#define EP_PCIE_DBI_SIZE 0x4000 /* PCIe DBI region size from dtb */
 
 /* Physical memory mapped by the RC CPU.
  * The RC's shared DDR mapping is different in the Bluebox vs EVB case.
@@ -86,7 +85,7 @@ MODULE_LICENSE("GPL");
 #define ICC_CONFIG_OFFSET_FROM_BASE 0
 #else
 /* first 32bits are for the poll variable */
-#define ICC_CONFIG_OFFSET_FROM_BASE 4
+#define ICC_CONFIG_OFFSET_FROM_BASE (sizeof(uint64_t))
 #endif
 
 #ifdef ICC_BUILD_FOR_M4
@@ -105,9 +104,6 @@ MODULE_LICENSE("GPL");
 #endif
 
 #define MAP_DDR_SIZE    1024 * 1024 * 1 /* 1 MB */
-
-/* Value to wait for */
-#define WAKE_UP_PATTERN     0x42
 
 #ifndef ICC_BUILD_FOR_M4
 ICC_Config_t * ICC_Config_Ptr_M4 = NULL;
@@ -194,8 +190,17 @@ static struct platform_driver ICC_driver = {
 #include <linux/kthread.h>
 #include <linux/delay.h>
 
-u8 *poll_addr = NULL;
-u8 *ping_addr = NULL;
+/* Value for 'incoming data from peer' */
+#define WAKE_UP_PATTERN     0x42
+
+/* Value for 'peer is alive' */
+#define ALIVE_PATTERN       0x24
+
+/* Waiting value */
+#define WAIT_PATTERN        0x12
+
+u32 *poll_addr = NULL;
+u32 *ping_addr = NULL;
 
 #define POLL_TIMEOUT_MS 1
 
@@ -207,14 +212,14 @@ ICC_Remote_Event_Handler(void);
 
 static int poll_thread_fn(void *arg)
 {
-    u8 *addr = (u8 *)arg;
+    u32 *addr = (u32 *)arg;
 
     while (!kthread_should_stop()) {
         msleep_interruptible(POLL_TIMEOUT_MS);
         if (*addr == WAKE_UP_PATTERN) {
             /* event detected */
             ICC_Remote_Event_Handler();
-            *addr = 0;
+            *addr = WAIT_PATTERN;
         }
     }
 
@@ -225,14 +230,14 @@ static int pcie_shmem_poll_init(void)
 {
     int err = 0;
 
-    poll_addr = (u8 *)ioremap_nocache(IRAM_POLL_ADDR, SZ_4K);
+    poll_addr = (u32 *)ioremap_nocache(IRAM_POLL_ADDR, SZ_4K);
     if (!poll_addr) {
-        pr_warn("Could not ioremap %#x\n", IRAM_POLL_ADDR);
+        pr_warn("Could not ioremap %#llx\n", IRAM_POLL_ADDR);
         err = -EIO;
         goto ioremap_error;
     }
     /* Initialize it before we poll for changes */
-    *poll_addr = 0;
+    *poll_addr = WAIT_PATTERN;
 
     /* Start the polling thread */
     poll_thread = kthread_run(poll_thread_fn, poll_addr, "shmem_poll_thread");
@@ -265,7 +270,7 @@ static int pcie_shmem_ping_init(void)
 {
     int err = 0;
 
-    ping_addr = (u8 *)ioremap_nocache(IRAM_PING_ADDR, SZ_4K);
+    ping_addr = (u32 *)ioremap_nocache(IRAM_PING_ADDR, SZ_4K);
     if (!ping_addr) {
         pr_warn("Could not ioremap %#x\n", IRAM_PING_ADDR);
         return -EIO;
@@ -283,7 +288,32 @@ static void pcie_shmem_ping_exit(void)
 ICC_ATTR_SEC_TEXT_CODE
 void ICC_Notify_Remote( void )
 {
-    *ping_addr = WAKE_UP_PATTERN;
+    u32 crt_val = WAIT_PATTERN;
+    if (ping_addr) {
+        /* wait for the peer to become available */
+        while ((crt_val = *ping_addr) != WAIT_PATTERN) {
+            msleep_interruptible(POLL_TIMEOUT_MS);
+        }
+        *ping_addr = WAKE_UP_PATTERN;
+    }
+}
+
+ICC_ATTR_SEC_TEXT_CODE
+void ICC_Notify_Remote_Alive( void )
+{
+    if (ping_addr) {
+        *ping_addr = ALIVE_PATTERN;
+    }
+}
+
+ICC_ATTR_SEC_TEXT_CODE
+void ICC_Wait_For_Peer( void )
+{
+    u32 crt_val;
+    while ((crt_val = *poll_addr) != ALIVE_PATTERN) {
+        msleep_interruptible(POLL_TIMEOUT_MS);
+    }
+    *poll_addr = WAIT_PATTERN;
 }
 
 ICC_ATTR_SEC_TEXT_CODE
@@ -311,17 +341,17 @@ void ICC_Clear_Notify_Local( void )
 /* following code is taken from the pcie driver (ioctl functions are not exported) */
 
 struct s32v_inbound_region {
-    unsigned int  bar_nr;
-    unsigned int  target_addr;
-    unsigned int  region;
+    uint32_t  bar_nr;
+    uint32_t  target_addr;
+    uint32_t  region;
 };
 
 struct s32v_outbound_region {
-    unsigned long long int target_addr;
-    unsigned long long int base_addr;
-    unsigned int  size;
-    unsigned int  region;
-    unsigned int  region_type;
+    uint64_t target_addr;
+    uint64_t base_addr;
+    uint32_t size;
+    uint32_t region;
+    uint32_t region_type;
 };
 
 static struct s32v_inbound_region inb1 = {
@@ -338,6 +368,11 @@ static struct s32v_outbound_region outb1 = {
     0,      /* region number */
     0       /* region type = mem */
 };
+
+#ifndef S32V_PCIE_EP_CUSTOM_SUPPORT
+
+#define EP_PCIE_DBI      0x72ffc000 /* PCIe DBI for S32V, from dtb */
+#define EP_PCIE_DBI_SIZE 0x4000 /* PCIe DBI region size from dtb */
 
 #define NR_REGIONS      4
 
@@ -365,77 +400,95 @@ static struct s32v_outbound_region outb1 = {
 #define PCIE_ATU_UPPER_TARGET       0x91C
 
 char * PCIE_DBI_Virt_Base_Addr = NULL;
+#define writel_map(val, addr) *(uint32_t*)(addr) = (uint32_t)(val)
 
-static int s32v_pcie_iatu_outbound_set(struct s32v_outbound_region *ptrOutb)
+static int s32v_pcie_iatu_outbound_set(void)
 {
     int ret = 0;
 
-    if (!PCIE_DBI_Virt_Base_Addr || !ptrOutb) {
+    if (!PCIE_DBI_Virt_Base_Addr) {
        return -EINVAL;
     }
 
-    if ((ptrOutb->size < (64 * SZ_1K)) ||
-        (ptrOutb->region > NR_REGIONS - 1))
+    if ((outb1.size < (64 * SZ_1K)) ||
+        (outb1.region > NR_REGIONS - 1))
         return -EINVAL;
 
-    writel(PCIE_ATU_REGION_OUTBOUND | ptrOutb->region,
-        EP_PCIE_DBI + PCIE_ATU_VIEWPORT);
-    writel(lower_32_bits(ptrOutb->base_addr),
-        PCIE_DBI_Virt_Base_Addr +  PCIE_ATU_LOWER_BASE);
-    writel(upper_32_bits(ptrOutb->base_addr),
+    writel_map(PCIE_ATU_REGION_OUTBOUND | outb1.region,
+        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_VIEWPORT);
+    writel_map(lower_32_bits(outb1.base_addr),
+        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_LOWER_BASE);
+    writel_map(upper_32_bits(outb1.base_addr),
         PCIE_DBI_Virt_Base_Addr + PCIE_ATU_UPPER_BASE);
-    writel(lower_32_bits(ptrOutb->base_addr + ptrOutb->size - 1),
+    writel_map(lower_32_bits(outb1.base_addr + outb1.size - 1),
         PCIE_DBI_Virt_Base_Addr + PCIE_ATU_LIMIT);
-    writel(lower_32_bits(ptrOutb->target_addr),
+    writel_map(lower_32_bits(outb1.target_addr),
         PCIE_DBI_Virt_Base_Addr + PCIE_ATU_LOWER_TARGET);
-    writel(upper_32_bits(ptrOutb->target_addr),
+    writel_map(upper_32_bits(outb1.target_addr),
         PCIE_DBI_Virt_Base_Addr + PCIE_ATU_UPPER_TARGET);
-    writel(ptrOutb->region_type, PCIE_DBI_Virt_Base_Addr + PCIE_ATU_CR1);
-    writel(PCIE_ATU_ENABLE, PCIE_DBI_Virt_Base_Addr + PCIE_ATU_CR2);
+    writel_map(outb1.region_type,
+        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_CR1);
+    writel_map(PCIE_ATU_ENABLE,
+        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_CR2);
 
     return ret;
 }
 
-static int s32v_pcie_iatu_inbound_set(struct s32v_inbound_region *ptrInb)
+static int s32v_pcie_iatu_inbound_set(void)
 {
     int ret = 0;
 
-    if (!PCIE_DBI_Virt_Base_Addr || !ptrInb) {
+    if (!PCIE_DBI_Virt_Base_Addr) {
        return -EINVAL;
     }
-    if (ptrInb->region > NR_REGIONS - 1) {
+    if (inb1.region > NR_REGIONS - 1) {
        return -EINVAL;
     }
 
-    writel(PCIE_ATU_REGION_INBOUND | ptrInb->region,
+    writel_map(PCIE_ATU_REGION_INBOUND | inb1.region,
         PCIE_DBI_Virt_Base_Addr + PCIE_ATU_VIEWPORT);
-    writel(lower_32_bits(ptrInb->target_addr),
+    writel_map(lower_32_bits(inb1.target_addr),
         PCIE_DBI_Virt_Base_Addr + PCIE_ATU_LOWER_TARGET);
-    writel(upper_32_bits(ptrInb->target_addr),
+    writel_map(upper_32_bits(inb1.target_addr),
         PCIE_DBI_Virt_Base_Addr + PCIE_ATU_UPPER_TARGET);
-    writel(PCIE_ATU_TYPE_MEM, PCIE_DBI_Virt_Base_Addr + PCIE_ATU_CR1);
-    writel(PCIE_ATU_ENABLE | PCIE_ATU_BAR_MODE_ENABLE |
-        PCIE_ATU_BAR_NUM(ptrInb->bar_nr), PCIE_DBI_Virt_Base_Addr + PCIE_ATU_CR2);
+    writel_map(PCIE_ATU_TYPE_MEM,
+        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_CR1);
+    writel_map(PCIE_ATU_ENABLE | PCIE_ATU_BAR_MODE_ENABLE | PCIE_ATU_BAR_NUM(inb1.bar_nr),
+        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_CR2);
 
     return ret;
 }
 
 /* end of pcie driver code */
 
+#else
+
+extern int s32v_pcie_setup_outbound(void * data);
+extern int s32v_pcie_setup_inbound(void * data);
+
+#endif
+
 static int pcie_mappings_init(void)
 {
     int ret = 0;
 
+#ifndef S32V_PCIE_EP_CUSTOM_SUPPORT
     PCIE_DBI_Virt_Base_Addr = ioremap_nocache(EP_PCIE_DBI, EP_PCIE_DBI_SIZE);
-    printk(LOG_LEVEL "[pcie_mappings_init] PCIE DBI reserved %16llx size is %d\n", PCIE_DBI_Virt_Base_Addr, sizeof(char * ) );
+    printk(LOG_LEVEL "[pcie_mappings_init] PCIE DBI reserved %16llx size is %d\n", PCIE_DBI_Virt_Base_Addr, EP_PCIE_DBI_SIZE);
     if( !PCIE_DBI_Virt_Base_Addr ){
         printk(KERN_ERR "[pcie_mappings_init] PCIE DBI virtual mapping has failed for 0x%08x\n", EP_PCIE_DBI);
         ret = -ENOMEM;
         goto err;
     }
+#endif
 
     /* Setup outbound window for accessing RC mem */
-    ret = s32v_pcie_iatu_outbound_set(&outb1);
+#ifndef S32V_PCIE_EP_CUSTOM_SUPPORT
+    ret = s32v_pcie_iatu_outbound_set();
+#else
+    ret = s32v_pcie_setup_outbound(&outb1);
+#endif
+
     if (ret < 0) {
         printk(KERN_ERR "[pcie_mappings_init] Error while setting outbound1 region\n");
         goto err;
@@ -444,7 +497,12 @@ static int pcie_mappings_init(void)
     }
 
     /* Same thing for inbound window for transactions from RC */
-    ret = s32v_pcie_iatu_inbound_set(&inb1);
+#ifndef S32V_PCIE_EP_CUSTOM_SUPPORT
+    ret = s32v_pcie_iatu_inbound_set();
+#else
+    ret = s32v_pcie_setup_inbound(&inb1);
+#endif
+
     if (ret < 0) {
         printk(KERN_ERR "[pcie_mappings_init] Error while setting inbound1 region\n");
         goto err;
@@ -458,8 +516,10 @@ err:
 
 static void pcie_mappings_exit(void)
 {
+#ifndef S32V_PCIE_EP_CUSTOM_SUPPORT
     iounmap(PCIE_DBI_Virt_Base_Addr);
     PCIE_DBI_Virt_Base_Addr = NULL;
+#endif
 }
 
 static int ICC_dev_open(struct inode *inode, struct file *file)
@@ -531,7 +591,7 @@ static int __init ICC_dev_init(void)
 {
     int err;
     int i;
-    union local_magic * shared_start = NULL;
+    uint64_t * shared_start = NULL;
 
     printk(LOG_LEVEL "[ICC_dev_init] Freescale ICC linux driver\n");
 
@@ -553,10 +613,10 @@ static int __init ICC_dev_init(void)
     /* ICC Shared mem is mapped differently on RC and EP, but in both cases it physically
      * resides on EP side.
      */
-    ICC_Shared_Virt_Base_Addr = ioremap_nocache(IRAM_BASE_ADDR + ICC_CONFIG_OFFSET_FROM_BASE, MAP_DDR_SIZE);
-    printk(LOG_LEVEL "[ICC_dev_init] reserved %16llx size is %d\n", ICC_Shared_Virt_Base_Addr, sizeof(char * ) );
+    ICC_Shared_Virt_Base_Addr = (char *)ioremap_nocache(IRAM_BASE_ADDR, MAP_DDR_SIZE) + ICC_CONFIG_OFFSET_FROM_BASE;
+    printk(LOG_LEVEL "[ICC_dev_init] reserved %#llx size is %d\n", ICC_Shared_Virt_Base_Addr, MAP_DDR_SIZE );
     if( !ICC_Shared_Virt_Base_Addr ){
-        printk(KERN_ERR "[ICC_dev_init] ICC_Shared_Virt_Base_Addr virtual mapping has failed for 0x%08x\n", IRAM_BASE_ADDR);
+        printk(KERN_ERR "[ICC_dev_init] ICC_Shared_Virt_Base_Addr virtual mapping has failed for %#x\n", IRAM_BASE_ADDR);
         err = -ENOMEM;
         goto cleanup;
     }
@@ -566,20 +626,22 @@ static int __init ICC_dev_init(void)
     /* discover location of the configuration
      * TODO: should we use another offset in shm to store the ICC_Config0 offset?
      */
-    ICC_Config_Ptr_M4 = (ICC_Config_t *)(ICC_Shared_Virt_Base_Addr + ICC_CONFIG_OFFSET_FROM_BASE);
-    shared_start = (union local_magic *)ICC_Config_Ptr_M4;
-    for (i = 0; i < MAP_DDR_SIZE / sizeof(union local_magic); i++, shared_start++) {
-	    if ((ICC_Local_Magic.raw.m0 == shared_start->raw.m0) &&
-		(ICC_Local_Magic.raw.m1 == shared_start->raw.m1)){
-		    ICC_Config_Ptr_M4 = (ICC_Config_t *)shared_start;
-		    printk(LOG_LEVEL "[ICC_dev_init] ICC Config found at address %16llx\n", ICC_Config_Ptr_M4);
+    ICC_Config_Ptr_M4 = (ICC_Config_t *)(ICC_Shared_Virt_Base_Addr);
+    shared_start = ICC_Config_Ptr_M4;
+    for (i = 0; i < MAP_DDR_SIZE / sizeof(uint64_t); i++, shared_start++) {
+        union local_magic * crt_start = (union local_magic *)shared_start;
+	    if ((ICC_Local_Magic.raw.m0 == crt_start->raw.m0) &&
+		(ICC_Local_Magic.raw.m1 == crt_start->raw.m1)){
+		    ICC_Config_Ptr_M4 = (ICC_Config_t *)crt_start;
+		    printk(LOG_LEVEL "[ICC_dev_init] ICC Shared Config found at address %#llx\n", ICC_Config_Ptr_M4);
+		    break;
 	    }
     }
 
     ICC_Config_Ptr_M4_Remote = ICC_Config_Ptr_M4->This_Ptr;
 
-    printk(LOG_LEVEL "[ICC_dev_init] ICC Config local virtual address: 0x%08x \n", ICC_Config_Ptr_M4);
-    printk(LOG_LEVEL "[ICC_dev_init] ICC Config remote virtual address: 0x%08x \n", ICC_Config_Ptr_M4_Remote);
+    printk(LOG_LEVEL "[ICC_dev_init] ICC Shared Config local virtual address: %#llx \n", ICC_Config_Ptr_M4);
+    printk(LOG_LEVEL "[ICC_dev_init] ICC Shared Config remote virtual address: %#llx \n", ICC_Config_Ptr_M4_Remote);
 #endif
 
 #ifdef ICC_BUILD_FOR_M4
@@ -690,8 +752,21 @@ EXPORT_SYMBOL(ICC_Msg_Recv);
     EXPORT_SYMBOL(ICC_Heartbeat_Finalize);
     EXPORT_SYMBOL(ICC_Heartbeat_Runnable);
 #endif /* ICC_CFG_HEARTBEAT_ENABLED */
-#if (defined(ICC_LINUX2LINUX) && defined(ICC_BUILD_FOR_M4))
+
+#ifdef ICC_LINUX2LINUX
+
+#ifdef ICC_BUILD_FOR_M4
     EXPORT_SYMBOL(ICC_Shared_Virt_Base_Addr);
+#else
+    EXPORT_SYMBOL(ICC_Config_Ptr_M4);
+    EXPORT_SYMBOL(ICC_Config_Ptr_M4_Remote);
+#endif
+
+#ifdef ICC_DO_NOT_USE_INTERRUPTS
+EXPORT_SYMBOL(ICC_Notify_Remote_Alive);
+EXPORT_SYMBOL(ICC_Wait_For_Peer);
+#endif
+
 #endif
 
 module_init(ICC_dev_init);

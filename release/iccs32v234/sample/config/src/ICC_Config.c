@@ -461,7 +461,7 @@ ICC_Config_t ICC_Config0 = {
         ICC_CROSS_INIT(ICC_CFG_NO_CHANNELS_CONF0),           /**< number of configured ICC channels in this configuration */
 		ICC_CROSS_INIT(ICC_Cfg0_ChannelsConfig),             /**< ICC channels */
 
-        #ifdef ICC_BUILD_FOR_M4
+        #ifdef ICC_FSL_AUTOSAR_OS
 		    ICC_CROSS_INIT(&ICC_Fifo_Os_Config0),            /**< pointer to Fifo Os configuration */
         #else
 			ICC_CROSS_INIT(NULL_PTR),                        /**< currently not used for APP core */
@@ -513,7 +513,9 @@ ICC_Config_t ICC_Config0 = {
 #endif
 
 
-#if (defined(ICC_LINUX2LINUX) && defined(ICC_BUILD_FOR_M4))
+#ifdef ICC_LINUX2LINUX
+
+#ifdef ICC_BUILD_FOR_M4
 
 RELOCATABLE(ICC_Fifo_Os_Config0);
 
@@ -546,7 +548,7 @@ extern char * ICC_Relocate_Config(void)
         return NULL;
     }
 
-    RELOCATE_ICC_Fifo_Os_Config_t_Array(dest, ICC_Fifo_Os_Config0);
+    //RELOCATE_ICC_Fifo_Os_Config_t_Array(dest, ICC_Fifo_Os_Config0);
 
     RELOCATE_ICC_Channel_Config_t_Array(dest, ICC_Cfg0_ChannelsConfig);
 
@@ -562,6 +564,38 @@ extern char * ICC_Relocate_Config(void)
 }
 
 EXPORT_SYMBOL(ICC_Relocate_Config);
+
+#endif  /* ICC_BUILD_FOR_M4 */
+
+#include "ICC_Config_Test.h"
+
+#ifndef ICC_BUILD_FOR_M4
+extern
+ICC_Config_t * ICC_Config_Ptr_M4;          /**< pointer to M4 current configuration */
+#endif
+
+#define MB (1024 * 1024)
+
+#define BUF_SIZE (10 * MB)
+char out[BUF_SIZE];
+
+void reset(char out[BUF_SIZE])
+{
+    memset(out, 0, BUF_SIZE);
+}
+
+extern int ICC_Dump_Shared_Config(void)
+{
+    int dump_count = 0;
+#ifdef ICC_BUILD_FOR_M4
+    ICC_DUMP_PTR(dump_count, ICC_Config_t, ICC_Default_Config_Ptr);
+#else
+    ICC_DUMP_PTR(dump_count, ICC_Config_t, ICC_Config_Ptr_M4);
+#endif
+    return dump_count;
+}
+
+EXPORT_SYMBOL(ICC_Dump_Shared_Config);
 
 #endif
 

@@ -37,7 +37,9 @@
 
 #define RELOCATE_ICC_Fifo_Os_Config_t_Array(dest, obj) \
     if (!RELOCATED_PTR(obj)) { \
+      *((uint64_t*)dest) = (uint64_t)((uint64_t*)dest + 1); \
       RELOCATED_PTR(obj) = (typeof(obj)*)dest; \
+      ((uint64_t*)dest) ++; \
       memcpy((char*)dest, (char*)obj, sizeof(obj)); \
       dest = (typeof(dest))((uint64_t)dest + (uint64_t)sizeof(obj)); \
     }

@@ -52,7 +52,7 @@
              if (ICC_SUCCESS != return_code) return return_code
 
 /* see all traffic in kernel log */
-#define ICC_SAMPLE_LOG(...) printk(__VA_ARGS__)
+#define ICC_SAMPLE_LOG(...) printk(KERN_ALERT __VA_ARGS__)
 
 volatile unsigned int watch_CB_Rx[2];
 volatile unsigned int watch_CB_Tx[2];
@@ -100,7 +100,7 @@ int ICC_HeartBeat_kthread(void *data)
 
     };
 
-    printk("ICC_HeartBeat_kthread stopped\n");
+    ICC_SAMPLE_LOG("ICC_HeartBeat_kthread stopped\n");
 
     return 0;
 }
@@ -194,7 +194,7 @@ int ICC_Data_kthread(void *data)
 
     }; /* end while(1) */
 
-    printk("ICC_Data_kthread stopped\n");
+    ICC_SAMPLE_LOG("ICC_Data_kthread stopped\n");
 
     return icc_status;
 }
@@ -328,15 +328,38 @@ int Start_ICC_Sample(void)
 
     watch_CB_Node=0;
 
+#ifdef ICC_BUILD_FOR_M4
+    /* Re-locate the objects in ICC_Config.c, at address IRAM_BASE_ADDR + 4 (first u32 is used for polling/synchronization) */
+    ICC_Relocate_Config();
+#endif
+
     /* initialize ICC */
     if ((return_code = ICC_Initialize( ICC_Default_Config_Ptr )) != ICC_SUCCESS) {
 
-        printk("Start_ICC_Sample: ICC_Initialize failed with error code: %d\n", return_code);
+        ICC_SAMPLE_LOG("Start_ICC_Sample: ICC_Initialize failed with error code: %d\n", return_code);
 
         return return_code;
     }
 
-    printk("ICC_Initialize ... done\n");
+    ICC_SAMPLE_LOG("ICC_Initialize ... done\n");
+
+#if 1
+    ICC_Dump_Shared_Config();
+#endif
+
+#ifdef ICC_DO_NOT_USE_INTERRUPTS
+
+#ifdef ICC_BUILD_FOR_M4
+    ICC_SAMPLE_LOG("Waiting for peer ...\n");
+    ICC_Wait_For_Peer();
+#else
+    ICC_SAMPLE_LOG("Notifying peer ...\n");
+    ICC_Notify_Remote_Alive();
+#endif
+
+    ICC_SAMPLE_LOG("Peers connected\n");
+
+#endif
 
     /* open communication channels */
     for (i = 0; i < ICC_CROSS_VALUE_OF(ICC_Default_Config_Ptr->Channels_Count); i++)
@@ -350,18 +373,18 @@ int Start_ICC_Sample(void)
 
     }
 
-    printk("Opening all channels ... done\n");
+    ICC_SAMPLE_LOG("Opening all channels ... done\n");
 
     atomic_set(&thread_on, 1);
 
     task_data = kthread_run( ICC_Data_kthread, NULL, "%s_kthread_%d", "ICC_Data", 0 );
-    printk("ICC data kthread %s: started\n", task_data->comm );
+    ICC_SAMPLE_LOG("ICC data kthread %s: started\n", task_data->comm );
 
 
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
         while( atomic_read( &heartbeat_on) == 0 );
         task_hb = kthread_run( ICC_HeartBeat_kthread, NULL, "%s_kthread_%d", "HB", 0 );
-        printk("ICC HB kthread %s: started\n", task_hb->comm );
+        ICC_SAMPLE_LOG("ICC HB kthread %s: started\n", task_hb->comm );
     #endif
 
     return ICC_SUCCESS;

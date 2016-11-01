@@ -110,11 +110,6 @@ static int ICC_Sample_dev_init(void)
         cdev_add(&devs[i].cdev, MKDEV(MAJOR(dev_no), i),1);
     }
 
-#ifdef ICC_BUILD_FOR_M4
-    /* Re-locate the objects in ICC_Config.c, at address IRAM_BASE_ADDR + 4 (first u32 is used for polling/synchronization) */
-    ICC_Relocate_Config();
-#endif
-
     /* Start the ICC Linux Sample */
     if ( Start_ICC_Sample() != 0 ) err=-1;
 

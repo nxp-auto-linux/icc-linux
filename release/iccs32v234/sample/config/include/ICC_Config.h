@@ -242,6 +242,8 @@
     char * ICC_Relocate_Config(void);
 #endif
 
+extern int ICC_Dump_Shared_Config(void);
+
 #endif
 
 #endif /* ICC_CONFIG_H */

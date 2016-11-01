@@ -414,9 +414,17 @@ ICC_Initialize(
 
     ICC_CHECK_ERR_CODE( ICC_OS_Init_Interrupts() );
 
+    /* when using interrupts, it's ok to rise an interrupt line and wait for the peer to see it.
+     * this does not work on 'pings' (one shot signals) which may block or worse give bus errors
+     * when the peer is not initialized.
+     */
+#ifndef ICC_DO_NOT_USE_INTERRUPTS
+
     ICC_Notify_Remote();
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
     ICC_Notify_Local();
+#endif
+
 #endif
 
     return return_code;
@@ -1041,7 +1049,6 @@ ICC_Msg_Send (
 
 
     ICC_Notify_Remote();
-
     ICC_CHECK_ERR_CODE( ICC_OS_Release_Semaphore( channel_id, ICC_TX_FIFO  ) );
 
 

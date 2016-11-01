@@ -118,6 +118,17 @@ extern
 ICC_Err_t
 ICC_Finalize( void );
 
+#ifdef ICC_DO_NOT_USE_INTERRUPTS
+
+ICC_ATTR_SEC_TEXT_CODE
+extern
+void ICC_Notify_Remote_Alive( void );
+
+ICC_ATTR_SEC_TEXT_CODE
+extern
+void ICC_Wait_For_Peer( void );
+
+#endif
 
 /**
  *

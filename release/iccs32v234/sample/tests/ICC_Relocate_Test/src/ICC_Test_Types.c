@@ -442,7 +442,7 @@ int is_relocated(uint8_t * addr)
 #define PR_FIELDADDR(obj, field) out += sprintf(out, STR(field) "=%llx\n", (uint64_t)ICC_CROSS_VALUE_OF(obj->field));
 #define PR_FIELDLLX(obj, field) out += sprintf(out, STR(field) "=%llx\n", obj->field);
 
-#define PR_ARRAYX(array, count) \
+#define PR_FIELDARRAYX(array, count) \
     {   int i; \
         out += sprintf(out, STR(array) "[%d]: ", count); \
         for (i = 0; i < count; i++) { \
@@ -462,7 +462,7 @@ char * print_ICC_Fifo_Config_t(char * out, ICC_Fifo_Config_t * obj, uint8_t test
         out += sprintf(out, "not relocated\n");
         return out;
     } else {
-        PR_ARRAYX(fifo_buffer_ptr, obj->fifo_size);
+        PR_FIELDARRAYX(fifo_buffer_ptr, obj->fifo_size);
     }
 
     PR_FIELD(obj, fifo_prio);
@@ -484,11 +484,11 @@ char * print_ICC_Runtime_Shared_t(char * out, struct ICC_Runtime_Shared_t * obj,
         out += sprintf(out, "not relocated\n");
         return out;
     } else {
-        PR_ARRAYX(obj->ICC_Initialized_Shared, sizeof(obj->ICC_Initialized_Shared));
-        PR_ARRAYX(obj->ICC_Fifo_Os_Ram_M4, sizeof(obj->ICC_Fifo_Os_Ram_M4));
-        PR_ARRAYX(obj->ICC_Node_Sig_Fifo_Ram_Shared, sizeof(obj->ICC_Node_Sig_Fifo_Ram_Shared));
-        PR_ARRAYX(obj->ICC_Channels_Ram_Shared, sizeof(obj->ICC_Channels_Ram_Shared));
-        PR_ARRAYX(obj->ICC_Fifo_Ram_Shared, sizeof(obj->ICC_Fifo_Ram_Shared));
+        PR_FIELDARRAYX(obj->ICC_Initialized_Shared, sizeof(obj->ICC_Initialized_Shared));
+        PR_FIELDARRAYX(obj->ICC_Fifo_Os_Ram_M4, sizeof(obj->ICC_Fifo_Os_Ram_M4));
+        PR_FIELDARRAYX(obj->ICC_Node_Sig_Fifo_Ram_Shared, sizeof(obj->ICC_Node_Sig_Fifo_Ram_Shared));
+        PR_FIELDARRAYX(obj->ICC_Channels_Ram_Shared, sizeof(obj->ICC_Channels_Ram_Shared));
+        PR_FIELDARRAYX(obj->ICC_Fifo_Ram_Shared, sizeof(obj->ICC_Fifo_Ram_Shared));
    }
 
     return out;
@@ -538,7 +538,7 @@ char * print_ICC_Config_t(char * out, ICC_Config_t * obj, uint8_t test_reloc)
         return out;
     }
 
-    PR_ARRAYX(obj->Config_Magic, ICC_CONFIG_MAGIC_SIZE);
+    PR_FIELDARRAYX(obj->Config_Magic, ICC_CONFIG_MAGIC_SIZE);
     PR_FIELDADDR(obj, Channels_Count);
     TEST_RELOC_FIELD(Channels_Ptr);
     out = print_ICC_Channel_Config_t_Array(out, (char *)(ICC_CROSS_VALUE_OF(obj->Channels_Ptr)), sizeof(ICC_Cfg0_ChannelsConfig), test_reloc);
@@ -551,13 +551,13 @@ char * print_ICC_Config_t(char * out, ICC_Config_t * obj, uint8_t test_reloc)
     PR_FIELDADDR(obj, Node_Update_Cb);
 
     TEST_RELOC_FIELD(ICC_Initialized_Shared);
-    PR_ARRAYX(*ICC_CROSS_VALUE_OF(obj->ICC_Initialized_Shared), sizeof(obj->ICC_Initialized_Shared));
+    PR_FIELDARRAYX(*ICC_CROSS_VALUE_OF(obj->ICC_Initialized_Shared), sizeof(obj->ICC_Initialized_Shared));
     TEST_RELOC_FIELD(ICC_Channels_Ram_Shared);
-    PR_ARRAYX(ICC_CROSS_VALUE_OF(obj->ICC_Channels_Ram_Shared), sizeof(obj->ICC_Channels_Ram_Shared));
+    PR_FIELDARRAYX(ICC_CROSS_VALUE_OF(obj->ICC_Channels_Ram_Shared), sizeof(obj->ICC_Channels_Ram_Shared));
     TEST_RELOC_FIELD(ICC_Fifo_Ram_Shared);
-    PR_ARRAYX(*ICC_CROSS_VALUE_OF(obj->ICC_Fifo_Ram_Shared), sizeof(obj->ICC_Fifo_Ram_Shared));
+    PR_FIELDARRAYX(*ICC_CROSS_VALUE_OF(obj->ICC_Fifo_Ram_Shared), sizeof(obj->ICC_Fifo_Ram_Shared));
     TEST_RELOC_FIELD(ICC_Node_Sig_Fifo_Ram_Shared);
-    PR_ARRAYX(*ICC_CROSS_VALUE_OF(obj->ICC_Node_Sig_Fifo_Ram_Shared), sizeof(obj->ICC_Node_Sig_Fifo_Ram_Shared));
+    PR_FIELDARRAYX(*ICC_CROSS_VALUE_OF(obj->ICC_Node_Sig_Fifo_Ram_Shared), sizeof(obj->ICC_Node_Sig_Fifo_Ram_Shared));
 
     return out;
 }
