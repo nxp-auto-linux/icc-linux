@@ -81,7 +81,7 @@
 #define ICC_START_SEC_VAR_UNSPECIFIED
 #include "ICC_MemMap.h"
 
-#ifndef ICC_DO_NOT_USE_INTERRUPTS
+#ifndef ICC_USE_POLLING
     extern ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS char * ICC_HW_MSCM_VIRT_BASE;
 #endif
 

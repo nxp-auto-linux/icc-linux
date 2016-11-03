@@ -61,8 +61,6 @@ MODULE_LICENSE("GPL");
 #define LOG_LEVEL       KERN_ALERT
 #define PARAM_PERM      S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP
 
-//#define USE_INTERRUPTS
-#define S32V_PCIE_EP_CUSTOM_SUPPORT
 
 /* FIXME remove hardcoding of addresses. */
 
@@ -73,7 +71,7 @@ MODULE_LICENSE("GPL");
  * The RC's shared DDR mapping is different in the Bluebox vs EVB case.
  * For the moment, this setting is statically defined in the Makefile.
  */
-#if defined PCIE_SHMEM_BLUEBOX  /* LS2-S32V */
+#ifdef ICC_PCIE_SHMEM_BLUEBOX  /* LS2-S32V */
 #define RC_DDR_ADDR     0x8350000000
 #define EP_BAR2_ADDR    0x1440100000ll
 #else                           /* EVB-PCIE */
@@ -81,7 +79,7 @@ MODULE_LICENSE("GPL");
 #define EP_BAR2_ADDR    0x72200000ll
 #endif
 
-#ifndef ICC_DO_NOT_USE_INTERRUPTS
+#ifndef ICC_USE_POLLING
 #define ICC_CONFIG_OFFSET_FROM_BASE 0
 #else
 /* first 32bits are for the poll variable */
@@ -106,8 +104,8 @@ MODULE_LICENSE("GPL");
 #define MAP_DDR_SIZE    1024 * 1024 * 1 /* 1 MB */
 
 #ifndef ICC_BUILD_FOR_M4
-ICC_Config_t * ICC_Config_Ptr_M4 = NULL;
-ICC_Config_t * ICC_Config_Ptr_M4_Remote = NULL;
+ICC_Config_t * ICC_Config_Ptr_M4;
+ICC_Config_t * ICC_Config_Ptr_M4_Remote;
 #endif
 
 struct ICC_device_data {
@@ -117,7 +115,7 @@ struct ICC_device_data {
 struct ICC_device_data devs[NUM_MINORS];
 static dev_t dev_no;
 
-#ifndef ICC_DO_NOT_USE_INTERRUPTS
+#ifndef ICC_USE_POLLING
 
 struct ICC_platform_data {
     struct device * dev;
@@ -125,7 +123,7 @@ struct ICC_platform_data {
     unsigned int local_irq;
 };
 
-struct ICC_platform_data * icc_data = NULL;
+struct ICC_platform_data * icc_data;
 
 static struct of_device_id ICC_dt_ids[] = {
     {
@@ -199,8 +197,8 @@ static struct platform_driver ICC_driver = {
 /* Waiting value */
 #define WAIT_PATTERN        0x12
 
-u32 *poll_addr = NULL;
-u32 *ping_addr = NULL;
+u32 *poll_addr;
+u32 *ping_addr;
 
 #define POLL_TIMEOUT_MS 1
 
@@ -336,9 +334,11 @@ void ICC_Clear_Notify_Local( void )
 }
 #endif
 
-#endif  /* USE_INTERRUPTS */
+#endif  /* ICC_USE_POLLING */
 
-/* following code is taken from the pcie driver (ioctl functions are not exported) */
+/* following code is calling an api custom exported from the pcie driver */
+
+#ifdef ICC_BUILD_FOR_M4
 
 struct s32v_inbound_region {
     uint32_t  bar_nr;
@@ -369,125 +369,15 @@ static struct s32v_outbound_region outb1 = {
     0       /* region type = mem */
 };
 
-#ifndef S32V_PCIE_EP_CUSTOM_SUPPORT
-
-#define EP_PCIE_DBI      0x72ffc000 /* PCIe DBI for S32V, from dtb */
-#define EP_PCIE_DBI_SIZE 0x4000 /* PCIe DBI region size from dtb */
-
-#define NR_REGIONS      4
-
-#define PCIE_ATU_VIEWPORT       0x900
-#define PCIE_ATU_REGION_INBOUND     (0x1 << 31)
-#define PCIE_ATU_REGION_OUTBOUND    (0x0 << 31)
-#define PCIE_ATU_REGION_INDEX1      (0x1 << 0)
-#define PCIE_ATU_REGION_INDEX0      (0x0 << 0)
-#define PCIE_ATU_CR1            0x904
-#define PCIE_ATU_TYPE_MEM       (0x0 << 0)
-#define PCIE_ATU_TYPE_IO        (0x2 << 0)
-#define PCIE_ATU_TYPE_CFG0      (0x4 << 0)
-#define PCIE_ATU_TYPE_CFG1      (0x5 << 0)
-#define PCIE_ATU_CR2            0x908
-#define PCIE_ATU_ENABLE         (0x1 << 31)
-#define PCIE_ATU_BAR_MODE_ENABLE    (0x1 << 30)
-#define PCIE_ATU_BAR_NUM(bar)   ((bar) << 8)
-#define PCIE_ATU_LOWER_BASE     0x90C
-#define PCIE_ATU_UPPER_BASE     0x910
-#define PCIE_ATU_LIMIT          0x914
-#define PCIE_ATU_LOWER_TARGET       0x918
-#define PCIE_ATU_BUS(x)         (((x) & 0xff) << 24)
-#define PCIE_ATU_DEV(x)         (((x) & 0x1f) << 19)
-#define PCIE_ATU_FUNC(x)        (((x) & 0x7) << 16)
-#define PCIE_ATU_UPPER_TARGET       0x91C
-
-char * PCIE_DBI_Virt_Base_Addr = NULL;
-#define writel_map(val, addr) *(uint32_t*)(addr) = (uint32_t)(val)
-
-static int s32v_pcie_iatu_outbound_set(void)
-{
-    int ret = 0;
-
-    if (!PCIE_DBI_Virt_Base_Addr) {
-       return -EINVAL;
-    }
-
-    if ((outb1.size < (64 * SZ_1K)) ||
-        (outb1.region > NR_REGIONS - 1))
-        return -EINVAL;
-
-    writel_map(PCIE_ATU_REGION_OUTBOUND | outb1.region,
-        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_VIEWPORT);
-    writel_map(lower_32_bits(outb1.base_addr),
-        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_LOWER_BASE);
-    writel_map(upper_32_bits(outb1.base_addr),
-        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_UPPER_BASE);
-    writel_map(lower_32_bits(outb1.base_addr + outb1.size - 1),
-        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_LIMIT);
-    writel_map(lower_32_bits(outb1.target_addr),
-        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_LOWER_TARGET);
-    writel_map(upper_32_bits(outb1.target_addr),
-        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_UPPER_TARGET);
-    writel_map(outb1.region_type,
-        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_CR1);
-    writel_map(PCIE_ATU_ENABLE,
-        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_CR2);
-
-    return ret;
-}
-
-static int s32v_pcie_iatu_inbound_set(void)
-{
-    int ret = 0;
-
-    if (!PCIE_DBI_Virt_Base_Addr) {
-       return -EINVAL;
-    }
-    if (inb1.region > NR_REGIONS - 1) {
-       return -EINVAL;
-    }
-
-    writel_map(PCIE_ATU_REGION_INBOUND | inb1.region,
-        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_VIEWPORT);
-    writel_map(lower_32_bits(inb1.target_addr),
-        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_LOWER_TARGET);
-    writel_map(upper_32_bits(inb1.target_addr),
-        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_UPPER_TARGET);
-    writel_map(PCIE_ATU_TYPE_MEM,
-        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_CR1);
-    writel_map(PCIE_ATU_ENABLE | PCIE_ATU_BAR_MODE_ENABLE | PCIE_ATU_BAR_NUM(inb1.bar_nr),
-        PCIE_DBI_Virt_Base_Addr + PCIE_ATU_CR2);
-
-    return ret;
-}
-
-/* end of pcie driver code */
-
-#else
-
 extern int s32v_pcie_setup_outbound(void * data);
 extern int s32v_pcie_setup_inbound(void * data);
-
-#endif
 
 static int pcie_mappings_init(void)
 {
     int ret = 0;
 
-#ifndef S32V_PCIE_EP_CUSTOM_SUPPORT
-    PCIE_DBI_Virt_Base_Addr = ioremap_nocache(EP_PCIE_DBI, EP_PCIE_DBI_SIZE);
-    printk(LOG_LEVEL "[pcie_mappings_init] PCIE DBI reserved %16llx size is %d\n", PCIE_DBI_Virt_Base_Addr, EP_PCIE_DBI_SIZE);
-    if( !PCIE_DBI_Virt_Base_Addr ){
-        printk(KERN_ERR "[pcie_mappings_init] PCIE DBI virtual mapping has failed for 0x%08x\n", EP_PCIE_DBI);
-        ret = -ENOMEM;
-        goto err;
-    }
-#endif
-
     /* Setup outbound window for accessing RC mem */
-#ifndef S32V_PCIE_EP_CUSTOM_SUPPORT
-    ret = s32v_pcie_iatu_outbound_set();
-#else
     ret = s32v_pcie_setup_outbound(&outb1);
-#endif
 
     if (ret < 0) {
         printk(KERN_ERR "[pcie_mappings_init] Error while setting outbound1 region\n");
@@ -497,11 +387,7 @@ static int pcie_mappings_init(void)
     }
 
     /* Same thing for inbound window for transactions from RC */
-#ifndef S32V_PCIE_EP_CUSTOM_SUPPORT
-    ret = s32v_pcie_iatu_inbound_set();
-#else
     ret = s32v_pcie_setup_inbound(&inb1);
-#endif
 
     if (ret < 0) {
         printk(KERN_ERR "[pcie_mappings_init] Error while setting inbound1 region\n");
@@ -516,11 +402,9 @@ err:
 
 static void pcie_mappings_exit(void)
 {
-#ifndef S32V_PCIE_EP_CUSTOM_SUPPORT
-    iounmap(PCIE_DBI_Virt_Base_Addr);
-    PCIE_DBI_Virt_Base_Addr = NULL;
-#endif
 }
+
+#endif  /* ICC_BUILD_FOR_M4 */
 
 static int ICC_dev_open(struct inode *inode, struct file *file)
 {
@@ -548,11 +432,11 @@ static const struct file_operations ICC_fops = {
     .release = ICC_dev_release,
 };
 
-char * ICC_Shared_Virt_Base_Addr = NULL;
-struct resource * ICC_Mem_Region = NULL;
+char * ICC_Shared_Virt_Base_Addr;
+struct resource * ICC_Mem_Region;
 
-#ifdef ICC_DO_NOT_USE_INTERRUPTS
-struct resource * ICC_Ping_Region = NULL;
+#ifdef ICC_USE_POLLING
+struct resource * ICC_Ping_Region;
 #endif
 
 static void local_cleanup(void)
@@ -570,9 +454,11 @@ static void local_cleanup(void)
         release_mem_region(IRAM_BASE_ADDR, MAP_DDR_SIZE);
     }
 
+#ifdef ICC_BUILD_FOR_M4
     pcie_mappings_exit();
+#endif
 
-#ifndef ICC_DO_NOT_USE_INTERRUPTS
+#ifndef ICC_USE_POLLING
     platform_driver_unregister(&ICC_driver);
 #else
     pcie_shmem_poll_exit();
@@ -595,7 +481,7 @@ static int __init ICC_dev_init(void)
 
     printk(LOG_LEVEL "[ICC_dev_init] Freescale ICC linux driver\n");
 
-#ifndef ICC_DO_NOT_USE_INTERRUPTS
+#ifndef ICC_USE_POLLING
     err = platform_driver_register(&ICC_driver);
     if (err) {
         return err;
@@ -649,7 +535,7 @@ static int __init ICC_dev_init(void)
     pcie_mappings_init();
 #endif
 
-#ifdef ICC_DO_NOT_USE_INTERRUPTS
+#ifdef ICC_USE_POLLING
     pcie_shmem_poll_init();
     pcie_shmem_ping_init();
 #endif
@@ -692,7 +578,7 @@ static void __exit ICC_dev_exit(void)
     printk(LOG_LEVEL "[ICC_dev_exit] \n");
 }
 
-#ifndef ICC_DO_NOT_USE_INTERRUPTS
+#ifndef ICC_USE_POLLING
 
 struct device * ICC_get_device(void)
 {
@@ -731,7 +617,7 @@ unsigned int ICC_get_local_irq(void)
 }
 #endif
 
-#endif  /* USE_INTERRUPTS */
+#endif  /* ICC_USE_POLLING */
 
 /**
  * Exporting ICC API functions to be used by other kernel modules
@@ -754,19 +640,17 @@ EXPORT_SYMBOL(ICC_Msg_Recv);
 #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
 #ifdef ICC_LINUX2LINUX
-
 #ifdef ICC_BUILD_FOR_M4
     EXPORT_SYMBOL(ICC_Shared_Virt_Base_Addr);
 #else
     EXPORT_SYMBOL(ICC_Config_Ptr_M4);
     EXPORT_SYMBOL(ICC_Config_Ptr_M4_Remote);
 #endif
-
-#ifdef ICC_DO_NOT_USE_INTERRUPTS
-EXPORT_SYMBOL(ICC_Notify_Remote_Alive);
-EXPORT_SYMBOL(ICC_Wait_For_Peer);
 #endif
 
+#ifdef ICC_USE_POLLING
+EXPORT_SYMBOL(ICC_Notify_Remote_Alive);
+EXPORT_SYMBOL(ICC_Wait_For_Peer);
 #endif
 
 module_init(ICC_dev_init);

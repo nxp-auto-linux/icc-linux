@@ -12,7 +12,6 @@ modules_install: kbuild
 
 clean:
 	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE)  -C $(KERNELDIR) M=$(PWD) clean
-	find $(PWD)/../../../code -name "*.cmd" -o -name "*.o" | xargs rm -f
-	find $(PWD)/../ICC_module_common -name "*.cmd" -o -name "*.o" | xargs rm -f
-	rm -rf $(PWD)/../ICC_module_common/.tmp_versions	
-	
+	find $(PWD)/../../../code -name "*.cmd" -o -name "*.o" -o -name "*.mod.c" | xargs rm -f
+	find . -name "*.cmd" -o -name "*.o" -o -name "*.mod.c" | xargs rm -f
+	#rm -rf ./.tmp_versions

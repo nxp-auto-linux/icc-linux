@@ -347,7 +347,7 @@ int Start_ICC_Sample(void)
     ICC_Dump_Shared_Config();
 #endif
 
-#ifdef ICC_DO_NOT_USE_INTERRUPTS
+#ifdef ICC_USE_POLLING
 
 #ifdef ICC_BUILD_FOR_M4
     ICC_SAMPLE_LOG("Waiting for peer ...\n");

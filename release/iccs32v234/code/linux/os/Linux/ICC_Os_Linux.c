@@ -73,7 +73,7 @@ extern "C"
     ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS extern ICC_Fifo_Ram_t (* ICC_Fifo_Ram)[ ICC_CFG_MAX_CHANNELS ][ 2 ];
     ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA extern volatile unsigned int          (* ICC_Initialized)[2];
 
-#ifndef ICC_DO_NOT_USE_INTERRUPTS
+#ifndef ICC_USE_POLLING
     ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS char * ICC_HW_MSCM_VIRT_BASE;
 #endif
 
@@ -215,7 +215,7 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
         }
     }
 
-#ifndef ICC_DO_NOT_USE_INTERRUPTS
+#ifndef ICC_USE_POLLING
 
     ICC_HW_MSCM_VIRT_BASE = ioremap_nocache(ICC_HW_MSCM_BASE, 0x1000);
 
@@ -231,7 +231,7 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
     return ICC_SUCCESS;
 }
 
-#ifndef ICC_DO_NOT_USE_INTERRUPTS
+#ifndef ICC_USE_POLLING
 
 extern struct device * ICC_get_device(void);
 extern char * ICC_get_device_name(void);
@@ -252,7 +252,7 @@ ICC_ATTR_SEC_TEXT_CODE
 extern
 ICC_Err_t ICC_OS_Init_Interrupts( void )
 {
-#ifndef ICC_DO_NOT_USE_INTERRUPTS
+#ifndef ICC_USE_POLLING
     char * device_name = ICC_get_device_name();
     struct device * dev = ICC_get_device();
     unsigned int shared_irq = ICC_get_shared_irq();
@@ -273,7 +273,7 @@ ICC_Err_t ICC_OS_Init_Interrupts( void )
         unsigned int local_irq = ICC_get_local_irq();
         ICC_Clear_Notify_Local();
 
-    #ifndef ICC_DO_NOT_USE_INTERRUPTS
+    #ifndef ICC_USE_POLLING
         /* request interrupt line for local core notifications */
         if (devm_request_irq(dev, local_irq, ICC_Local_ISR_Handler, 0, device_name, NULL) != 0) {
             printk (KERN_ALERT "Failed to register local interrupt\n");
@@ -298,7 +298,7 @@ ICC_OS_Finalize(void)
     ICC_Fifo_Os_Ram_t        * fifo_os_ram;
 #endif /* no ICC_CFG_NO_TIMEOUT */
 
-#ifndef ICC_DO_NOT_USE_INTERRUPTS
+#ifndef ICC_USE_POLLING
 
     struct device * dev = ICC_get_device();
 

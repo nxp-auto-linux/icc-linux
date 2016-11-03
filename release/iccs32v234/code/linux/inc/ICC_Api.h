@@ -118,7 +118,7 @@ extern
 ICC_Err_t
 ICC_Finalize( void );
 
-#ifdef ICC_DO_NOT_USE_INTERRUPTS
+#ifdef ICC_USE_POLLING
 
 ICC_ATTR_SEC_TEXT_CODE
 extern

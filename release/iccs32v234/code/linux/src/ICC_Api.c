@@ -176,7 +176,7 @@ ICC_Compare_Fifo_Conf( const ICC_Fifo_Config_t * fifo_config_APP,
  *                                       GLOBAL FUNCTIONS                                        *
  *===============================================================================================*/
 
-#ifdef ICC_DO_NOT_USE_INTERRUPTS
+#ifdef ICC_USE_POLLING
 
 /* Declare notify functions here as extern.
  * Impementation must be provided elsewhere.
@@ -418,7 +418,7 @@ ICC_Initialize(
      * this does not work on 'pings' (one shot signals) which may block or worse give bus errors
      * when the peer is not initialized.
      */
-#ifndef ICC_DO_NOT_USE_INTERRUPTS
+#ifndef ICC_USE_POLLING
 
     ICC_Notify_Remote();
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)

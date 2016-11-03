@@ -21,19 +21,21 @@
 
 # CONFIG can be one of:
 # RTOS (for RTOS/Linux on the same board)
-# EP or RC (for Linux over PCIE)
+# EP for EndPoint (s32v234 pcie), in an s32v234 pcie / evb setup for Linux over PCIE
+# RC for RootComplex (s32v234 evb), in an s32v234 pcie / evb setup for Linux over PCIE
+# BB_EP for EndPoint (s32v234 pcie), in a BlueBox setup setup for Linux over PCIE
+# BB_RC for RootComplex (ls208xa rdb), in a BlueBox setup setup for Linux over PCIE
 CONFIG ?= RTOS
 
 ifeq ($(CONFIG),RTOS)
 SRC := $(shell pwd)/release/iccs32v234/sample/linux_app
-MODULE_SRC := $(SRC)/ICC_module
-SAMPLE_MODULE_SRC := $(SRC)/ICC_Sample_module
 else
 SRC := $(shell pwd)/release/iccs32v234/sample/linux2linux_app
-MODULE_SRC := $(SRC)/ICC_module_$(CONFIG)
-SAMPLE_MODULE_SRC := $(SRC)/ICC_Sample_module_$(CONFIG)
 endif
 
+
+MODULE_SRC := $(SRC)/ICC_module
+SAMPLE_MODULE_SRC := $(SRC)/ICC_Sample_module
 
 .PHONY: build modules_install clean
 
