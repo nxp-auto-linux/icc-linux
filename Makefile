@@ -49,6 +49,9 @@ modules_install:
 	$(MAKE) -C $(MODULE_SRC) modules_install
 	$(MAKE) -C $(SAMPLE_MODULE_SRC) modules_install
 
+headers_install:
+	$(MAKE) -C $(MODULE_SRC) headers_install
+
 clean:
 	$(MAKE) -C $(MODULE_SRC) clean
 	$(MAKE) -C $(SAMPLE_MODULE_SRC) clean

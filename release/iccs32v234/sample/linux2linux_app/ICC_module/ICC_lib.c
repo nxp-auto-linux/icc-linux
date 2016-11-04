@@ -61,22 +61,61 @@ MODULE_LICENSE("GPL");
 #define LOG_LEVEL       KERN_ALERT
 #define PARAM_PERM      S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP
 
+#ifndef ICC_USE_BAR
+#define ICC_USE_BAR 	2
+#endif
+
+#define DO_TEST_EXPAND(VAL)  VAL ## 0
+#define TEST_EXPAND(VAL)     DO_TEST_EXPAND(VAL)
+
+#define DO_GET_BAR_ADDRESS(BAR, SUFFIX) EP_BAR ## BAR ## _ ## SUFFIX
+#define GET_BAR_ADDRESS(BAR) 	DO_GET_BAR_ADDRESS(BAR, ADDR)
+#define GET_BAR_END(BAR) 		DO_GET_BAR_ADDRESS(BAR, END)
 
 /* FIXME remove hardcoding of addresses. */
 
 #define EP_PCIE_BASE_ADDR 0x72000000
 #define EP_DDR_ADDR 0x8FF00000
 
+/* define BARs for communication from the RC side
+ * TODO: take them from device tree */
+#ifndef ICC_PCIE_SHMEM_BLUEBOX
+#define EP_BAR0_ADDR	0x72100000
+#define EP_BAR0_END 	0x721fffff  /* 1MB */
+#define EP_BAR2_ADDR	0x72200000
+#define EP_BAR2_END		0x722fffff  /* 1MB */
+#define EP_BAR4_ADDR	0x72310000
+#define EP_BAR4_END		0x72310fff  /* 4KB */
+#define EP_BAR5_ADDR	0x72300000
+#define EP_BAR5_END		0x7230ffff  /* 64Kb */
+#else
+#define EP_BAR0_ADDR	0x1446000000
+#define EP_BAR0_END 	0x14460fffff  /* 1MB */
+#define EP_BAR2_ADDR	0x1446100000
+#define EP_BAR2_END		0x14461fffff  /* 1MB */
+#define EP_BAR4_ADDR	0x1446210000
+#define EP_BAR4_END		0x1446210fff  /* 4KB */
+#define EP_BAR5_ADDR	0x1446200000
+#define EP_BAR5_END		0x144620ffff  /* 64Kb */
+#endif
+
+#define EP_BAR_ADDR	GET_BAR_ADDRESS(ICC_USE_BAR)
+
+#if (TEST_EXPAND(EP_BAR_ADDR) == 0)
+#error "Invalid BAR selected
+#else
+#define EP_BAR_SIZE	(GET_BAR_END(ICC_USE_BAR) - EP_BAR_ADDR + 1)
+#endif
+
 /* Physical memory mapped by the RC CPU.
- * The RC's shared DDR mapping is different in the Bluebox vs EVB case.
+ * The RC's shared DDR mapping is different in the Bluebox vs S32V EVB case.
  * For the moment, this setting is statically defined in the Makefile.
  */
 #ifdef ICC_PCIE_SHMEM_BLUEBOX  /* LS2-S32V */
+/* for LS2 kernel started with mem=13568M, unallocated RAM starts at 0x8350000000 */
 #define RC_DDR_ADDR     0x8350000000
-#define EP_BAR2_ADDR    0x1440100000ll
 #else                           /* EVB-PCIE */
 #define RC_DDR_ADDR     0x8FF00000
-#define EP_BAR2_ADDR    0x72200000ll
 #endif
 
 #ifndef ICC_USE_POLLING
@@ -95,8 +134,8 @@ MODULE_LICENSE("GPL");
 
 #else
 
-    #define IRAM_BASE_ADDR EP_BAR2_ADDR
-    #define IRAM_PING_ADDR EP_BAR2_ADDR
+    #define IRAM_BASE_ADDR EP_BAR_ADDR
+    #define IRAM_PING_ADDR EP_BAR_ADDR
     #define IRAM_POLL_ADDR RC_DDR_ADDR
 
 #endif
@@ -355,7 +394,7 @@ struct s32v_outbound_region {
 };
 
 static struct s32v_inbound_region inb1 = {
-    2,      /* BAR2 */
+    ICC_USE_BAR,      /* BAR2 */
     EP_DDR_ADDR,    /* locally-mapped DDR on EP */
     0       /* region 0 */
 };
@@ -380,20 +419,22 @@ static int pcie_mappings_init(void)
     ret = s32v_pcie_setup_outbound(&outb1);
 
     if (ret < 0) {
-        printk(KERN_ERR "[pcie_mappings_init] Error while setting outbound1 region\n");
+        printk(KERN_ERR "[pcie_mappings_init] Error while setting outbound region\n");
         goto err;
     } else {
-        printk("Outbound1 region setup successfully\n");
+        printk("Outbound region setup successfully\n");
+        printk("\tEP %#llx mapped to RC %#llx, size %d\n", outb1.base_addr, outb1.target_addr, outb1.size);
     }
 
     /* Same thing for inbound window for transactions from RC */
     ret = s32v_pcie_setup_inbound(&inb1);
 
     if (ret < 0) {
-        printk(KERN_ERR "[pcie_mappings_init] Error while setting inbound1 region\n");
+        printk(KERN_ERR "[pcie_mappings_init] Error while setting inbound region\n");
         goto err;
     } else {
-        printk("Inbound1 region setup successfully\n");
+        printk("Inbound region setup successfully\n");
+        printk("\tRC %#llx (BAR %d) mapped to EP %#llx, size %d\n", EP_BAR_ADDR, inb1.bar_nr, inb1.target_addr, EP_BAR_SIZE);
     }
 
 err:
