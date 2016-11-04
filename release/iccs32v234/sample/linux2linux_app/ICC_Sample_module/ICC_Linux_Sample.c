@@ -41,6 +41,9 @@
     #include <asm/atomic.h>
 #endif
 
+/* Un-comment this if you want to debug the virtual memory */
+//#define DUMP_SHARED_MEM
+
 #define RCV_BUF_SIZE 128
 #define SND_BUF_SIZE 128
 
@@ -331,6 +334,7 @@ int Start_ICC_Sample(void)
 #ifdef ICC_BUILD_FOR_M4
     /* Re-locate the objects in ICC_Config.c, at address IRAM_BASE_ADDR + 4 (first u32 is used for polling/synchronization) */
     ICC_Relocate_Config();
+    /* TODO: use incoming icc_bar.bar_size to validate that the RC can access all shared mem */
 #endif
 
     /* initialize ICC */
@@ -343,7 +347,7 @@ int Start_ICC_Sample(void)
 
     ICC_SAMPLE_LOG("ICC_Initialize ... done\n");
 
-#if 1
+#ifdef DUMP_SHARED_MEM
     ICC_Dump_Shared_Config();
 #endif
 

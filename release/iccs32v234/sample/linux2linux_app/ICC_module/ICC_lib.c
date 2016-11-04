@@ -77,6 +77,8 @@ MODULE_LICENSE("GPL");
 #define EP_PCIE_BASE_ADDR 0x72000000
 #define EP_DDR_ADDR 0x8FF00000
 
+#ifndef ICC_BUILD_FOR_M4
+
 /* define BARs for communication from the RC side
  * TODO: take them from device tree */
 #ifndef ICC_PCIE_SHMEM_BLUEBOX
@@ -118,11 +120,6 @@ MODULE_LICENSE("GPL");
 #define RC_DDR_ADDR     0x8FF00000
 #endif
 
-#ifndef ICC_USE_POLLING
-#define ICC_CONFIG_OFFSET_FROM_BASE 0
-#else
-/* first 32bits are for the poll variable */
-#define ICC_CONFIG_OFFSET_FROM_BASE (sizeof(uint64_t))
 #endif
 
 #ifdef ICC_BUILD_FOR_M4
@@ -146,6 +143,29 @@ MODULE_LICENSE("GPL");
 ICC_Config_t * ICC_Config_Ptr_M4;
 ICC_Config_t * ICC_Config_Ptr_M4_Remote;
 #endif
+
+struct s32v_bar {
+	uint64_t bar_addr;
+	uint32_t bar_size;
+};
+
+struct handshake {
+	struct s32v_bar rc_bar;
+	uint64_t rc_ddr_addr;
+};
+
+static struct s32v_bar icc_bar
+#ifndef ICC_BUILD_FOR_M4
+	/* BAR attributes are initialized on the RC side only */
+	= {
+			EP_BAR_ADDR,
+			EP_BAR_SIZE
+	}
+#endif
+;
+
+/* first 128 bits are for the hand shake */
+#define ICC_CONFIG_OFFSET_FROM_BASE (sizeof(struct handshake))
 
 struct ICC_device_data {
     struct cdev cdev;
@@ -230,11 +250,8 @@ static struct platform_driver ICC_driver = {
 /* Value for 'incoming data from peer' */
 #define WAKE_UP_PATTERN     0x42
 
-/* Value for 'peer is alive' */
-#define ALIVE_PATTERN       0x24
-
 /* Waiting value */
-#define WAIT_PATTERN        0x12
+#define WAIT_PATTERN        0x0
 
 u32 *poll_addr;
 u32 *ping_addr;
@@ -322,6 +339,86 @@ static void pcie_shmem_ping_exit(void)
     ping_addr = NULL;
 }
 
+#endif  /* ICC_USE_POLLING */
+
+/* following code is calling an api custom exported from the pcie driver */
+
+#ifdef ICC_BUILD_FOR_M4
+
+struct s32v_inbound_region {
+    uint32_t  bar_nr;
+    uint32_t  target_addr;
+    uint32_t  region;
+};
+
+struct s32v_outbound_region {
+    uint64_t target_addr;
+    uint64_t base_addr;
+    uint32_t size;
+    uint32_t region;
+    uint32_t region_type;
+};
+
+static struct s32v_inbound_region icc_inb = {
+    ICC_USE_BAR,      /* BAR2 */
+    EP_DDR_ADDR,    /* locally-mapped DDR on EP */
+    0       /* region 0 */
+};
+
+/* Outbound region structure */
+static struct s32v_outbound_region icc_outb = {
+    NULL,    /* target_addr */
+    EP_PCIE_BASE_ADDR,    /* base_addr */
+    MAP_DDR_SIZE,   /* size >= 64K(min for PCIE on S32V) */
+    0,      /* region number */
+    0       /* region type = mem */
+};
+
+extern int s32v_pcie_setup_outbound(void * data);
+extern int s32v_pcie_setup_inbound(void * data);
+
+static int pcie_init_inbound(void)
+{
+    int ret = 0;
+
+    /* Setup the inbound window for transactions from RC */
+    ret = s32v_pcie_setup_inbound(&icc_inb);
+
+    if (ret < 0) {
+        printk(KERN_ERR "[pcie_init_inbound] Error while setting inbound region\n");
+        goto err;
+    } else {
+        printk("Inbound region setup successfully\n");
+    }
+
+err:
+    return ret;
+}
+
+int pcie_init_outbound(void)
+{
+    int ret = 0;
+
+    /* Setup outbound window for accessing RC mem */
+    ret = s32v_pcie_setup_outbound(&icc_outb);
+
+    if (ret < 0) {
+        printk(KERN_ERR "[pcie_mappings_init] Error while setting outbound region\n");
+        goto err;
+    } else {
+        printk("Outbound region setup successfully\n");
+        printk("\tRC %#llx (BAR %d) mapped to EP %#llx, size %d\n", icc_bar.bar_addr, icc_inb.bar_nr, icc_inb.target_addr, icc_bar.bar_size);
+        printk("\tEP %#llx mapped to RC %#llx, size %d\n", icc_outb.base_addr, icc_outb.target_addr, icc_outb.size);
+    }
+
+err:
+    return ret;
+}
+
+#endif  /* ICC_BUILD_FOR_M4 */
+
+#ifdef ICC_USE_POLLING
+
 ICC_ATTR_SEC_TEXT_CODE
 void ICC_Notify_Remote( void )
 {
@@ -339,7 +436,14 @@ ICC_ATTR_SEC_TEXT_CODE
 void ICC_Notify_Remote_Alive( void )
 {
     if (ping_addr) {
-        *ping_addr = ALIVE_PATTERN;
+#ifdef ICC_BUILD_FOR_M4
+    	*ping_addr = WAKE_UP_PATTERN;
+#else
+    	struct handshake * phshake = (struct handshake *)ping_addr;
+    	phshake->rc_bar.bar_addr = IRAM_PING_ADDR;
+    	phshake->rc_bar.bar_size = EP_BAR_SIZE;
+        phshake->rc_ddr_addr = IRAM_POLL_ADDR;
+#endif
     }
 }
 
@@ -347,9 +451,16 @@ ICC_ATTR_SEC_TEXT_CODE
 void ICC_Wait_For_Peer( void )
 {
     u32 crt_val;
-    while ((crt_val = *poll_addr) != ALIVE_PATTERN) {
+    while ((crt_val = *poll_addr) == WAIT_PATTERN) {
         msleep_interruptible(POLL_TIMEOUT_MS);
     }
+#ifdef ICC_BUILD_FOR_M4
+    struct handshake * phshake = (struct handshake *)poll_addr;
+    icc_outb.target_addr = phshake->rc_ddr_addr;
+    icc_bar.bar_addr = phshake->rc_bar.bar_addr;
+    icc_bar.bar_size = phshake->rc_bar.bar_addr;
+    pcie_init_outbound();
+#endif
     *poll_addr = WAIT_PATTERN;
 }
 
@@ -373,79 +484,7 @@ void ICC_Clear_Notify_Local( void )
 }
 #endif
 
-#endif  /* ICC_USE_POLLING */
-
-/* following code is calling an api custom exported from the pcie driver */
-
-#ifdef ICC_BUILD_FOR_M4
-
-struct s32v_inbound_region {
-    uint32_t  bar_nr;
-    uint32_t  target_addr;
-    uint32_t  region;
-};
-
-struct s32v_outbound_region {
-    uint64_t target_addr;
-    uint64_t base_addr;
-    uint32_t size;
-    uint32_t region;
-    uint32_t region_type;
-};
-
-static struct s32v_inbound_region inb1 = {
-    ICC_USE_BAR,      /* BAR2 */
-    EP_DDR_ADDR,    /* locally-mapped DDR on EP */
-    0       /* region 0 */
-};
-
-/* Outbound region structure */
-static struct s32v_outbound_region outb1 = {
-    RC_DDR_ADDR,    /* target_addr */
-    EP_PCIE_BASE_ADDR,    /* base_addr */
-    MAP_DDR_SIZE,   /* size >= 64K(min for PCIE on S32V) */
-    0,      /* region number */
-    0       /* region type = mem */
-};
-
-extern int s32v_pcie_setup_outbound(void * data);
-extern int s32v_pcie_setup_inbound(void * data);
-
-static int pcie_mappings_init(void)
-{
-    int ret = 0;
-
-    /* Setup outbound window for accessing RC mem */
-    ret = s32v_pcie_setup_outbound(&outb1);
-
-    if (ret < 0) {
-        printk(KERN_ERR "[pcie_mappings_init] Error while setting outbound region\n");
-        goto err;
-    } else {
-        printk("Outbound region setup successfully\n");
-        printk("\tEP %#llx mapped to RC %#llx, size %d\n", outb1.base_addr, outb1.target_addr, outb1.size);
-    }
-
-    /* Same thing for inbound window for transactions from RC */
-    ret = s32v_pcie_setup_inbound(&inb1);
-
-    if (ret < 0) {
-        printk(KERN_ERR "[pcie_mappings_init] Error while setting inbound region\n");
-        goto err;
-    } else {
-        printk("Inbound region setup successfully\n");
-        printk("\tRC %#llx (BAR %d) mapped to EP %#llx, size %d\n", EP_BAR_ADDR, inb1.bar_nr, inb1.target_addr, EP_BAR_SIZE);
-    }
-
-err:
-    return ret;
-}
-
-static void pcie_mappings_exit(void)
-{
-}
-
-#endif  /* ICC_BUILD_FOR_M4 */
+#endif
 
 static int ICC_dev_open(struct inode *inode, struct file *file)
 {
@@ -495,10 +534,6 @@ static void local_cleanup(void)
         release_mem_region(IRAM_BASE_ADDR, MAP_DDR_SIZE);
     }
 
-#ifdef ICC_BUILD_FOR_M4
-    pcie_mappings_exit();
-#endif
-
 #ifndef ICC_USE_POLLING
     platform_driver_unregister(&ICC_driver);
 #else
@@ -518,7 +553,9 @@ static int __init ICC_dev_init(void)
 {
     int err;
     int i;
+#ifndef ICC_BUILD_FOR_M4
     uint64_t * shared_start = NULL;
+#endif
 
     printk(LOG_LEVEL "[ICC_dev_init] Freescale ICC linux driver\n");
 
@@ -573,7 +610,7 @@ static int __init ICC_dev_init(void)
 
 #ifdef ICC_BUILD_FOR_M4
     /* setup PCIE */
-    pcie_mappings_init();
+    pcie_init_inbound();
 #endif
 
 #ifdef ICC_USE_POLLING
