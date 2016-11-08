@@ -126,7 +126,7 @@ void ICC_Notify_Remote_Alive( void );
 
 ICC_ATTR_SEC_TEXT_CODE
 extern
-void ICC_Wait_For_Peer( void );
+ICC_Err_t ICC_Wait_For_Peer( void );
 
 #endif
 

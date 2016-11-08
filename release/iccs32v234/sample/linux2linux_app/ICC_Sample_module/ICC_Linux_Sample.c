@@ -355,7 +355,10 @@ int Start_ICC_Sample(void)
 
 #ifdef ICC_BUILD_FOR_M4
     ICC_SAMPLE_LOG("Waiting for peer ...\n");
-    ICC_Wait_For_Peer();
+    if ((return_code = ICC_Wait_For_Peer() != ICC_SUCCESS)) {
+    	ICC_SAMPLE_LOG("failed\n");
+    	return return_code;
+    }
 #else
     ICC_SAMPLE_LOG("Notifying peer ...\n");
     ICC_Notify_Remote_Alive();

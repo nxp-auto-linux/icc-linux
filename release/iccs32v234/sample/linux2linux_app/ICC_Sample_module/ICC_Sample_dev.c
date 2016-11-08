@@ -88,6 +88,8 @@ static const struct file_operations ICC_Sample_fops = {
     .release = ICC_Sample_dev_release,
 };
 
+static int ICC_Sample_dev_exit(void);
+
 static int ICC_Sample_dev_init(void)
 {
     int err=0;
@@ -113,7 +115,12 @@ static int ICC_Sample_dev_init(void)
     /* Start the ICC Linux Sample */
     if ( Start_ICC_Sample() != 0 ) err=-1;
 
-    printk(LOG_LEVEL "Finishing the initialization of the ICC_Sample_dev \n");
+    if (!err) {
+    	printk(LOG_LEVEL "Finishing the initialization of the ICC_Sample_dev \n");
+    }
+    else {
+    	ICC_Sample_dev_exit();
+    }
 
     return err;
 }

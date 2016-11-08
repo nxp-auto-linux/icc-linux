@@ -176,14 +176,6 @@ ICC_Fifo_Os_Config0[][ 2 ] = {
 
 };
 
-#else
-
-ICC_ATTR_SEC_CONST_UNSPECIFIED
-const
-STATIC_ALLOC
-ICC_Fifo_Os_Config_t
-ICC_Fifo_Os_Config0[][ 2 ] = {{ 0 }};
-
 #endif /* ICC_FSL_AUTOSAR_OS */
 
 #endif /* ICC_BUILD_FOR_M4 */
@@ -517,8 +509,6 @@ ICC_Config_t ICC_Config0 = {
 
 #ifdef ICC_BUILD_FOR_M4
 
-RELOCATABLE(ICC_Fifo_Os_Config0);
-
 RELOCATABLE(ICC_Cfg0_ChannelsConfig);
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
@@ -548,8 +538,6 @@ extern char * ICC_Relocate_Config(void)
         return NULL;
     }
 
-    //RELOCATE_ICC_Fifo_Os_Config_t_Array(dest, ICC_Fifo_Os_Config0);
-
     RELOCATE_ICC_Channel_Config_t_Array(dest, ICC_Cfg0_ChannelsConfig);
 
     RELOCATE_ICC_Runtime_Shared_t(dest, ICC_Runtime_Shared);
@@ -573,16 +561,6 @@ EXPORT_SYMBOL(ICC_Relocate_Config);
 extern
 ICC_Config_t * ICC_Config_Ptr_M4;          /**< pointer to M4 current configuration */
 #endif
-
-#define MB (1024 * 1024)
-
-#define BUF_SIZE (10 * MB)
-char out[BUF_SIZE];
-
-void reset(char out[BUF_SIZE])
-{
-    memset(out, 0, BUF_SIZE);
-}
 
 extern int ICC_Dump_Shared_Config(void)
 {

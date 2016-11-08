@@ -1,5 +1,5 @@
 /**
-*   @file    ICC_dev.c
+*   @file    ICC_lib.c
 *   @version 0.0.2
 *
 *   @brief   ICC - Inter Core Communication device driver
@@ -59,7 +59,6 @@ MODULE_LICENSE("GPL");
 #define NUM_MINORS      1
 
 #define LOG_LEVEL       KERN_ALERT
-#define PARAM_PERM      S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP
 
 #ifndef ICC_USE_BAR
 #define ICC_USE_BAR 	2
@@ -154,15 +153,15 @@ struct handshake {
 	uint64_t rc_ddr_addr;
 };
 
-static struct s32v_bar icc_bar
 #ifndef ICC_BUILD_FOR_M4
-	/* BAR attributes are initialized on the RC side only */
-	= {
-			EP_BAR_ADDR,
-			EP_BAR_SIZE
-	}
+/* BAR attributes are initialized on the RC side only */
+static struct s32v_bar icc_bar = {
+		EP_BAR_ADDR,
+		EP_BAR_SIZE
+};
+#else
+static struct s32v_bar icc_bar;
 #endif
-;
 
 /* first 128 bits are for the hand shake */
 #define ICC_CONFIG_OFFSET_FROM_BASE (sizeof(struct handshake))
@@ -182,7 +181,7 @@ struct ICC_platform_data {
     unsigned int local_irq;
 };
 
-struct ICC_platform_data * icc_data;
+static struct ICC_platform_data * icc_data;
 
 static struct of_device_id ICC_dt_ids[] = {
     {
@@ -248,17 +247,22 @@ static struct platform_driver ICC_driver = {
 #include <linux/delay.h>
 
 /* Value for 'incoming data from peer' */
-#define WAKE_UP_PATTERN     0x42
-
+#define WAKE_UP_PATTERN     0x42  /* answer to life the universe and everything */
 /* Waiting value */
 #define WAIT_PATTERN        0x0
 
-u32 *poll_addr;
-u32 *ping_addr;
-
 #define POLL_TIMEOUT_MS 1
 
-struct task_struct *poll_thread;
+#define ICC_Sleep(timeout) msleep_interruptible(timeout)
+
+struct ping_poll {
+	u32 *poll_addr;
+	u32 *ping_addr;
+	struct task_struct *poll_thread;
+	struct task_struct *notify_thread;
+};
+
+static struct ping_poll icc_polling = {0, 0, 0, 0, false, false};
 
 ICC_ATTR_SEC_TEXT_CODE
 extern void
@@ -269,13 +273,15 @@ static int poll_thread_fn(void *arg)
     u32 *addr = (u32 *)arg;
 
     while (!kthread_should_stop()) {
-        msleep_interruptible(POLL_TIMEOUT_MS);
+    	ICC_Sleep(POLL_TIMEOUT_MS);
         if (*addr == WAKE_UP_PATTERN) {
             /* event detected */
             ICC_Remote_Event_Handler();
             *addr = WAIT_PATTERN;
         }
     }
+
+    icc_polling.poll_thread = NULL; /* notify completion */
 
     return 0;
 }
@@ -284,18 +290,18 @@ static int pcie_shmem_poll_init(void)
 {
     int err = 0;
 
-    poll_addr = (u32 *)ioremap_nocache(IRAM_POLL_ADDR, SZ_4K);
-    if (!poll_addr) {
+    icc_polling.poll_addr = (u32 *)ioremap_nocache(IRAM_POLL_ADDR, SZ_4K);
+    if (!icc_polling.poll_addr) {
         pr_warn("Could not ioremap %#llx\n", IRAM_POLL_ADDR);
         err = -EIO;
         goto ioremap_error;
     }
     /* Initialize it before we poll for changes */
-    *poll_addr = WAIT_PATTERN;
+    *icc_polling.poll_addr = WAIT_PATTERN;
 
     /* Start the polling thread */
-    poll_thread = kthread_run(poll_thread_fn, poll_addr, "shmem_poll_thread");
-    if (IS_ERR(poll_thread)) {
+    icc_polling.poll_thread = kthread_run(poll_thread_fn, icc_polling.poll_addr, "shmem_poll_thread");
+    if (IS_ERR(icc_polling.poll_thread)) {
         pr_warn("Error starting poll thread");
         err = -EFAULT;
         goto poll_thread_error;
@@ -304,28 +310,37 @@ static int pcie_shmem_poll_init(void)
     return 0;
 
 poll_thread_error:
-    iounmap(poll_addr);
-    poll_addr = NULL;
+    iounmap(icc_polling.poll_addr);
+    icc_polling.poll_addr = NULL;
+    icc_polling.poll_thread = NULL;
 ioremap_error:
     return err;
 }
 
 static void pcie_shmem_poll_exit(void)
 {
-    if (poll_thread) {
-        kthread_stop(poll_thread);
-        poll_thread = NULL;
+    if (icc_polling.poll_thread) {
+        kthread_stop(icc_polling.poll_thread);
     }
-    iounmap(poll_addr);
-    poll_addr = NULL;
+
+    if (icc_polling.notify_thread) {
+        kthread_stop(icc_polling.notify_thread);
+    }
+
+    /* wait for the threads to actually stop, before cutting off the addresses */
+    while (icc_polling.poll_thread || icc_polling.notify_thread) {
+    	msleep_interruptible(POLL_TIMEOUT_MS);
+    }
+    iounmap(icc_polling.poll_addr);
+    icc_polling.poll_addr = NULL;
 }
 
 static int pcie_shmem_ping_init(void)
 {
     int err = 0;
 
-    ping_addr = (u32 *)ioremap_nocache(IRAM_PING_ADDR, SZ_4K);
-    if (!ping_addr) {
+    icc_polling.ping_addr = (u32 *)ioremap_nocache(IRAM_PING_ADDR, SZ_4K);
+    if (!icc_polling.ping_addr) {
         pr_warn("Could not ioremap %#x\n", IRAM_PING_ADDR);
         return -EIO;
     }
@@ -335,8 +350,8 @@ static int pcie_shmem_ping_init(void)
 
 static void pcie_shmem_ping_exit(void)
 {
-    iounmap(ping_addr);
-    ping_addr = NULL;
+    iounmap(icc_polling.ping_addr);
+    icc_polling.ping_addr = NULL;
 }
 
 #endif  /* ICC_USE_POLLING */
@@ -420,26 +435,41 @@ err:
 #ifdef ICC_USE_POLLING
 
 ICC_ATTR_SEC_TEXT_CODE
-void ICC_Notify_Remote( void )
+ICC_Err_t ICC_Notify_Remote( void )
 {
-    u32 crt_val = WAIT_PATTERN;
-    if (ping_addr) {
-        /* wait for the peer to become available */
-        while ((crt_val = *ping_addr) != WAIT_PATTERN) {
-            msleep_interruptible(POLL_TIMEOUT_MS);
-        }
-        *ping_addr = WAKE_UP_PATTERN;
+    if (!icc_polling.ping_addr) {
+    	return ICC_ERR_PARAM_INVAL;
     }
+
+	if (!icc_polling.notify_thread) {
+		icc_polling.notify_thread = get_current();
+	}
+
+	/* wait for the peer to become available */
+	while (!kthread_should_stop() && (*icc_polling.ping_addr != WAIT_PATTERN)) {
+		ICC_Sleep(POLL_TIMEOUT_MS);
+	}
+
+	if (kthread_should_stop()) {
+		/* we cannot have both ICC_Wait_For_Peer and ICC_Notiy_Remote running
+			the same time on the on the same thread or even on the same CPU */
+		icc_polling.notify_thread = NULL;
+		return ICC_ERR_TIMEOUT;
+	}
+
+	*icc_polling.ping_addr = WAKE_UP_PATTERN;
+
+    return ICC_SUCCESS;
 }
 
 ICC_ATTR_SEC_TEXT_CODE
 void ICC_Notify_Remote_Alive( void )
 {
-    if (ping_addr) {
+    if (icc_polling.ping_addr) {
 #ifdef ICC_BUILD_FOR_M4
-    	*ping_addr = WAKE_UP_PATTERN;
+    	*icc_polling.ping_addr = WAKE_UP_PATTERN;
 #else
-    	struct handshake * phshake = (struct handshake *)ping_addr;
+    	struct handshake * phshake = (struct handshake *)icc_polling.ping_addr;
     	phshake->rc_bar.bar_addr = IRAM_PING_ADDR;
     	phshake->rc_bar.bar_size = EP_BAR_SIZE;
         phshake->rc_ddr_addr = IRAM_POLL_ADDR;
@@ -448,20 +478,36 @@ void ICC_Notify_Remote_Alive( void )
 }
 
 ICC_ATTR_SEC_TEXT_CODE
-void ICC_Wait_For_Peer( void )
+ICC_Err_t ICC_Wait_For_Peer( void )
 {
-    u32 crt_val;
-    while ((crt_val = *poll_addr) == WAIT_PATTERN) {
-        msleep_interruptible(POLL_TIMEOUT_MS);
+	if (!icc_polling.poll_addr) {
+		return ICC_ERR_PARAM_INVAL;
+	}
+
+	if (!icc_polling.notify_thread) {
+		icc_polling.notify_thread = get_current();
+	}
+    while (!kthread_should_stop() && (*icc_polling.poll_addr == WAIT_PATTERN)) { /* this is the notify_thread */
+   		ICC_Sleep(POLL_TIMEOUT_MS);
     }
+
+    if (kthread_should_stop()) {
+    	/* we cannot have both ICC_Wait_For_Peer and ICC_Notiy_Remote running
+    		the same time on the on the same thread */
+    	icc_polling.notify_thread = NULL;
+    	return ICC_ERR_TIMEOUT;
+    }
+
 #ifdef ICC_BUILD_FOR_M4
-    struct handshake * phshake = (struct handshake *)poll_addr;
+    struct handshake * phshake = (struct handshake *)icc_polling.poll_addr;
     icc_outb.target_addr = phshake->rc_ddr_addr;
     icc_bar.bar_addr = phshake->rc_bar.bar_addr;
     icc_bar.bar_size = phshake->rc_bar.bar_addr;
     pcie_init_outbound();
 #endif
-    *poll_addr = WAIT_PATTERN;
+    *icc_polling.poll_addr = WAIT_PATTERN;
+
+    return ICC_SUCCESS;
 }
 
 ICC_ATTR_SEC_TEXT_CODE
