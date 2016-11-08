@@ -12,10 +12,6 @@ ifeq ($(CONFIG),BB_RC)
     EXTRA_CFLAGS += -DICC_PCIE_SHMEM_BLUEBOX
 endif
 
-ifeq ($(CONFIG),BB_EP)
-    EXTRA_CFLAGS += -DICC_BUILD_FOR_M4 -DICC_PCIE_SHMEM_BLUEBOX
-endif
-
 INCLUDE_DEPENDENCIES := -I$(SRC_ROOT)/code/linux/inc \
                         -I$(SRC_ROOT)/code/linux/os \
                         -I$(SRC_ROOT)/code/linux/os/Linux \

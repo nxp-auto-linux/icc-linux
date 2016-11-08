@@ -21,10 +21,9 @@
 
 # CONFIG can be one of:
 # RTOS (for RTOS/Linux on the same board)
-# EP for EndPoint (s32v234 pcie), in an s32v234 pcie / evb setup for Linux over PCIE
+# EP for EndPoint (s32v234 pcie)
 # RC for RootComplex (s32v234 evb), in an s32v234 pcie / evb setup for Linux over PCIE
-# BB_EP for EndPoint (s32v234 pcie), in a BlueBox setup setup for Linux over PCIE
-# BB_RC for RootComplex (ls208xa rdb), in a BlueBox setup setup for Linux over PCIE
+# BB_RC for RootComplex (ls208xx rdb), in a BlueBox setup setup for Linux over PCIE
 CONFIG ?= RTOS
 
 ifeq ($(CONFIG),RTOS)

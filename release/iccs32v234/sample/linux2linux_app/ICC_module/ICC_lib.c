@@ -259,10 +259,10 @@ struct ping_poll {
 	u32 *poll_addr;
 	u32 *ping_addr;
 	struct task_struct *poll_thread;
-	struct task_struct *notify_thread;
+	bool terminate_communication;
 };
 
-static struct ping_poll icc_polling = {0, 0, 0, 0, false, false};
+static struct ping_poll icc_polling = {0, 0, 0, false};
 
 ICC_ATTR_SEC_TEXT_CODE
 extern void
@@ -323,14 +323,11 @@ static void pcie_shmem_poll_exit(void)
         kthread_stop(icc_polling.poll_thread);
     }
 
-    if (icc_polling.notify_thread) {
-        kthread_stop(icc_polling.notify_thread);
-    }
+    icc_polling.terminate_communication = true;
 
-    /* wait for the threads to actually stop, before cutting off the addresses */
-    while (icc_polling.poll_thread || icc_polling.notify_thread) {
-    	msleep_interruptible(POLL_TIMEOUT_MS);
-    }
+    /* wait for any threads/communication to actually stop, before cutting off the addresses */
+   	msleep_interruptible(100);
+
     iounmap(icc_polling.poll_addr);
     icc_polling.poll_addr = NULL;
 }
@@ -441,19 +438,14 @@ ICC_Err_t ICC_Notify_Remote( void )
     	return ICC_ERR_PARAM_INVAL;
     }
 
-	if (!icc_polling.notify_thread) {
-		icc_polling.notify_thread = get_current();
-	}
-
 	/* wait for the peer to become available */
-	while (!kthread_should_stop() && (*icc_polling.ping_addr != WAIT_PATTERN)) {
+	while (!icc_polling.terminate_communication && (*icc_polling.ping_addr != WAIT_PATTERN)) {
 		ICC_Sleep(POLL_TIMEOUT_MS);
 	}
 
-	if (kthread_should_stop()) {
+	if (icc_polling.terminate_communication) {
 		/* we cannot have both ICC_Wait_For_Peer and ICC_Notiy_Remote running
-			the same time on the on the same thread or even on the same CPU */
-		icc_polling.notify_thread = NULL;
+			the same time on the module (kernel) thread or even on the same CPU */
 		return ICC_ERR_TIMEOUT;
 	}
 
@@ -484,17 +476,14 @@ ICC_Err_t ICC_Wait_For_Peer( void )
 		return ICC_ERR_PARAM_INVAL;
 	}
 
-	if (!icc_polling.notify_thread) {
-		icc_polling.notify_thread = get_current();
-	}
-    while (!kthread_should_stop() && (*icc_polling.poll_addr == WAIT_PATTERN)) { /* this is the notify_thread */
+    while (!icc_polling.terminate_communication && (*icc_polling.poll_addr == WAIT_PATTERN)) {
    		ICC_Sleep(POLL_TIMEOUT_MS);
     }
 
-    if (kthread_should_stop()) {
+    if (icc_polling.terminate_communication) {
     	/* we cannot have both ICC_Wait_For_Peer and ICC_Notiy_Remote running
     		the same time on the on the same thread */
-    	icc_polling.notify_thread = NULL;
+    	icc_polling.terminate_communication = false;
     	return ICC_ERR_TIMEOUT;
     }
 

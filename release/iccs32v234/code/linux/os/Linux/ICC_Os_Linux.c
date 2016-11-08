@@ -294,8 +294,8 @@ ICC_OS_Finalize(void)
 {
 
 #ifndef ICC_CFG_NO_TIMEOUT
-    ICC_Fifo_Ram_t           * fifo_ram;
-    ICC_Fifo_Os_Ram_t        * fifo_os_ram;
+    ICC_Fifo_Ram_t           * fifo_ram = NULL;
+    ICC_Fifo_Os_Ram_t        * fifo_os_ram = NULL;
 #endif /* no ICC_CFG_NO_TIMEOUT */
 
 #ifndef ICC_USE_POLLING
@@ -320,9 +320,9 @@ ICC_OS_Finalize(void)
 #ifndef ICC_CFG_NO_TIMEOUT
     /* free the waitqueue */
     fifo_ram    = &((*ICC_Fifo_Ram)[0][0]);
-    fifo_os_ram = ICC_CROSS_VALUE_OF(fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]);
+   	fifo_os_ram = ICC_CROSS_VALUE_OF(fifo_ram->fifo_os_ram[ ICC_GET_CORE_ID ]);
 
-    if( fifo_os_ram->wait_queue != NULL )
+    if (fifo_os_ram && (fifo_os_ram->wait_queue != NULL))
     {
         kfree( fifo_os_ram->wait_queue );
     }
