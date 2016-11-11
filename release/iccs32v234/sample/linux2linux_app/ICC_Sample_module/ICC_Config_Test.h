@@ -1,9 +1,36 @@
-/*
- * ICC_Config_Test.h
- *
- *  Created on: Oct 28, 2016
- *      Author: vcvv001
- */
+/**
+*   @file    ICC_Config_Test.h
+*   @version 0.0.1
+*
+*   @brief   ICC - Inter Core Communication Config Logging Support
+*   @details       Support for Logging Inter Core Communication Config data in
+*                  a human readable format.
+*/
+/*==================================================================================================
+*   Project              : ICC
+*   Platform             : ARM
+*   Peripheral           :
+*   Dependencies         : none
+*
+*   Build Version        :
+*
+*   (c) Copyright 2016 NXP
+*
+*   This program is free software; you can redistribute it and/or
+*   modify it under the terms of the GNU General Public License
+*   as published by the Free Software Foundation; either version 2
+*   of the License, or (at your option) any later version
+*
+*   This program is distributed in the hope that it will be useful,
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*   GNU General Public License for more details.
+*
+*   You should have received a copy of the GNU General Public License
+*   along with this program; if not, write to the Free Software
+*   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*
+==================================================================================================*/
 
 #include "ICC_Config.h"
 
@@ -81,21 +108,6 @@ int print_ICC_Fifo_Config_t(ICC_Fifo_Config_t * obj)
     return count;
 }
 
-/*int print_ICC_Runtime_Shared_t(struct ICC_Runtime_Shared_t * obj)
-{
-    int count = 0;
-    if (!obj) {
-        return count;
-    }
-
-    PR_FIELDARRAYX(obj, ICC_Initialized_Shared, false);
-    PR_FIELDARRAYX(obj, ICC_Node_Sig_Fifo_Ram_Shared, false);
-    PR_FIELDARRAYX(obj, ICC_Channels_Ram_Shared, false);
-    PR_FIELDARRAYX(obj, ICC_Fifo_Ram_Shared, false);
-
-    return count;
-}*/
-
 int print_ICC_Channel_Config_t_Array(char * obj, int size)
 {
     int count = 0;
@@ -139,8 +151,10 @@ int print_ICC_Config_t(ICC_Config_t * obj)
     }
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
-    // TODO: print function not implemented
-    // count += print_ICC_Heartbeat_Os_Config((char *)*ICC_CROSS_VALUE_OF(obj->ICC_Heartbeat_Os_Config), sizeof(ICC_Heartbeat_Os_Config0), test_reloc);
+    /* TODO: print function not implemented.
+     * When implemented, the call should look something like:
+     * count += print_ICC_Heartbeat_Os_Config((char *)*ICC_CROSS_VALUE_OF(obj->ICC_Heartbeat_Os_Config), sizeof(ICC_Heartbeat_Os_Config0), test_reloc);
+     */
 #endif
 
     PR_FIELDADDR(obj, Node_Update_Cb);

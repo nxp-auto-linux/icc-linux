@@ -137,7 +137,7 @@ static int ICC_Sample_dev_exit(void)
     unregister_chrdev_region(dev_no, NUM_MINORS);
     printk(LOG_LEVEL "Finishing unregister the ICC_Sample_dev \n");
 
-    // wait for any thread activity to Finishing
+    // wait for any thread activity to finish
     msleep(100);
 
     return err;

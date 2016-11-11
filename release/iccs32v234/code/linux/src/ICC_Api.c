@@ -137,7 +137,7 @@ extern "C"
 #include "ICC_MemMap.h"
 
 
-
+#ifndef ICC_BUILD_FOR_M4
 
 ICC_ATTR_SEC_TEXT_CODE
 static
@@ -170,7 +170,7 @@ ICC_Compare_Fifo_Conf( const ICC_Fifo_Config_t * fifo_config_APP,
 
 }
 
-
+#endif
 
 /*===============================================================================================*
  *                                       GLOBAL FUNCTIONS                                        *
@@ -188,7 +188,7 @@ ICC_Err_t ICC_Notify_Remote( void );
 
 ICC_ATTR_SEC_TEXT_CODE
 extern
-void ICC_Clear_Notify_Remote( void );
+void ICC_Clear_Notify_From_Remote( void );
 
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
 ICC_ATTR_SEC_TEXT_CODE
@@ -209,7 +209,7 @@ ICC_Err_t ICC_Notify_Remote(void)
 }
 
 ICC_ATTR_SEC_TEXT_CODE
-void ICC_Clear_Notify_Remote(void)
+void ICC_Clear_Notify_From_Remote(void)
 {
     ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_CPU2CPU_IRQ);
 }
@@ -1293,7 +1293,7 @@ ICC_Remote_Event_Handler(void)
     unsigned int hb_channel_id;
     #endif
     
-    ICC_Clear_Notify_Remote();
+    ICC_Clear_Notify_From_Remote();
 
 
     /*

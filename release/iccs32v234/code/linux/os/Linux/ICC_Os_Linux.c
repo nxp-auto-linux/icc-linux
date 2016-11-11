@@ -124,6 +124,7 @@ ICC_Local_Event_Handler(void);
 
 #endif
 
+#ifndef ICC_USE_POLLING
 ICC_ATTR_SEC_TEXT_CODE
 static
 irqreturn_t
@@ -133,6 +134,7 @@ ICC_Cpu2Cpu_ISR_Handler(int irq, void *dev_id)
 
     return IRQ_HANDLED;
 }
+#endif
 
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
 static
@@ -241,7 +243,7 @@ extern unsigned int ICC_get_local_irq(void);
 #endif
 
 extern
-void ICC_Clear_Notify_Remote(void);
+void ICC_Clear_Notify_From_Remote(void);
 
 #endif
 
@@ -259,7 +261,7 @@ ICC_Err_t ICC_OS_Init_Interrupts( void )
 
     if ( ICC_NODE_STATE_UNINIT == (*ICC_Initialized)[ ICC_GET_REMOTE_CORE_ID ] )
     {
-       ICC_Clear_Notify_Remote();
+       ICC_Clear_Notify_From_Remote();
     }
 
     /* request interrupt line for inter-core notifications */

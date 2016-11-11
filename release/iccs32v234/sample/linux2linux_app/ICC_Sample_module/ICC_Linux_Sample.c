@@ -44,6 +44,13 @@
 /* Un-comment this if you want to debug the virtual memory */
 //#define DUMP_SHARED_MEM
 
+/* The following 2 macros define what is displayed by the applications:
+ * - statistics - a statistic with ICC_Data_kthread execution count and average time - every n seconds
+ * - verbose - a message for every data sent/received by ICC_Data_kthread
+ */
+#define ICC_STATISTICS
+//#define VERBOSE_LOG
+
 #define RCV_BUF_SIZE 128
 #define SND_BUF_SIZE 128
 
@@ -57,15 +64,17 @@
 /* see all traffic in kernel log */
 #define ICC_SAMPLE_LOG(...) printk(KERN_ALERT __VA_ARGS__)
 
-volatile unsigned int watch_CB_Rx[2];
-volatile unsigned int watch_CB_Tx[2];
-volatile unsigned int watch_CB_Ch[2];
+#define ICC_NUM_CORES 2
 
-volatile unsigned int watch_Ch_Rx_ok[2];
-volatile unsigned int watch_Ch_Tx_ok[2];
+volatile unsigned int watch_CB_Rx[ICC_NUM_CORES];
+volatile unsigned int watch_CB_Tx[ICC_NUM_CORES];
+volatile unsigned int watch_CB_Ch[ICC_NUM_CORES];
 
-volatile unsigned int watch_Ch_Rx_ko[2];
-volatile unsigned int watch_Ch_Tx_ko[2];
+volatile unsigned int watch_Ch_Rx_ok[ICC_NUM_CORES];
+volatile unsigned int watch_Ch_Tx_ok[ICC_NUM_CORES];
+
+volatile unsigned int watch_Ch_Rx_ko[ICC_NUM_CORES];
+volatile unsigned int watch_Ch_Tx_ko[ICC_NUM_CORES];
 
 volatile unsigned int watch_CB_Node;
 
@@ -73,6 +82,35 @@ unsigned char snd_buffer[SND_BUF_SIZE];
 unsigned char rcv_buffer[RCV_BUF_SIZE];
 
 volatile atomic_t thread_on = { 1 };
+
+#ifdef ICC_STATISTICS
+
+#define ICC_PRINT_STATS_DELAY_SEC 2
+
+#include <linux/time.h>
+
+struct icc_func_stat_t {
+    uint32_t func_calls;
+    struct timespec func_time_ns;
+};
+
+static struct icc_func_stat_t icc_data_thread_stat = {0};
+static uint64_t icc_last_func_sec;
+
+#endif
+
+static inline uint64_t get_ns(struct timespec *ts1, struct timespec *ts2)
+{
+	uint64_t val = 0;
+	if (ts1) {
+		val = ts1->tv_sec * NSEC_PER_SEC + ts1->tv_nsec;
+		if (ts2) {
+			val -= (ts2->tv_sec * NSEC_PER_SEC + ts2->tv_nsec);
+		}
+	}
+
+	return val;
+}
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
     /* heartbeat flag which determine if the node is prepared for the heartbeat mechanism */
@@ -109,9 +147,6 @@ int ICC_HeartBeat_kthread(void *data)
 }
 #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
-
-#define VERBOSE_LOG
-
 #ifdef ICC_BUILD_FOR_M4
 #define SEND_TEXT "Hello_RootComplex"
 #else
@@ -136,9 +171,11 @@ inline ICC_Err_t ICC_Data_Send(ICC_Timeout_t timeout)
         watch_Ch_Tx_ko[channel_id]++;
     } else {
         watch_Ch_Tx_ok[channel_id]++;
+#ifdef VERBOSE_LOG
         ICC_SAMPLE_LOG("Push: Tx message [%d] to [%u] via ch [%u]: %s \n",
                 watch_Ch_Tx_ok[channel_id], ICC_GET_REMOTE_CORE_ID,
                 channel_id, snd_buffer );
+#endif
     }
 
     return icc_status;
@@ -160,9 +197,11 @@ inline ICC_Err_t ICC_Data_Receive(ICC_Timeout_t timeout)
 
     } else {
         watch_Ch_Rx_ok[channel_id]++;
+#ifdef VERBOSE_LOG
         ICC_SAMPLE_LOG("POP: Receive message [%d] from [%u] via ch [%u]: %s \n",
                 watch_Ch_Rx_ok[channel_id], ICC_GET_REMOTE_CORE_ID,
                 channel_id, rcv_buffer );
+#endif
     }
 
     return icc_status;
@@ -173,14 +212,16 @@ int ICC_Data_kthread(void *data)
     ICC_Err_t      icc_status = ICC_SUCCESS;
     ICC_Timeout_t  timeout = ICC_WAIT_FOREVER;
 
-    /* Ignore the timeout for now */
-    /*if ( ICC_CROSS_VALUE_OF(ICC_Default_Config_Ptr->Channels_Ptr)[channel_id].fifos_cfg[ICC_RX_FIFO].fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED ) {
+    /* Ignore the timeout for now, we'll re-enable it in the future:
+    if ( ICC_CROSS_VALUE_OF(ICC_Default_Config_Ptr->Channels_Ptr)[channel_id].fifos_cfg[ICC_RX_FIFO].fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED ) {
         timeout = ICC_WAIT_FOREVER;
     } else {
         timeout = ICC_WAIT_ZERO;
     }*/
 
     while ((icc_status == ICC_SUCCESS) && atomic_read(&thread_on)) {
+    	struct timespec ts1 = {0};
+    	getnstimeofday(&ts1);
 
 #ifdef ICC_BUILD_FOR_M4
 
@@ -195,6 +236,27 @@ int ICC_Data_kthread(void *data)
         icc_status = ICC_Data_Send(timeout);
 #endif
 
+#ifdef ICC_STATISTICS
+        if (icc_status == ICC_SUCCESS) {
+            struct timespec ts2 = {0};
+            uint64_t exec_time_ns;
+            getnstimeofday(&ts2);
+
+            icc_data_thread_stat.func_calls++;
+            /* in the following assignments we don't care for nanoseconds overflow */
+            icc_data_thread_stat.func_time_ns.tv_sec += ts2.tv_sec;
+            icc_data_thread_stat.func_time_ns.tv_sec -= ts1.tv_sec;
+            icc_data_thread_stat.func_time_ns.tv_nsec += ts2.tv_nsec;
+            icc_data_thread_stat.func_time_ns.tv_nsec -= ts1.tv_nsec;
+            exec_time_ns = get_ns(&ts2, NULL);
+            if ((exec_time_ns / NSEC_PER_SEC - icc_last_func_sec) > ICC_PRINT_STATS_DELAY_SEC) {
+                ICC_SAMPLE_LOG("icc data kthread: exec %d times; %llu ns in average\n",
+                                icc_data_thread_stat.func_calls,
+                                get_ns(&icc_data_thread_stat.func_time_ns, NULL) / icc_data_thread_stat.func_calls);
+                icc_last_func_sec = exec_time_ns / NSEC_PER_SEC;
+            }
+        }
+#endif
     }; /* end while(1) */
 
     ICC_SAMPLE_LOG("ICC_Data_kthread stopped\n");
@@ -316,7 +378,7 @@ int Start_ICC_Sample(void)
     atomic_set( &heartbeat_on, 0 );
     #endif
 
-    for( i = 0; i < 2; i++ )
+    for( i = 0; i < ICC_NUM_CORES; i++ )
     {
         watch_CB_Rx[i]=0;
         watch_CB_Tx[i]=0;

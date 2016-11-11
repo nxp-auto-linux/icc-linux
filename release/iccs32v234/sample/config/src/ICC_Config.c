@@ -405,8 +405,7 @@ ICC_Cfg0_ChannelsConfig[ ICC_CFG_NO_CHANNELS_CONF0 ] = {
     ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
     volatile
     struct ICC_Runtime_Shared_t ICC_Runtime_Shared = {
-        { ICC_NODE_STATE_UNINIT, ICC_NODE_STATE_UNINIT },
-        {{ 0 }}
+        { ICC_NODE_STATE_UNINIT, ICC_NODE_STATE_UNINIT }
     };
 
     #define ICC_RUNTIME_SHARED(field) (ICC_Runtime_Shared.field)
@@ -447,7 +446,7 @@ ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
 STATIC_ALLOC
 ICC_Config_t ICC_Config0 = {
         ICC_CONFIG_MAGIC,
-        NULL,               /**< This_Ptr is NULL for static defined objects.
+        0,                      /**< This_Ptr is NULL for static defined objects.
                                  Relocated objects must populate it with their own virtual address */
 
         ICC_CROSS_INIT(ICC_CFG_NO_CHANNELS_CONF0),           /**< number of configured ICC channels in this configuration */

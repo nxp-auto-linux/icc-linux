@@ -76,6 +76,7 @@ union Cross_Vector_ ## t { \
 
 #define ICC_CROSS_INIT(t) { t }
 #define ICC_CROSS_ASSIGN(dest, source) (dest.val = source)
+#define ICC_CROSS_ASSIGN_CAST(dest, source) (dest.val = (typeof(dest.val))source)
 #define ICC_CROSS_COPY(dest, source) (dest.val = source.val)
 #define ICC_CROSS_VALUE_OF(t) (t.val)
 
@@ -97,6 +98,7 @@ union Cross_Vector_ ## t { \
 #define ICC_CROSS_INIT(t) (t), (NULL_PTR)
 #endif
 #define ICC_CROSS_ASSIGN(dest, source) (dest = source)
+#define ICC_CROSS_ASSIGN_CAST(dest, source) (dest = (typeof(dest))source)
 #define ICC_CROSS_COPY(dest, source) (dest = source)
 #define ICC_CROSS_VALUE_OF(t) (t)
 

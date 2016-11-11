@@ -13,7 +13,7 @@
 *
 *   Build Version        :
 *
-*   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP
 *
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -34,7 +34,7 @@
 #ifndef ICC_RELOCATE_H
 #define ICC_RELOCATE_H
 
-#define RELOCATABLE(obj) typeof(obj)* obj##_Rel
+#define RELOCATABLE(obj) typeof(obj) *obj##_Rel
 
 #define RELOCATED_PTR(obj) obj##_Rel
 
@@ -43,13 +43,13 @@
 */
 #define RELOCATE_OBJ(dest, obj) \
     { \
-      memcpy((char*)dest, (char*)(&obj), sizeof(obj)); \
-      dest = (typeof(dest))((uint64_t)dest + (uint64_t)sizeof(obj)); \
+      memcpy(dest, (&obj), sizeof(obj)); \
+      dest = (typeof(dest))((typeof(&obj))dest + 1); \
     }
 
 #define RELOCATE_RAW(dest, src_ptr, sz) \
     { \
-      memcpy((char*)dest, (char*)(*src_ptr), sz); \
+      memcpy(dest, (*src_ptr), sz); \
       *src_ptr = (typeof(*src_ptr))dest; \
       dest = (typeof(dest))((uint64_t)dest + (uint64_t)sz); \
     }
@@ -78,9 +78,9 @@
       chan_count = (sizeof(obj)) / sizeof(ICC_Channel_Config_t); \
       dest = (typeof(dest))((uint64_t)RELOCATED_PTR(obj) + (uint64_t)sizeof(obj)); \
       for (i = 0; i < chan_count; i++) { \
-          ICC_Fifo_Config_t * relocated_cfg = &((*RELOCATED_PTR(obj))[i].fifos_cfg[0]); \
+          ICC_Fifo_Config_t * relocated_cfg = (ICC_Fifo_Config_t *)&((*RELOCATED_PTR(obj))[i].fifos_cfg[0]); \
           RELOCATE_RAW(dest, &ICC_CROSS_VALUE_OF(relocated_cfg->fifo_buffer_ptr), relocated_cfg->fifo_size); \
-          relocated_cfg = &((*RELOCATED_PTR(obj))[i].fifos_cfg[1]); \
+          relocated_cfg = (ICC_Fifo_Config_t *)&((*RELOCATED_PTR(obj))[i].fifos_cfg[1]); \
           RELOCATE_RAW(dest, &ICC_CROSS_VALUE_OF(relocated_cfg->fifo_buffer_ptr), relocated_cfg->fifo_size); \
       } \
     }
@@ -93,12 +93,12 @@
       RELOCATED_PTR(obj) = (typeof(obj)*)dest; \
       memcpy((char*)dest, (char*)&obj, sizeof(obj)); \
       dest = (typeof(dest))((uint64_t)RELOCATED_PTR(obj) + (uint64_t)sizeof(obj)); \
-      RELOCATED_PTR(obj)->This_Ptr = RELOCATED_PTR(obj); \
-      ICC_CROSS_VALUE_OF(RELOCATED_PTR(obj)->Channels_Ptr) = RELOCATED_PTR(ICC_Cfg0_ChannelsConfig); \
-      ICC_CROSS_VALUE_OF(RELOCATED_PTR(obj)->ICC_Initialized_Shared) = &(RELOCATED_PTR(ICC_Runtime_Shared)->ICC_Initialized_Shared); \
-      ICC_CROSS_VALUE_OF(RELOCATED_PTR(obj)->ICC_Channels_Ram_Shared) = (RELOCATED_PTR(ICC_Runtime_Shared)->ICC_Channels_Ram_Shared); \
-      ICC_CROSS_VALUE_OF(RELOCATED_PTR(obj)->ICC_Fifo_Ram_Shared) = &(RELOCATED_PTR(ICC_Runtime_Shared)->ICC_Fifo_Ram_Shared); \
-      ICC_CROSS_VALUE_OF(RELOCATED_PTR(obj)->ICC_Node_Sig_Fifo_Ram_Shared) = &(RELOCATED_PTR(ICC_Runtime_Shared)->ICC_Node_Sig_Fifo_Ram_Shared); \
+      RELOCATED_PTR(obj)->This_Ptr = (uint64_t)RELOCATED_PTR(obj); \
+      ICC_CROSS_ASSIGN_CAST(RELOCATED_PTR(obj)->Channels_Ptr, RELOCATED_PTR(ICC_Cfg0_ChannelsConfig)); \
+      ICC_CROSS_ASSIGN_CAST(RELOCATED_PTR(obj)->ICC_Initialized_Shared, &(RELOCATED_PTR(ICC_Runtime_Shared)->ICC_Initialized_Shared)); \
+      ICC_CROSS_ASSIGN_CAST(RELOCATED_PTR(obj)->ICC_Channels_Ram_Shared, (RELOCATED_PTR(ICC_Runtime_Shared)->ICC_Channels_Ram_Shared)); \
+      ICC_CROSS_ASSIGN_CAST(RELOCATED_PTR(obj)->ICC_Fifo_Ram_Shared, &(RELOCATED_PTR(ICC_Runtime_Shared)->ICC_Fifo_Ram_Shared)); \
+      ICC_CROSS_ASSIGN_CAST(RELOCATED_PTR(obj)->ICC_Node_Sig_Fifo_Ram_Shared, &(RELOCATED_PTR(ICC_Runtime_Shared)->ICC_Node_Sig_Fifo_Ram_Shared)); \
     }
 
 

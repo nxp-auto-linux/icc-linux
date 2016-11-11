@@ -103,7 +103,7 @@ MODULE_LICENSE("GPL");
 #define EP_BAR_ADDR	GET_BAR_ADDRESS(ICC_USE_BAR)
 
 #if (TEST_EXPAND(EP_BAR_ADDR) == 0)
-#error "Invalid BAR selected
+#error Invalid BAR selected
 #else
 #define EP_BAR_SIZE	(GET_BAR_END(ICC_USE_BAR) - EP_BAR_ADDR + 1)
 #endif
@@ -253,7 +253,7 @@ static struct platform_driver ICC_driver = {
 
 #define POLL_TIMEOUT_MS 1
 
-#define ICC_Sleep(timeout) msleep_interruptible(timeout)
+#define ICC_Sleep() msleep_interruptible(POLL_TIMEOUT_MS)
 
 struct ping_poll {
 	u32 *poll_addr;
@@ -273,11 +273,10 @@ static int poll_thread_fn(void *arg)
     u32 *addr = (u32 *)arg;
 
     while (!kthread_should_stop()) {
-    	ICC_Sleep(POLL_TIMEOUT_MS);
+        ICC_Sleep();
         if (*addr == WAKE_UP_PATTERN) {
             /* event detected */
             ICC_Remote_Event_Handler();
-            *addr = WAIT_PATTERN;
         }
     }
 
@@ -290,7 +289,7 @@ static int pcie_shmem_poll_init(void)
 {
     int err = 0;
 
-    icc_polling.poll_addr = (u32 *)ioremap_nocache(IRAM_POLL_ADDR, SZ_4K);
+    icc_polling.poll_addr = ioremap_nocache(IRAM_POLL_ADDR, SZ_4K);
     if (!icc_polling.poll_addr) {
         pr_warn("Could not ioremap %#llx\n", IRAM_POLL_ADDR);
         err = -EIO;
@@ -319,14 +318,18 @@ ioremap_error:
 
 static void pcie_shmem_poll_exit(void)
 {
+    /* terminate functions waiting in module context */
+    icc_polling.terminate_communication = true;
+
+    /* terminate the spawned kthreads */
     if (icc_polling.poll_thread) {
         kthread_stop(icc_polling.poll_thread);
     }
 
-    icc_polling.terminate_communication = true;
-
-    /* wait for any threads/communication to actually stop, before cutting off the addresses */
-   	msleep_interruptible(100);
+    do {
+        /* wait for the kthreads to actually stop, before cutting off the addresses */
+        msleep_interruptible(POLL_TIMEOUT_MS * 10);
+    } while (icc_polling.poll_thread);
 
     iounmap(icc_polling.poll_addr);
     icc_polling.poll_addr = NULL;
@@ -334,9 +337,7 @@ static void pcie_shmem_poll_exit(void)
 
 static int pcie_shmem_ping_init(void)
 {
-    int err = 0;
-
-    icc_polling.ping_addr = (u32 *)ioremap_nocache(IRAM_PING_ADDR, SZ_4K);
+    icc_polling.ping_addr = ioremap_nocache(IRAM_PING_ADDR, SZ_4K);
     if (!icc_polling.ping_addr) {
         pr_warn("Could not ioremap %#x\n", IRAM_PING_ADDR);
         return -EIO;
@@ -353,7 +354,7 @@ static void pcie_shmem_ping_exit(void)
 
 #endif  /* ICC_USE_POLLING */
 
-/* following code is calling an api custom exported from the pcie driver */
+/* following code is calling an API custom-exported from the PCIe driver */
 
 #ifdef ICC_BUILD_FOR_M4
 
@@ -379,7 +380,7 @@ static struct s32v_inbound_region icc_inb = {
 
 /* Outbound region structure */
 static struct s32v_outbound_region icc_outb = {
-    NULL,    /* target_addr */
+    0,      /* target_addr */
     EP_PCIE_BASE_ADDR,    /* base_addr */
     MAP_DDR_SIZE,   /* size >= 64K(min for PCIE on S32V) */
     0,      /* region number */
@@ -389,12 +390,12 @@ static struct s32v_outbound_region icc_outb = {
 extern int s32v_pcie_setup_outbound(void * data);
 extern int s32v_pcie_setup_inbound(void * data);
 
-static int pcie_init_inbound(void)
+static int pcie_init_inbound(struct s32v_inbound_region *inb)
 {
     int ret = 0;
 
     /* Setup the inbound window for transactions from RC */
-    ret = s32v_pcie_setup_inbound(&icc_inb);
+    ret = s32v_pcie_setup_inbound(inb);
 
     if (ret < 0) {
         printk(KERN_ERR "[pcie_init_inbound] Error while setting inbound region\n");
@@ -407,12 +408,12 @@ err:
     return ret;
 }
 
-int pcie_init_outbound(void)
+static int pcie_init_outbound(struct s32v_outbound_region *outb)
 {
     int ret = 0;
 
     /* Setup outbound window for accessing RC mem */
-    ret = s32v_pcie_setup_outbound(&icc_outb);
+    ret = s32v_pcie_setup_outbound(outb);
 
     if (ret < 0) {
         printk(KERN_ERR "[pcie_mappings_init] Error while setting outbound region\n");
@@ -440,12 +441,10 @@ ICC_Err_t ICC_Notify_Remote( void )
 
 	/* wait for the peer to become available */
 	while (!icc_polling.terminate_communication && (*icc_polling.ping_addr != WAIT_PATTERN)) {
-		ICC_Sleep(POLL_TIMEOUT_MS);
+		ICC_Sleep();
 	}
 
 	if (icc_polling.terminate_communication) {
-		/* we cannot have both ICC_Wait_For_Peer and ICC_Notiy_Remote running
-			the same time on the module (kernel) thread or even on the same CPU */
 		return ICC_ERR_TIMEOUT;
 	}
 
@@ -462,8 +461,7 @@ void ICC_Notify_Remote_Alive( void )
     	*icc_polling.ping_addr = WAKE_UP_PATTERN;
 #else
     	struct handshake * phshake = (struct handshake *)icc_polling.ping_addr;
-    	phshake->rc_bar.bar_addr = IRAM_PING_ADDR;
-    	phshake->rc_bar.bar_size = EP_BAR_SIZE;
+    	phshake->rc_bar = icc_bar;
         phshake->rc_ddr_addr = IRAM_POLL_ADDR;
 #endif
     }
@@ -477,22 +475,21 @@ ICC_Err_t ICC_Wait_For_Peer( void )
 	}
 
     while (!icc_polling.terminate_communication && (*icc_polling.poll_addr == WAIT_PATTERN)) {
-   		ICC_Sleep(POLL_TIMEOUT_MS);
+   		ICC_Sleep();
     }
 
     if (icc_polling.terminate_communication) {
-    	/* we cannot have both ICC_Wait_For_Peer and ICC_Notiy_Remote running
-    		the same time on the on the same thread */
-    	icc_polling.terminate_communication = false;
     	return ICC_ERR_TIMEOUT;
     }
 
 #ifdef ICC_BUILD_FOR_M4
-    struct handshake * phshake = (struct handshake *)icc_polling.poll_addr;
-    icc_outb.target_addr = phshake->rc_ddr_addr;
-    icc_bar.bar_addr = phshake->rc_bar.bar_addr;
-    icc_bar.bar_size = phshake->rc_bar.bar_addr;
-    pcie_init_outbound();
+    {
+        struct handshake * phshake = (struct handshake *)icc_polling.poll_addr;
+        icc_outb.target_addr = phshake->rc_ddr_addr;
+        icc_bar.bar_addr = phshake->rc_bar.bar_addr;
+        icc_bar.bar_size = phshake->rc_bar.bar_addr;
+        pcie_init_outbound(&icc_outb);
+    }
 #endif
     *icc_polling.poll_addr = WAIT_PATTERN;
 
@@ -500,9 +497,11 @@ ICC_Err_t ICC_Wait_For_Peer( void )
 }
 
 ICC_ATTR_SEC_TEXT_CODE
-void ICC_Clear_Notify_Remote( void )
+void ICC_Clear_Notify_From_Remote( void )
 {
-    // nothing to do, remote peer must clear its flag.
+	if (icc_polling.poll_addr) {
+		*icc_polling.poll_addr = WAIT_PATTERN;
+	}
 }
 
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
@@ -534,7 +533,7 @@ static int ICC_dev_open(struct inode *inode, struct file *file)
 
 static int ICC_dev_release(struct inode *inode, struct file *file)
 {
-    /* struct ICC_device_data *data = (struct ICC_device_data *)file->private_data; */
+    file->private_data = NULL;
 
     printk(LOG_LEVEL "Closed ICC_library device\n");
 
@@ -612,7 +611,7 @@ static int __init ICC_dev_init(void)
     /* ICC Shared mem is mapped differently on RC and EP, but in both cases it physically
      * resides on EP side.
      */
-    ICC_Shared_Virt_Base_Addr = (char *)ioremap_nocache(IRAM_BASE_ADDR, MAP_DDR_SIZE) + ICC_CONFIG_OFFSET_FROM_BASE;
+    ICC_Shared_Virt_Base_Addr = ioremap_nocache(IRAM_BASE_ADDR, MAP_DDR_SIZE) + ICC_CONFIG_OFFSET_FROM_BASE;
     printk(LOG_LEVEL "[ICC_dev_init] reserved %#llx size is %d\n", ICC_Shared_Virt_Base_Addr, MAP_DDR_SIZE );
     if( !ICC_Shared_Virt_Base_Addr ){
         printk(KERN_ERR "[ICC_dev_init] ICC_Shared_Virt_Base_Addr virtual mapping has failed for %#x\n", IRAM_BASE_ADDR);
@@ -626,7 +625,7 @@ static int __init ICC_dev_init(void)
      * TODO: should we use another offset in shm to store the ICC_Config0 offset?
      */
     ICC_Config_Ptr_M4 = (ICC_Config_t *)(ICC_Shared_Virt_Base_Addr);
-    shared_start = ICC_Config_Ptr_M4;
+    shared_start = (uint64_t *)ICC_Config_Ptr_M4;
     for (i = 0; i < MAP_DDR_SIZE / sizeof(uint64_t); i++, shared_start++) {
         union local_magic * crt_start = (union local_magic *)shared_start;
 	    if ((ICC_Local_Magic.raw.m0 == crt_start->raw.m0) &&
@@ -637,7 +636,7 @@ static int __init ICC_dev_init(void)
 	    }
     }
 
-    ICC_Config_Ptr_M4_Remote = ICC_Config_Ptr_M4->This_Ptr;
+    ICC_Config_Ptr_M4_Remote = (ICC_Config_t *)(ICC_Config_Ptr_M4->This_Ptr);
 
     printk(LOG_LEVEL "[ICC_dev_init] ICC Shared Config local virtual address: %#llx \n", ICC_Config_Ptr_M4);
     printk(LOG_LEVEL "[ICC_dev_init] ICC Shared Config remote virtual address: %#llx \n", ICC_Config_Ptr_M4_Remote);
@@ -645,7 +644,7 @@ static int __init ICC_dev_init(void)
 
 #ifdef ICC_BUILD_FOR_M4
     /* setup PCIE */
-    pcie_init_inbound();
+    pcie_init_inbound(&icc_inb);
 #endif
 
 #ifdef ICC_USE_POLLING
