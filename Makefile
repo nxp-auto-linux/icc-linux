@@ -19,11 +19,24 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+# CONFIG can be one of:
+# RTOS (for RTOS/Linux on the same board)
+# EP for EndPoint (s32v234 pcie)
+# RC for RootComplex (s32v234 evb), in an s32v234 pcie / evb setup for Linux over PCIE
+# BB_RC for RootComplex (ls208xx rdb), in a BlueBox setup setup for Linux over PCIE
+CONFIG ?= RTOS
+
+ifeq ($(CONFIG),RTOS)
 SRC := $(shell pwd)/release/iccs32v234/sample/linux_app
+else
+SRC := $(shell pwd)/release/iccs32v234/sample/linux2linux_app
+endif
+
+
 MODULE_SRC := $(SRC)/ICC_module
 SAMPLE_MODULE_SRC := $(SRC)/ICC_Sample_module
 
-.PHONY: build sample modules_install clean
+.PHONY: build modules_install clean
 
 all: build
 
@@ -34,6 +47,9 @@ build:
 modules_install:
 	$(MAKE) -C $(MODULE_SRC) modules_install
 	$(MAKE) -C $(SAMPLE_MODULE_SRC) modules_install
+
+headers_install:
+	$(MAKE) -C $(MODULE_SRC) headers_install
 
 clean:
 	$(MAKE) -C $(MODULE_SRC) clean

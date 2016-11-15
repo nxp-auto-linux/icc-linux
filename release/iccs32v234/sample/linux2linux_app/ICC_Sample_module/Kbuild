@@ -1,0 +1,35 @@
+
+SRC_ROOT := $(PWD)/../../..
+
+CONFIG_USED = $(SRC_ROOT)/sample/config/include
+EXTRA_CFLAGS += -O0 -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums -DICC_MIX_32_64_SUPPORT -DICC_LINUX2LINUX -DICC_USE_POLLING #-DICC_TST_HWSYNCH
+
+ifeq ($(CONFIG),EP)
+    EXTRA_CFLAGS += -DICC_BUILD_FOR_M4
+endif
+
+ifeq ($(CONFIG),BB_RC)
+    EXTRA_CFLAGS += -DICC_PCIE_SHMEM_BLUEBOX
+endif
+
+INCLUDE_DEPENDENCIES := -I$(SRC_ROOT)/code/linux/inc \
+                        -I$(SRC_ROOT)/code/linux/os \
+                        -I$(SRC_ROOT)/code/linux/os/Linux \
+                        -I$(SRC_ROOT)/code/linux/hw \
+                        -I$(CONFIG_USED)\
+                        -I$(PWD)\
+                        -I$(PWD)/../ICC_module
+
+ifneq ($(CC),$(LD))
+	# bitbake calls $(CROSS_COMPILE)LD for linking instead of $(CROSS_COMPILE)GCC
+	# and we need to update LDFLAGS for this case
+	LDFLAGS := -O0 --hash-style=gnu --as-needed
+endif
+
+## Objects to build ##
+obj-m := ICC_Sample_$(CONFIG).o
+ccflags-y += $(INCLUDE_DEPENDENCIES)
+
+ICC_Sample_$(CONFIG)-objs := ./ICC_Sample_dev.o
+ICC_Sample_$(CONFIG)-objs += ./ICC_Linux_Sample.o
+ICC_Sample_$(CONFIG)-objs += ../../config/src/ICC_Config.o

@@ -341,6 +341,7 @@ ICC_CROSS_PTR_VECTOR_DEFINE(ICC_Signal_Fifo_Ram_t);
 typedef struct {
 
     const char                                          Config_Magic[ICC_CONFIG_MAGIC_SIZE];
+    u64                                                 This_Ptr;
 
     const ICC_CROSS_DECLARE(u32)                        Channels_Count;                    /**< number  of configured channels */
     const ICC_CROSS_PTR_DECLARE(ICC_Channel_Config_t)   Channels_Ptr;                      /**< pointer to configured channels */
@@ -360,6 +361,30 @@ typedef struct {
 
 } ICC_ALIGN(16) ICC_Config_t;
 
+/*
+ * APP side OS alternatives
+ */
+#ifdef ICC_LINUX2LINUX
+#ifdef ICC_BUILD_FOR_M4
+
+#define ICC_OS_Phys_To_Virt(phys_addr) phys_addr /* no translation */
+
+#else
+
+extern ICC_Config_t * ICC_Config_Ptr_M4;
+extern ICC_Config_t * ICC_Config_Ptr_M4_Remote;
+/* Synchronize virtual addresses between the two sides of the PCIe
+   We're not working with physical addresses, but the name of the macro
+     is kept for backwards compatibility */
+#define ICC_OS_Phys_To_Virt(phys_addr) \
+    ((char*)((u64)(phys_addr) - (u64)ICC_Config_Ptr_M4_Remote + (u64)ICC_Config_Ptr_M4))
+
+#endif
+#else
+extern char * ICC_Shared_Virt_Base_Addr;
+#define ICC_OS_Phys_To_Virt(phys_addr) \
+        (((char*)(((unsigned int)phys_addr) & 0xFFFFFFFF) - (char*)ICC_SHARED_PHYS_BASE_ADDR) + ICC_Shared_Virt_Base_Addr)
+#endif
 
 #ifdef __cplusplus
 }

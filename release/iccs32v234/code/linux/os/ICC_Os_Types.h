@@ -50,6 +50,12 @@ extern "C"
      * APP OS alternatives
      */
         /* Linux OS */
+#ifdef ICC_UTEST
+typedef u32 wait_queue_head_t;
+struct semaphore {
+    u32 count;
+};
+#else
         #include <linux/module.h>
         #include <linux/version.h>
         #include <linux/kernel.h>
@@ -64,7 +70,7 @@ extern "C"
         #include <linux/slab.h>
         #include <linux/interrupt.h>
         #include <linux/sched.h>
-
+#endif
 
 
 
@@ -89,8 +95,8 @@ typedef struct {
 
 } ICC_Fifo_Os_Ram_t;
 
-
-
+/* placeholder type */
+typedef uint32_t ICC_Fifo_Os_Config_t;
 
 #ifndef ICC_CFG_NO_TIMEOUT
 
@@ -100,16 +106,8 @@ typedef struct {
      */
     typedef struct {
         u32 channel_id;                         /**<  channel id reserved for Heartbeat */
-        u32 rate_ticks;                         /**<  sent messages rate */
+        u32 rate_usec;                         /**<  sent messages rate */
         u32 txrx_timeout;                       /**<  received message timeout:  txrx_timeout > rate_ticks */
-
-
-            /*
-             * APP OS alternatives
-             */
-                /* Linux OS */
-
-
 
     } ICC_Heartbeat_Os_Config_t;
 

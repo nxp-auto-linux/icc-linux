@@ -100,8 +100,10 @@ extern "C"
         /*static*/
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA ICC_Config_t * ICC_Config_Ptr = NULL_PTR;  /**< pointer to current configuration structure */
 
-        extern const
+#ifndef ICC_BUILD_FOR_M4
+        extern
         ICC_Config_t * ICC_Config_Ptr_M4;          /**< pointer to M4 current configuration */
+#endif
 
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_PTR_VECTOR(u32)      ICC_Initialized  = NULL_PTR;                            /**< shows if ICC is initialized */
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_Channel_Ram_t      * ICC_Channels_Ram = NULL_PTR;                            /**< runtime structure for each channel */
@@ -126,9 +128,6 @@ extern "C"
 
 
 
-
-
-
 /*===============================================================================================
 *                                       LOCAL FUNCTIONS
 ===============================================================================================*/
@@ -138,7 +137,7 @@ extern "C"
 #include "ICC_MemMap.h"
 
 
-
+#ifndef ICC_BUILD_FOR_M4
 
 ICC_ATTR_SEC_TEXT_CODE
 static
@@ -171,11 +170,65 @@ ICC_Compare_Fifo_Conf( const ICC_Fifo_Config_t * fifo_config_APP,
 
 }
 
-
+#endif
 
 /*===============================================================================================*
  *                                       GLOBAL FUNCTIONS                                        *
  *===============================================================================================*/
+
+#ifdef ICC_USE_POLLING
+
+/* Declare notify functions here as 'extern'.
+ * Implementation must be provided elsewhere.
+ */
+
+ICC_ATTR_SEC_TEXT_CODE
+extern
+ICC_Err_t ICC_Notify_Remote( void );
+
+ICC_ATTR_SEC_TEXT_CODE
+extern
+void ICC_Clear_Notify_From_Remote( void );
+
+#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+ICC_ATTR_SEC_TEXT_CODE
+extern
+void ICC_Notify_Local( void );
+
+ICC_ATTR_SEC_TEXT_CODE
+extern
+void ICC_Clear_Notify_Local( void );
+#endif
+
+#else
+
+ICC_ATTR_SEC_TEXT_CODE
+ICC_Err_t ICC_Notify_Remote(void)
+{
+    ICC_HW_Trigger_Cpu2Cpu_Interrupt( ICC_CFG_HW_CPU2CPU_IRQ ); /**< trigger remote interrupt */
+}
+
+ICC_ATTR_SEC_TEXT_CODE
+void ICC_Clear_Notify_From_Remote(void)
+{
+    ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_CPU2CPU_IRQ);
+}
+
+#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+ICC_ATTR_SEC_TEXT_CODE
+void ICC_Notify_Local(void)
+{
+    ICC_HW_Trigger_Local_Interrupt( ICC_CFG_HW_LOCAL_IRQ ); /**< trigger local interrupt */
+}
+
+ICC_ATTR_SEC_TEXT_CODE
+void ICC_Clear_Notify_Local(void)
+{
+    ICC_HW_Clear_Local_Interrupt( ICC_CFG_HW_LOCAL_IRQ ); /**< trigger local interrupt */
+}
+#endif
+
+#endif
 
 /**
  *
@@ -186,6 +239,8 @@ ICC_Compare_Fifo_Conf( const ICC_Fifo_Config_t * fifo_config_APP,
  * ICC_ERR_GENERAL          - TBD
  * ICC_SUCCESS              - OK
  *
+ * For Linux2Linux over PCIE, EP must call this function with the 
+ * relocated config object, and the RC with the static config object
  */
 ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t 
@@ -222,7 +277,9 @@ ICC_Initialize(
     }
 
 
-
+#ifndef ICC_BUILD_FOR_M4
+	
+	/* Initialize local config with M4 config */
     {
         int j;
         ICC_Fifo_Config_t    * fifo_config_M4;
@@ -273,7 +330,7 @@ ICC_Initialize(
 
     }
 
-
+#endif
 
 
 
@@ -357,16 +414,20 @@ ICC_Initialize(
 
     ICC_CHECK_ERR_CODE( ICC_OS_Init_Interrupts() );
 
-    #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-    ICC_HW_Trigger_Local_Interrupt( ICC_CFG_HW_LOCAL_IRQ ); /**< trigger local interrupt */
-    #endif
+    /* when using interrupts, it's ok to assert an interrupt line and wait for the peer to see it.
+     * this does not work on 'pings' (one shot signals) which may block or worse give bus errors
+     * when the peer is not initialized.
+     */
+#ifndef ICC_USE_POLLING
+    ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
+#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+    ICC_Notify_Local();
+#endif
 
-    ICC_HW_Trigger_Cpu2Cpu_Interrupt( ICC_CFG_HW_CPU2CPU_IRQ ); /**< trigger remote interrupt */
-
+#endif
 
     return return_code;
 }
-
 
 /**
  *
@@ -448,14 +509,12 @@ ICC_Finalize( void )
     }
 
     ICC_CHECK_ERR_CODE_NO_RETURN( ICC_Sig_Fifo_Signal( (ICC_Signal_Fifo_Ram_t *)&((*ICC_Node_Sig_Fifo_Ram)[ ICC_TX_FIFO ]), ICC_NODE_STATE_UNINIT ) );
-
-    ICC_HW_Trigger_Cpu2Cpu_Interrupt( ICC_CFG_HW_CPU2CPU_IRQ );  /**< trigger remote interrupt */
+    ICC_CHECK_ERR_CODE_NO_RETURN(ICC_Notify_Remote());
 
     #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
     ICC_CHECK_ERR_CODE_NO_RETURN( ICC_Sig_Fifo_Signal( (ICC_Signal_Fifo_Ram_t *)&ICC_Signal_Fifo_Node_Ram_Local , ICC_NODE_STATE_UNINIT ) );
-    ICC_HW_Trigger_Local_Interrupt( ICC_CFG_HW_LOCAL_IRQ ); /**< trigger local interrupt */
+    ICC_Notify_Local();
     #endif
-
 
     ICC_OS_Finalize();
 
@@ -549,11 +608,11 @@ ICC_Open_Channel(
     #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
     /* signal the channel state transition to LOCAL node */
     ICC_CHECK_ERR_CODE_NO_RETURN( ICC_Sig_Fifo_Signal( (ICC_Signal_Fifo_Ram_t *)&ICC_Signal_Fifo_Ch_Ram_Local[ channel_id ], channel_new_state ) );
-    ICC_HW_Trigger_Local_Interrupt( ICC_CFG_HW_LOCAL_IRQ ); /**< trigger local interrupt */
+    ICC_Notify_Local();
     #endif
 
     ICC_CHECK_ERR_CODE_NO_RETURN( ICC_Sig_Fifo_Signal( (ICC_Signal_Fifo_Ram_t *)&channel_ram->sig_fifo_remote[ ICC_TX_FIFO ], channel_new_state ) );
-    ICC_HW_Trigger_Cpu2Cpu_Interrupt( ICC_CFG_HW_CPU2CPU_IRQ ); /**< trigger remote interrupt */
+    ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
 
     return return_code;
 }
@@ -610,11 +669,11 @@ ICC_Close_Channel(
     #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
     /* signal the channel state transition to LOCAL node */
     ICC_CHECK_ERR_CODE_NO_RETURN( ICC_Sig_Fifo_Signal( (ICC_Signal_Fifo_Ram_t *)&ICC_Signal_Fifo_Ch_Ram_Local[ channel_id ], channel_new_state ) );
-    ICC_HW_Trigger_Local_Interrupt( ICC_CFG_HW_LOCAL_IRQ ); /**< trigger local interrupt */
+    ICC_Notify_Local();
     #endif
 
     ICC_CHECK_ERR_CODE_NO_RETURN( ICC_Sig_Fifo_Signal( (ICC_Signal_Fifo_Ram_t *)&channel_ram->sig_fifo_remote[ ICC_TX_FIFO ], channel_new_state ) );
-    ICC_HW_Trigger_Cpu2Cpu_Interrupt( ICC_CFG_HW_CPU2CPU_IRQ ); /**< trigger remote interrupt */
+    ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
 
     return return_code;
 }
@@ -988,9 +1047,7 @@ ICC_Msg_Send (
        ICC_FIFO_Msg_Wr_Sig(fifo_ram); /**< signal new message */
 
 
-    ICC_HW_Trigger_Cpu2Cpu_Interrupt( ICC_CFG_HW_CPU2CPU_IRQ );
-
-
+    ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
     ICC_CHECK_ERR_CODE( ICC_OS_Release_Semaphore( channel_id, ICC_TX_FIFO  ) );
 
 
@@ -1203,7 +1260,7 @@ ICC_Msg_Recv(
         if ( ICC_RX_NORMAL == rx_operation ) {
 
             ICC_FIFO_Msg_Rd_Sig(fifo_ram); /**< signal only if message extracted from fifo */
-            ICC_HW_Trigger_Cpu2Cpu_Interrupt( ICC_CFG_HW_CPU2CPU_IRQ );
+            ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
         }
 
 
@@ -1236,7 +1293,7 @@ ICC_Remote_Event_Handler(void)
     unsigned int hb_channel_id;
     #endif
     
-    ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_CPU2CPU_IRQ);
+    ICC_Clear_Notify_From_Remote();
 
 
     /*
@@ -1371,7 +1428,7 @@ ICC_Local_Event_Handler(void)
     volatile ICC_Signal_Fifo_Ram_t * sig_fifo_local_ptr;
     const    ICC_Channel_Config_t  * channel_cfg;
 
-    ICC_HW_Clear_Local_Interrupt(ICC_CFG_HW_LOCAL_IRQ);
+    ICC_Clear_Notify_Local();
 
     if ((NULL_PTR==ICC_Config_Ptr) || (ICC_NODE_STATE_UNINIT == (*ICC_Initialized)[ ICC_GET_CORE_ID ] )) {
         return;

@@ -118,6 +118,17 @@ extern
 ICC_Err_t
 ICC_Finalize( void );
 
+#ifdef ICC_USE_POLLING
+
+ICC_ATTR_SEC_TEXT_CODE
+extern
+void ICC_Notify_Remote_Alive( void );
+
+ICC_ATTR_SEC_TEXT_CODE
+extern
+ICC_Err_t ICC_Wait_For_Peer( void );
+
+#endif
 
 /**
  *

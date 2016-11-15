@@ -110,6 +110,7 @@ typedef enum  {
     ICC_ERR_HEARTBEAT_WRONGSEQ,     /**< The ICC Heartbeat mechanism - received wrong reply sequence */
 #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
+    ICC_ERR_PARAM_INVAL,				/**< To be used by implementations for invalid parameter error conditions not covered by the other status codes */
     ICC_ERR_GENERAL,                /**< To be used by implementations for error conditions not covered by the other status codes */
 
     ICC_ERR_LAST                    /**< This should always be last */
