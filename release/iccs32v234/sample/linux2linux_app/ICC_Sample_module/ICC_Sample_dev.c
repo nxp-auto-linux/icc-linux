@@ -67,8 +67,6 @@ static int ICC_Sample_dev_open(struct inode *inode, struct file *file)
     struct ICC_Sample_device_data *data = container_of(inode->i_cdev,
                                                 struct ICC_Sample_device_data,
                                                 cdev);
-    if (NULL == data)
-        return -ENOMEM;
 
     file->private_data = data;
 

@@ -17,7 +17,7 @@
 *   SW Version           : 0.8.0
 *   Build Version        : S32V234_ICC_0.8.0
 *
-*   (c) Copyright 2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP Semiconductor
 *   All Rights Reserved.
 ==================================================================================================*/
 /*==================================================================================================
@@ -48,25 +48,25 @@ typedef type (*(PVector_ ## type))[count]
 #define ICC_CROSS_DEFINE(t) \
 union Cross_ ## t { \
     t val; \
-    u64 placeholder; \
+    uint64_t placeholder; \
 }
 
 #define ICC_CROSS_PTR_DEFINE(t) \
 union Cross_Ptr_ ## t { \
     t* val; \
-    u64 placeholder; \
+    uint64_t placeholder; \
 }
 
 #define ICC_CROSS_PTR_MATRIX_DEFINE(t) \
 union Cross_Matrix_ ## t { \
     PMatrix_ ## t val; \
-    u64 placeholder; \
+    uint64_t placeholder; \
 }
 
 #define ICC_CROSS_PTR_VECTOR_DEFINE(t) \
 union Cross_Vector_ ## t { \
     PVector_ ## t val; \
-    u64 placeholder; \
+    uint64_t placeholder; \
 }
 
 #define ICC_CROSS_DECLARE(t) union Cross_ ## t

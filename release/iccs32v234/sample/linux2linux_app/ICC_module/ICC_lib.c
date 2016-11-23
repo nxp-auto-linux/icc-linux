@@ -60,6 +60,8 @@ MODULE_LICENSE("GPL");
 
 #define LOG_LEVEL       KERN_ALERT
 
+#include "ICC_time.h"
+
 #ifndef ICC_USE_BAR
 #define ICC_USE_BAR 	2
 #endif
@@ -251,13 +253,9 @@ static struct platform_driver ICC_driver = {
 /* Waiting value */
 #define WAIT_PATTERN        0x0
 
-#define POLL_TIMEOUT_MS 1
-
-#define ICC_Sleep() msleep_interruptible(POLL_TIMEOUT_MS)
-
 struct ping_poll {
-	u32 *poll_addr;
-	u32 *ping_addr;
+	uint32_t *poll_addr;
+	uint32_t *ping_addr;
 	struct task_struct *poll_thread;
 	bool terminate_communication;
 };
@@ -270,7 +268,7 @@ ICC_Remote_Event_Handler(void);
 
 static int poll_thread_fn(void *arg)
 {
-    u32 *addr = (u32 *)arg;
+    uint32_t *addr = (uint32_t *)arg;
 
     while (!kthread_should_stop()) {
         ICC_Sleep();
@@ -328,7 +326,7 @@ static void pcie_shmem_poll_exit(void)
 
     do {
         /* wait for the kthreads to actually stop, before cutting off the addresses */
-        msleep_interruptible(POLL_TIMEOUT_MS * 10);
+        msleep_interruptible(DEFAULT_TIMEOUT_MS * 10);
     } while (icc_polling.poll_thread);
 
     iounmap(icc_polling.poll_addr);

@@ -27,121 +27,107 @@
 
 
 #include "ICC_Config.h"
-
 #include "ICC_Types.h"
 
-
-#if (defined(ICC_LINUX2LINUX) && defined(ICC_BUILD_FOR_M4))
+#if (defined(ICC_BUILD_FOR_M4) && defined(ICC_LINUX2LINUX))
+#include "ICC_Relocate.h"
 #define STATIC_ALLOC static
 #else
 #define STATIC_ALLOC
 #endif
 
 
-#ifdef ICC_BUILD_FOR_M4
+#ifdef ICC_FSL_AUTOSAR_OS
 
 #define ICC_START_SEC_CONST_UNSPECIFIED
 #include "ICC_MemMap.h"
 
 
-#ifdef ICC_FSL_AUTOSAR_OS
+#define ICC_CFG0_CH_0_FIFO_0_TAE_SIZE       (1UL)
+#define ICC_CFG0_CH_0_FIFO_1_TAE_SIZE       (1UL)
 
-
-    #define ICC_CFG0_CH_0_FIFO_0_TAE_SIZE       (1UL)
-    #define ICC_CFG0_CH_0_FIFO_1_TAE_SIZE       (1UL)
-
-    #define ICC_CFG0_CH_1_FIFO_0_TAE_SIZE       (3UL)
-    #define ICC_CFG0_CH_1_FIFO_1_TAE_SIZE       (3UL)
+#define ICC_CFG0_CH_1_FIFO_0_TAE_SIZE       (3UL)
+#define ICC_CFG0_CH_1_FIFO_1_TAE_SIZE       (3UL)
 
 
 
-    ICC_ATTR_SEC_CONST_UNSPECIFIED
-    const
-    ICC_Fifo_Os_TAE_Config_t cfg_0_ch_0_fifo_0_tae[ ICC_CFG0_CH_0_FIFO_0_TAE_SIZE ] = {
+ICC_ATTR_SEC_CONST_UNSPECIFIED
+const
+ICC_Fifo_Os_TAE_Config_t cfg_0_ch_0_fifo_0_tae[ ICC_CFG0_CH_0_FIFO_0_TAE_SIZE ] = {
 
-        {
-            HB_WORKER,
-            OsAlarm_HBW_ch0_f0,
-            OsEvent_HBW_ch0_f0
-        }
-        
-    };
+    {
+        HB_WORKER,
+        OsAlarm_HBW_ch0_f0,
+        OsEvent_HBW_ch0_f0
+    }
 
-    ICC_ATTR_SEC_CONST_UNSPECIFIED
-    const
-    ICC_Fifo_Os_TAE_Config_t cfg_0_ch_0_fifo_1_tae[ ICC_CFG0_CH_0_FIFO_1_TAE_SIZE ] = {
+};
 
-        {
-            HB_WORKER,
-            OsAlarm_HBW_ch0_f1,
-            OsEvent_HBW_ch0_f1
-        }
-        
-    };
+ICC_ATTR_SEC_CONST_UNSPECIFIED
+const
+ICC_Fifo_Os_TAE_Config_t cfg_0_ch_0_fifo_1_tae[ ICC_CFG0_CH_0_FIFO_1_TAE_SIZE ] = {
 
-    ICC_ATTR_SEC_CONST_UNSPECIFIED
-    const
-    ICC_Fifo_Os_TAE_Config_t cfg_0_ch_1_fifo_0_tae[ ICC_CFG0_CH_1_FIFO_0_TAE_SIZE ] = {
+    {
+        HB_WORKER,
+        OsAlarm_HBW_ch0_f1,
+        OsEvent_HBW_ch0_f1
+    }
 
-        {
-            WORKER1,
-            OsAlarm_W1_ch1_f0,
-            OsEvent_W1_ch1_f0
-        },
-        
-        {
-            WORKER2,
-            OsAlarm_W2_ch1_f0,
-            OsEvent_W2_ch1_f0
-        },
-        
-        {
-            WORKER3,
-            OsAlarm_W3_ch1_f0,
-            OsEvent_W3_ch1_f0
-        }
-        
-    };
+};
 
-    ICC_ATTR_SEC_CONST_UNSPECIFIED
-    const
-    ICC_Fifo_Os_TAE_Config_t cfg_0_ch_1_fifo_1_tae[ ICC_CFG0_CH_1_FIFO_1_TAE_SIZE ] = {
+ICC_ATTR_SEC_CONST_UNSPECIFIED
+const
+ICC_Fifo_Os_TAE_Config_t cfg_0_ch_1_fifo_0_tae[ ICC_CFG0_CH_1_FIFO_0_TAE_SIZE ] = {
 
-        {
-            WORKER1,
-            OsAlarm_W1_ch1_f1,
-            OsEvent_W1_ch1_f1
-        },
-        
-        {
-            WORKER2,
-            OsAlarm_W2_ch1_f1,
-            OsEvent_W2_ch1_f1
-        },
-        
-        {
-            WORKER3,
-            OsAlarm_W3_ch1_f1,
-            OsEvent_W3_ch1_f1
-        }
-        
-    };
+    {
+        WORKER1,
+        OsAlarm_W1_ch1_f0,
+        OsEvent_W1_ch1_f0
+    },
 
+    {
+        WORKER2,
+        OsAlarm_W2_ch1_f0,
+        OsEvent_W2_ch1_f0
+    },
 
-#endif /* ICC_FSL_AUTOSAR_OS */
+    {
+        WORKER3,
+        OsAlarm_W3_ch1_f0,
+        OsEvent_W3_ch1_f0
+    }
 
-/*
- * Structure needed only for Autosar OS
- * in case it's needed for other OS delete this #ifdef
- */
-#ifdef ICC_BUILD_FOR_M4
+};
 
-#ifdef ICC_FSL_AUTOSAR_OS
+ICC_ATTR_SEC_CONST_UNSPECIFIED
+const
+ICC_Fifo_Os_TAE_Config_t cfg_0_ch_1_fifo_1_tae[ ICC_CFG0_CH_1_FIFO_1_TAE_SIZE ] = {
+
+    {
+        WORKER1,
+        OsAlarm_W1_ch1_f1,
+        OsEvent_W1_ch1_f1
+    },
+
+    {
+        WORKER2,
+        OsAlarm_W2_ch1_f1,
+        OsEvent_W2_ch1_f1
+    },
+
+    {
+        WORKER3,
+        OsAlarm_W3_ch1_f1,
+        OsEvent_W3_ch1_f1
+    }
+
+};
+
 
 ICC_ATTR_SEC_CONST_UNSPECIFIED
 const
 ICC_Fifo_Os_Config_t
-ICC_Fifo_Os_Config0[][ 2 ] = {
+ICC_Fifo_Os_Config0[ ICC_CFG_NO_CHANNELS_CONF0 ][ 2 ] = {
 
         /* channel 0 */
         {
@@ -176,16 +162,11 @@ ICC_Fifo_Os_Config0[][ 2 ] = {
 
 };
 
-#endif /* ICC_FSL_AUTOSAR_OS */
-
-#endif /* ICC_BUILD_FOR_M4 */
-
-
 #define ICC_STOP_SEC_CONST_UNSPECIFIED
 #include "ICC_MemMap.h"
 
+#endif /* ICC_FSL_AUTOSAR_OS */
 
-#endif /* ICC_BUILD_FOR_M4 */
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
 
@@ -202,16 +183,16 @@ ICC_Heartbeat_Os_Config0 = {
 	ICC_CFG0_HEARTBEAT_CHANNEL_ID,
 	ICC_RATE_US,
 	ICC_TXRX_TIMEOUT,
-#ifdef ICC_BUILD_FOR_M4
-	#ifdef ICC_FSL_AUTOSAR_OS
-		OsEvent_HB_RATE,
-		OsAlarm_HB_RATE,
-		WORKER3,
-	#endif /* ICC_FSL_AUTOSAR_OS */
-#endif /* ICC_BUILD_FOR_M4 */
+#ifdef ICC_FSL_AUTOSAR_OS
+	OsEvent_HB_RATE,
+	OsAlarm_HB_RATE,
+	WORKER3,
+#endif /* ICC_FSL_AUTOSAR_OS */
 };
 
-
+#if (defined(ICC_BUILD_FOR_M4) && defined(ICC_LINUX2LINUX))
+ICC_Heartbeat_Os_Config_t *RELOCATED_PTR(ICC_Heartbeat_Os_Config0);
+#endif
 
 #define ICC_STOP_SEC_CONST_UNSPECIFIED
 #include "ICC_MemMap.h"
@@ -272,7 +253,7 @@ ICC_Heartbeat_Os_Config0 = {
 
 
 
-
+typedef ICC_Channel_Config_t (ICC_Cfg0_ChannelsConfig_t)[ ICC_CFG_NO_CHANNELS_CONF0 ];
 
 #ifdef ICC_BUILD_FOR_M4
     const ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
@@ -280,8 +261,8 @@ ICC_Heartbeat_Os_Config0 = {
     ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
 #endif
 STATIC_ALLOC
-ICC_Channel_Config_t
-ICC_Cfg0_ChannelsConfig[ ICC_CFG_NO_CHANNELS_CONF0 ] = {
+ICC_Cfg0_ChannelsConfig_t
+ICC_Cfg0_ChannelsConfig = {
 
     /* channel 0 */
     {
@@ -391,6 +372,10 @@ ICC_Cfg0_ChannelsConfig[ ICC_CFG_NO_CHANNELS_CONF0 ] = {
     }
 };
 
+#if (defined(ICC_BUILD_FOR_M4) && defined(ICC_LINUX2LINUX))
+ICC_Cfg0_ChannelsConfig_t *RELOCATED_PTR(ICC_Cfg0_ChannelsConfig);
+#endif
+
 
 
 
@@ -402,13 +387,15 @@ ICC_Cfg0_ChannelsConfig[ ICC_CFG_NO_CHANNELS_CONF0 ] = {
 
     /* multicore shared variables allocated on M4 side only */
 
-    ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
+    const ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
     volatile
-    struct ICC_Runtime_Shared_t ICC_Runtime_Shared = {
+    struct ICC_Runtime_Shared_t ICC_Runtime_Shared0 = {
         { ICC_NODE_STATE_UNINIT, ICC_NODE_STATE_UNINIT }
     };
 
-    #define ICC_RUNTIME_SHARED(field) (ICC_Runtime_Shared.field)
+    struct ICC_Runtime_Shared_t *RELOCATED_PTR(ICC_Runtime_Shared0);
+
+    #define ICC_RUNTIME_SHARED(field) (ICC_Runtime_Shared0.field)
 
 #else
 
@@ -439,7 +426,7 @@ ICC_Cfg0_ChannelsConfig[ ICC_CFG_NO_CHANNELS_CONF0 ] = {
 
 
 #ifdef ICC_BUILD_FOR_M4
-const ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
+ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
 #else
 ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
 #endif
@@ -493,7 +480,9 @@ ICC_Config_t ICC_Config0 = {
         #endif
 };
 
-
+#if (defined(ICC_BUILD_FOR_M4) && defined(ICC_LINUX2LINUX))
+ICC_Config_t *RELOCATED_PTR(ICC_Config0);
+#endif
 
 #ifdef ICC_BUILD_FOR_M4
     #define ICC_STOP_SEC_SHARED_VAR_UNSPECIFIED
@@ -507,16 +496,6 @@ ICC_Config_t ICC_Config0 = {
 #ifdef ICC_LINUX2LINUX
 
 #ifdef ICC_BUILD_FOR_M4
-
-RELOCATABLE(ICC_Cfg0_ChannelsConfig);
-
-#ifdef ICC_CFG_HEARTBEAT_ENABLED
-RELOCATABLE(ICC_Heartbeat_Os_Config0);
-#endif
-
-ICC_Config_t * RELOCATED_PTR(ICC_Config0);
-
-RELOCATABLE(ICC_Runtime_Shared);
 
 extern char * ICC_Shared_Virt_Base_Addr;
 
@@ -537,15 +516,7 @@ extern char * ICC_Relocate_Config(void)
         return NULL;
     }
 
-    RELOCATE_ICC_Channel_Config_t_Array(dest, ICC_Cfg0_ChannelsConfig);
-
-    RELOCATE_ICC_Runtime_Shared_t(dest, ICC_Runtime_Shared);
-
     RELOCATE_ICC_Config_t(dest, ICC_Config0);
-
-#ifdef ICC_CFG_HEARTBEAT_ENABLED
-    RELOCATE_ICC_Config_t_Heartbeat(dest, ICC_Config0);
-#endif
 
     return ICC_Shared_Virt_Base_Addr;
 }

@@ -105,13 +105,13 @@ extern "C"
         ICC_Config_t * ICC_Config_Ptr_M4;          /**< pointer to M4 current configuration */
 #endif
 
-        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_PTR_VECTOR(u32)      ICC_Initialized  = NULL_PTR;                            /**< shows if ICC is initialized */
+        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_PTR_VECTOR(uint32_t)      ICC_Initialized  = NULL_PTR;                            /**< shows if ICC is initialized */
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_Channel_Ram_t      * ICC_Channels_Ram = NULL_PTR;                            /**< runtime structure for each channel */
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_PTR_MATRIX(ICC_Fifo_Ram_t)        ICC_Fifo_Ram = NULL_PTR;    /**< fifos_ram ordered priority wise for each node */
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_PTR_VECTOR(ICC_Signal_Fifo_Ram_t) ICC_Node_Sig_Fifo_Ram = NULL_PTR;        /**< signal fifo for each node */
         #ifdef ICC_CFG_HEARTBEAT_ENABLED
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_Heartbeat_State_t    ICC_Heartbeat_State  = ICC_HEARTBEAT_STATE_UNINIT;          /**< shows ICC_Heartbeat mechanism state */
-        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile u32                      ICC_Heartbeat_RunId  = 0;                                   /**< the current RunId for the HB mechanism */
+        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile uint32_t                      ICC_Heartbeat_RunId  = 0;                                   /**< the current RunId for the HB mechanism */
         #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
         ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS ICC_Fifo_Os_Ram_t ICC_Fifo_Os_Ram_APP[ ICC_CFG_MAX_CHANNELS ][ 2 /* tx/rx */ ];   /**< Fifo OS specific Ram structure */
@@ -301,7 +301,7 @@ ICC_Initialize(
          * update configuration structure on APP side
          */
 
-        ICC_CROSS_ASSIGN(ICC_Config_Ptr->ICC_Initialized_Shared, (ICC_PTR_VECTOR(u32)) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->ICC_Initialized_Shared)));
+        ICC_CROSS_ASSIGN(ICC_Config_Ptr->ICC_Initialized_Shared, (ICC_PTR_VECTOR(uint32_t)) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->ICC_Initialized_Shared)));
         ICC_CROSS_ASSIGN(ICC_Config_Ptr->ICC_Channels_Ram_Shared, (ICC_Channel_Ram_t *) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->ICC_Channels_Ram_Shared)));
         ICC_CROSS_ASSIGN(ICC_Config_Ptr->ICC_Fifo_Ram_Shared, (ICC_PTR_MATRIX(ICC_Fifo_Ram_t)) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->ICC_Fifo_Ram_Shared)));
         ICC_CROSS_ASSIGN(ICC_Config_Ptr->ICC_Node_Sig_Fifo_Ram_Shared, (ICC_PTR_VECTOR(ICC_Signal_Fifo_Ram_t)) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->ICC_Node_Sig_Fifo_Ram_Shared)));
@@ -324,7 +324,7 @@ ICC_Initialize(
                 /*
                  * TBD: if address re-mapping is needed then it must be done here
                  */
-                ICC_CROSS_ASSIGN(fifo_config_APP->fifo_buffer_ptr, (u8 *) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(fifo_config_M4->fifo_buffer_ptr)));
+                ICC_CROSS_ASSIGN(fifo_config_APP->fifo_buffer_ptr, (uint8_t *) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(fifo_config_M4->fifo_buffer_ptr)));
             }
         }
 

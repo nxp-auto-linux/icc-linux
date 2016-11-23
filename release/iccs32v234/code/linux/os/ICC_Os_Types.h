@@ -45,31 +45,33 @@ extern "C"
 {
 #endif
 
-
     /*
      * APP OS alternatives
      */
-        /* Linux OS */
+
+    /* Linux OS */
+
 #ifdef ICC_UTEST
-typedef u32 wait_queue_head_t;
+typedef uint32_t wait_queue_head_t;
 struct semaphore {
-    u32 count;
+    uint32_t count;
 };
 #else
-        #include <linux/module.h>
-        #include <linux/version.h>
-        #include <linux/kernel.h>
-        #include <linux/types.h>
-        #include <linux/kdev_t.h>
-        #include <linux/fs.h>
-        #include <linux/device.h>
-        #include <linux/cdev.h>
-        #include <linux/wait.h>
-        #include <linux/semaphore.h>
-        #include <asm/memory.h>
-        #include <linux/slab.h>
-        #include <linux/interrupt.h>
-        #include <linux/sched.h>
+    #include <linux/types.h>
+    #include <linux/module.h>
+    #include <linux/version.h>
+    #include <linux/kernel.h>
+    #include <linux/types.h>
+    #include <linux/kdev_t.h>
+    #include <linux/fs.h>
+    #include <linux/device.h>
+    #include <linux/cdev.h>
+    #include <linux/wait.h>
+    #include <linux/semaphore.h>
+    #include <asm/memory.h>
+    #include <linux/slab.h>
+    #include <linux/interrupt.h>
+    #include <linux/sched.h>
 #endif
 
 
@@ -86,8 +88,8 @@ typedef struct {
             /* Linux OS */
             #ifndef ICC_CFG_NO_TIMEOUT
                 wait_queue_head_t * wait_queue;
-                u32 timeout;
-                u32 event_type;
+                uint32_t timeout;
+                uint32_t event_type;
             #endif /* not ICC_CFG_NO_TIMEOUT */
             struct semaphore fifo_lock;
 
@@ -105,9 +107,9 @@ typedef uint32_t ICC_Fifo_Os_Config_t;
      * HEARTBEAT OS specific Config structure
      */
     typedef struct {
-        u32 channel_id;                         /**<  channel id reserved for Heartbeat */
-        u32 rate_usec;                         /**<  sent messages rate */
-        u32 txrx_timeout;                       /**<  received message timeout:  txrx_timeout > rate_ticks */
+        uint32_t channel_id;                         /**<  channel id reserved for Heartbeat */
+        uint32_t rate_usec;                         /**<  sent messages rate */
+        uint32_t txrx_timeout;                       /**<  received message timeout:  txrx_timeout > rate_ticks */
 
     } ICC_Heartbeat_Os_Config_t;
 

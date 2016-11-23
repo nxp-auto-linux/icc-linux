@@ -101,15 +101,15 @@ static uint64_t icc_last_func_sec;
 
 static inline uint64_t get_ns(struct timespec *ts1, struct timespec *ts2)
 {
-	uint64_t val = 0;
-	if (ts1) {
-		val = ts1->tv_sec * NSEC_PER_SEC + ts1->tv_nsec;
-		if (ts2) {
-			val -= (ts2->tv_sec * NSEC_PER_SEC + ts2->tv_nsec);
-		}
-	}
+    uint64_t val = 0;
+    if (ts1) {
+        val = ts1->tv_sec * NSEC_PER_SEC + ts1->tv_nsec;
+        if (ts2) {
+            val -= (ts2->tv_sec * NSEC_PER_SEC + ts2->tv_nsec);
+        }
+    }
 
-	return val;
+    return val;
 }
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
@@ -207,6 +207,8 @@ inline ICC_Err_t ICC_Data_Receive(ICC_Timeout_t timeout)
     return icc_status;
 }
 
+extern void ICC_Timer_Update_ns(uint64_t new_time_ns);
+
 int ICC_Data_kthread(void *data)
 {
     ICC_Err_t      icc_status = ICC_SUCCESS;
@@ -220,8 +222,8 @@ int ICC_Data_kthread(void *data)
     }*/
 
     while ((icc_status == ICC_SUCCESS) && atomic_read(&thread_on)) {
-    	struct timespec ts1 = {0};
-    	getnstimeofday(&ts1);
+        struct timespec ts1 = {0};
+        getnstimeofday(&ts1);
 
 #ifdef ICC_BUILD_FOR_M4
 
@@ -236,12 +238,12 @@ int ICC_Data_kthread(void *data)
         icc_status = ICC_Data_Send(timeout);
 #endif
 
-#ifdef ICC_STATISTICS
         if (icc_status == ICC_SUCCESS) {
             struct timespec ts2 = {0};
             uint64_t exec_time_ns;
             getnstimeofday(&ts2);
 
+#ifdef ICC_STATISTICS
             icc_data_thread_stat.func_calls++;
             /* in the following assignments we don't care for nanoseconds overflow */
             icc_data_thread_stat.func_time_ns.tv_sec += ts2.tv_sec;
@@ -251,12 +253,14 @@ int ICC_Data_kthread(void *data)
             exec_time_ns = get_ns(&ts2, NULL);
             if ((exec_time_ns / NSEC_PER_SEC - icc_last_func_sec) > ICC_PRINT_STATS_DELAY_SEC) {
                 ICC_SAMPLE_LOG("icc data kthread: exec %d times; %llu ns in average\n",
-                                icc_data_thread_stat.func_calls,
-                                get_ns(&icc_data_thread_stat.func_time_ns, NULL) / icc_data_thread_stat.func_calls);
+                        icc_data_thread_stat.func_calls,
+                        get_ns(&icc_data_thread_stat.func_time_ns, NULL) / icc_data_thread_stat.func_calls);
                 icc_last_func_sec = exec_time_ns / NSEC_PER_SEC;
             }
-        }
 #endif
+            exec_time_ns = get_ns(&ts2, &ts1);
+            ICC_Timer_Update_ns(exec_time_ns);
+        }
     }; /* end while(1) */
 
     ICC_SAMPLE_LOG("ICC_Data_kthread stopped\n");
@@ -306,7 +310,7 @@ void USER_ICC_Callback_Channel_State_Update_CB_M4( ICC_IN const ICC_Channel_t   
 void USER_ICC_Node_State_Update_CB_M4( ICC_IN const ICC_Node_t       node_id, /** The id of the node that transitioned to a new state. */
                                        ICC_IN const ICC_Node_State_t node_state ) /** The new state the node transitioned to. */
 {
-	watch_CB_Node++;
+    watch_CB_Node++;
 
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
         if( node_state == ICC_NODE_STATE_INIT )
@@ -394,7 +398,7 @@ int Start_ICC_Sample(void)
     watch_CB_Node=0;
 
 #ifdef ICC_BUILD_FOR_M4
-    /* Re-locate the objects in ICC_Config.c, at address IRAM_BASE_ADDR + 4 (first u32 is used for polling/synchronization) */
+    /* Re-locate the objects in ICC_Config.c, at address IRAM_BASE_ADDR + 4 (first uint32 is used for polling/synchronization) */
     ICC_Relocate_Config();
     /* TODO: use incoming icc_bar.bar_size to validate that the RC can access all shared mem */
 #endif
@@ -418,8 +422,8 @@ int Start_ICC_Sample(void)
 #ifdef ICC_BUILD_FOR_M4
     ICC_SAMPLE_LOG("Waiting for peer ...\n");
     if ((return_code = ICC_Wait_For_Peer() != ICC_SUCCESS)) {
-    	ICC_SAMPLE_LOG("failed\n");
-    	return return_code;
+        ICC_SAMPLE_LOG("failed\n");
+        return return_code;
     }
 #else
     ICC_SAMPLE_LOG("Notifying peer ...\n");

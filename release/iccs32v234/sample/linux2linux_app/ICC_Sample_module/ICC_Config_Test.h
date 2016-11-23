@@ -33,6 +33,7 @@
 ==================================================================================================*/
 
 #include "ICC_Config.h"
+#include "ICC_Os.h"
 
 #ifndef ICC_CONFIG_TEST_H
 #define ICC_CONFIG_TEST_H
