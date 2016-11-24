@@ -77,10 +77,10 @@ extern "C"
     ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS char * ICC_HW_MSCM_VIRT_BASE;
 #endif
 
+    ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS extern ICC_Config_t * ICC_Config_Ptr;
+
 #ifndef ICC_CFG_NO_TIMEOUT
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
-
-    ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS extern ICC_Config_t * ICC_Config_Ptr;
 
     ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS wait_queue_head_t * rate_wait_queue;
 
@@ -198,7 +198,7 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
 #endif /* no ICC_CFG_NO_TIMEOUT */
 
     /* assign waitqueue for each fifo and semaphore */
-    for (i = 0; i < ICC_CFG_NO_CHANNELS_CONF0; i++)
+    for (i = 0; i < ICC_Config_Ptr->Channels_Count; i++)
     {
         for (j = 0; j < 2; j++)
         {

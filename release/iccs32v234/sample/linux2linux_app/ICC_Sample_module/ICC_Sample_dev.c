@@ -86,7 +86,7 @@ static const struct file_operations ICC_Sample_fops = {
     .release = ICC_Sample_dev_release,
 };
 
-static int ICC_Sample_dev_exit(void);
+static void ICC_Sample_dev_exit(void);
 
 static int ICC_Sample_dev_init(void)
 {
@@ -123,11 +123,12 @@ static int ICC_Sample_dev_init(void)
     return err;
 }
 
-static int ICC_Sample_dev_exit(void)
+static void ICC_Sample_dev_exit(void)
 {
-    int i, err = 0;
+    int i;
 
-    if ( Stop_ICC_Sample() != 0 ) err=-1;
+    if ( Stop_ICC_Sample() != 0 )
+        return;
 
     for (i = 0; i < NUM_MINORS; i++)
         cdev_del(&devs[i].cdev);
@@ -137,8 +138,6 @@ static int ICC_Sample_dev_exit(void)
 
     // wait for any thread activity to finish
     msleep(100);
-
-    return err;
 }
 
 

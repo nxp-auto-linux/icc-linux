@@ -349,13 +349,13 @@ void ICC_Sig_Fifo_Signal(
 /* dest is an integer representing the destination address
    obj is an object (NOT pointer to an object!)
 */
-#define RELOCATE_OBJ(dest, obj) \
+#define COPY_OBJ(dest, obj) \
     { \
       memcpy((char*)dest, (char*)(&obj), sizeof(obj)); \
       dest = (typeof(dest))((uint64_t)dest + (uint64_t)sizeof(obj)); \
     }
 
-#define RELOCATE_RAW(dest, src_ptr, sz) \
+#define RELOCATE_OBJ_PTR(dest, src_ptr, sz) \
     { \
       memcpy((char*)dest, (char*)(*src_ptr), sz); \
       *src_ptr = (typeof(*src_ptr))dest; \
@@ -365,8 +365,8 @@ void ICC_Sig_Fifo_Signal(
 #define RELOCATE_ICC_Fifo_Config_t(dest, obj) \
     if (!RELOCATED_PTR(obj)) { \
       RELOCATED_PTR(obj) = (typeof(obj)*)dest; \
-      RELOCATE_OBJ(dest, obj); \
-      RELOCATE_RAW(dest, &ICC_CROSS_VALUE_OF(RELOCATED_PTR(obj)->fifo_buffer_ptr), obj.fifo_size); \
+      COPY_OBJ(dest, obj); \
+      RELOCATE_OBJ_PTR(dest, &ICC_CROSS_VALUE_OF(RELOCATED_PTR(obj)->fifo_buffer_ptr), obj.fifo_size); \
     }
 
 #define RELOCATE_ICC_Channel_Config_t_Array(dest, obj) \
@@ -379,9 +379,9 @@ void ICC_Sig_Fifo_Signal(
       dest = (typeof(dest))((uint64_t)RELOCATED_PTR(obj) + (uint64_t)sizeof(obj)); \
       for (i = 0; i < chan_count; i++) { \
           ICC_Fifo_Config_t * relocated_cfg = &((*RELOCATED_PTR(obj))[i].fifos_cfg[0]); \
-          RELOCATE_RAW(dest, &ICC_CROSS_VALUE_OF(relocated_cfg->fifo_buffer_ptr), relocated_cfg->fifo_size); \
+          RELOCATE_OBJ_PTR(dest, &ICC_CROSS_VALUE_OF(relocated_cfg->fifo_buffer_ptr), relocated_cfg->fifo_size); \
           relocated_cfg = &((*RELOCATED_PTR(obj))[i].fifos_cfg[1]); \
-          RELOCATE_RAW(dest, &ICC_CROSS_VALUE_OF(relocated_cfg->fifo_buffer_ptr), relocated_cfg->fifo_size); \
+          RELOCATE_OBJ_PTR(dest, &ICC_CROSS_VALUE_OF(relocated_cfg->fifo_buffer_ptr), relocated_cfg->fifo_size); \
       } \
     }
 

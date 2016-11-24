@@ -178,10 +178,10 @@ int print_ICC_Config_t(ICC_Config_t * obj)
 #endif
 
 
-        PR_ARRAYX("ICC_Initialized_Shared", initialized, member_size(struct ICC_Runtime_Shared_t, ICC_Initialized_Shared));
-        PR_ARRAYX("ICC_Channels_Ram_Shared", channels_ram, member_size(struct ICC_Runtime_Shared_t, ICC_Channels_Ram_Shared));
-        PR_ARRAYX("ICC_Fifo_Ram_Shared", fifo_ram, member_size(struct ICC_Runtime_Shared_t, ICC_Fifo_Ram_Shared));
-        PR_ARRAYX("ICC_Node_Sig_Fifo_Ram_Shared", sig_fifo_ram, member_size(struct ICC_Runtime_Shared_t, ICC_Node_Sig_Fifo_Ram_Shared));
+        PR_ARRAYX("ICC_Initialized_Shared", initialized, member_size(ICC_Runtime_Shared_t, ICC_Initialized_Shared));
+        PR_ARRAYX("ICC_Channels_Ram_Shared", channels_ram, member_size(ICC_Runtime_Shared_t, ICC_Channels_Ram_Shared));
+        PR_ARRAYX("ICC_Fifo_Ram_Shared", fifo_ram, member_size(ICC_Runtime_Shared_t, ICC_Fifo_Ram_Shared));
+        PR_ARRAYX("ICC_Node_Sig_Fifo_Ram_Shared", sig_fifo_ram, member_size(ICC_Runtime_Shared_t, ICC_Node_Sig_Fifo_Ram_Shared));
     }
 
     return count;

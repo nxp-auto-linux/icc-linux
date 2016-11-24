@@ -123,11 +123,10 @@ ICC_Fifo_Os_TAE_Config_t cfg_0_ch_1_fifo_1_tae[ ICC_CFG0_CH_1_FIFO_1_TAE_SIZE ] 
 
 };
 
-
 ICC_ATTR_SEC_CONST_UNSPECIFIED
 const
-ICC_Fifo_Os_Config_t
-ICC_Fifo_Os_Config0[ ICC_CFG_NO_CHANNELS_CONF0 ][ 2 ] = {
+ICC_Fifo_Os_Config_Array_t
+ICC_Fifo_Os_Config0 = {
 
         /* channel 0 */
         {
@@ -251,17 +250,13 @@ ICC_Heartbeat_Os_Config_t *RELOCATED_PTR(ICC_Heartbeat_Os_Config0);
 
 
 
-
-
-typedef ICC_Channel_Config_t (ICC_Cfg0_ChannelsConfig_t)[ ICC_CFG_NO_CHANNELS_CONF0 ];
-
 #ifdef ICC_BUILD_FOR_M4
     const ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
 #else
     ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
 #endif
 STATIC_ALLOC
-ICC_Cfg0_ChannelsConfig_t
+ICC_ChannelsConfig_Array_t
 ICC_Cfg0_ChannelsConfig = {
 
     /* channel 0 */
@@ -373,7 +368,7 @@ ICC_Cfg0_ChannelsConfig = {
 };
 
 #if (defined(ICC_BUILD_FOR_M4) && defined(ICC_LINUX2LINUX))
-ICC_Cfg0_ChannelsConfig_t *RELOCATED_PTR(ICC_Cfg0_ChannelsConfig);
+ICC_ChannelsConfig_Array_t *RELOCATED_PTR(ICC_Cfg0_ChannelsConfig);
 #endif
 
 
@@ -389,11 +384,9 @@ ICC_Cfg0_ChannelsConfig_t *RELOCATED_PTR(ICC_Cfg0_ChannelsConfig);
 
     const ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
     volatile
-    struct ICC_Runtime_Shared_t ICC_Runtime_Shared0 = {
+    ICC_Runtime_Shared_t ICC_Runtime_Shared0 = {
         { ICC_NODE_STATE_UNINIT, ICC_NODE_STATE_UNINIT }
     };
-
-    struct ICC_Runtime_Shared_t *RELOCATED_PTR(ICC_Runtime_Shared0);
 
     #define ICC_RUNTIME_SHARED(field) (ICC_Runtime_Shared0.field)
 
@@ -436,7 +429,7 @@ ICC_Config_t ICC_Config0 = {
         0,                      /**< This_Ptr is NULL for static defined objects.
                                  Relocated objects must populate it with their own virtual address */
 
-        ICC_CROSS_INIT(ICC_CFG_NO_CHANNELS_CONF0),           /**< number of configured ICC channels in this configuration */
+        ICC_CROSS_INIT(sizeof(ICC_Cfg0_ChannelsConfig) / sizeof(ICC_Channel_Config_t)),           /**< number of configured ICC channels in this configuration */
 		ICC_CROSS_INIT(ICC_Cfg0_ChannelsConfig),             /**< ICC channels */
 
         #ifdef ICC_FSL_AUTOSAR_OS
@@ -516,7 +509,7 @@ extern char * ICC_Relocate_Config(void)
         return NULL;
     }
 
-    RELOCATE_ICC_Config_t(dest, ICC_Config0);
+    RELOCATE_CONFIG(dest, ICC_Config0);
 
     return ICC_Shared_Virt_Base_Addr;
 }

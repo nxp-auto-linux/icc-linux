@@ -110,7 +110,7 @@ ICC_FIFO_Init(ICC_FIFO_IN       ICC_Fifo_Ram_t       * queue_ICC,
               ICC_FIFO_IN       ICC_Fifo_Os_Ram_t    * fifo_os_ram,
               ICC_FIFO_IN       unsigned int           init)
 {
-    ICC_CROSS_ASSIGN(queue_ICC->fifo_config[ ICC_GET_CORE_ID ], fifo_conf); /**< set link to fifo configuration from channel structure */
+    ICC_CROSS_ASSIGN_CAST(queue_ICC->fifo_config[ ICC_GET_CORE_ID ], fifo_conf); /**< set link to fifo configuration from channel structure */
     ICC_CROSS_ASSIGN(queue_ICC->fifo_os_ram[ ICC_GET_CORE_ID ], fifo_os_ram);
 
     queue_ICC->rd[ ICC_GET_CORE_ID ]          = 0;
