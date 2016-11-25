@@ -230,6 +230,51 @@ void ICC_Clear_Notify_Local(void)
 
 #endif
 
+#if (defined(ICC_LINUX2LINUX) && defined(ICC_BUILD_FOR_M4))
+
+extern char * ICC_Shared_Virt_Base_Addr;
+
+#include "ICC_Relocate.h"
+
+/**
+ *
+ * Called by the master node (which initializes the shared memory) when required
+ * to relocate a static config object and its dependencies to a shared memory
+ * buffer received as argument.
+ *
+ * If base_addr is NULL, by default the start of the shared memory is used as
+ * base address for the relocation.
+ * In case of multiple configuration, it is recommended to use:
+ * - for config 0: base_addr = NULL,
+ * - for config 1: base_addr = address of relocated config 0 + sizeof(ICC_Config_t),
+ * - etc.
+ *
+ * Returns the address of the relocated config object.
+ */
+
+ICC_ATTR_SEC_TEXT_CODE
+extern
+void *
+ICC_Relocate_Config(
+                ICC_IN ICC_Config_t * config,
+                ICC_IN void         * base_addr
+              )
+{
+    void * relocated_config = NULL;
+
+    if (config) {
+        char *dest = base_addr;
+        if (!dest) {
+            dest = ICC_Shared_Virt_Base_Addr;
+        }
+        relocated_config = RELOCATE_ICC_Config_t(&dest, config);
+    }
+
+    return relocated_config;
+}
+
+#endif  /* ICC_BUILD_FOR_M4 && ICC_LINUX2LINUX */
+
 /**
  *
  * Called by each core to initialize ICC for the current node.

@@ -732,6 +732,9 @@ unsigned int ICC_get_local_irq(void)
 /**
  * Exporting ICC API functions to be used by other kernel modules
  */
+#if (defined(ICC_BUILD_FOR_M4) && defined(ICC_LINUX2LINUX))
+EXPORT_SYMBOL(ICC_Relocate_Config);
+#endif
 EXPORT_SYMBOL(ICC_Initialize);
 EXPORT_SYMBOL(ICC_Finalize);
 EXPORT_SYMBOL(ICC_Get_Node_State);

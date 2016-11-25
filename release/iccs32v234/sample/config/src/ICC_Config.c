@@ -189,9 +189,6 @@ ICC_Heartbeat_Os_Config0 = {
 #endif /* ICC_FSL_AUTOSAR_OS */
 };
 
-#if (defined(ICC_BUILD_FOR_M4) && defined(ICC_LINUX2LINUX))
-ICC_Heartbeat_Os_Config_t *RELOCATED_PTR(ICC_Heartbeat_Os_Config0);
-#endif
 
 #define ICC_STOP_SEC_CONST_UNSPECIFIED
 #include "ICC_MemMap.h"
@@ -367,9 +364,6 @@ ICC_Cfg0_ChannelsConfig = {
     }
 };
 
-#if (defined(ICC_BUILD_FOR_M4) && defined(ICC_LINUX2LINUX))
-ICC_ChannelsConfig_Array_t *RELOCATED_PTR(ICC_Cfg0_ChannelsConfig);
-#endif
 
 
 
@@ -419,11 +413,10 @@ ICC_ChannelsConfig_Array_t *RELOCATED_PTR(ICC_Cfg0_ChannelsConfig);
 
 
 #ifdef ICC_BUILD_FOR_M4
-ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
+const ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
 #else
 ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
 #endif
-STATIC_ALLOC
 ICC_Config_t ICC_Config0 = {
         ICC_CONFIG_MAGIC,
         0,                      /**< This_Ptr is NULL for static defined objects.
@@ -473,70 +466,11 @@ ICC_Config_t ICC_Config0 = {
         #endif
 };
 
-#if (defined(ICC_BUILD_FOR_M4) && defined(ICC_LINUX2LINUX))
-ICC_Config_t *RELOCATED_PTR(ICC_Config0);
-#endif
-
 #ifdef ICC_BUILD_FOR_M4
     #define ICC_STOP_SEC_SHARED_VAR_UNSPECIFIED
     #include "ICC_MemMap.h"
 #else
     #define ICC_STOP_SEC_VAR_UNSPECIFIED
     #include "ICC_MemMap.h"
-#endif
-
-
-#ifdef ICC_LINUX2LINUX
-
-#ifdef ICC_BUILD_FOR_M4
-
-extern char * ICC_Shared_Virt_Base_Addr;
-
-/*
- * This function relocates the main ICC config object and its dependencies
- * to a destination buffer received as argument.
- * The function returns the pointer where data was relocated.
- *
- * TODO: move this to ICC_lib.c or another location after the relocation of ICC_Config_t
- * is done transparently for the inner members.
-*/
-extern char * ICC_Relocate_Config(void)
-{
-    char * dest = ICC_Shared_Virt_Base_Addr;
-
-    if (dest == NULL) {
-        printk(KERN_ERR "Null destination: unable to relocate configuration\n");
-        return NULL;
-    }
-
-    RELOCATE_CONFIG(dest, ICC_Config0);
-
-    return ICC_Shared_Virt_Base_Addr;
-}
-
-EXPORT_SYMBOL(ICC_Relocate_Config);
-
-#endif  /* ICC_BUILD_FOR_M4 */
-
-#include "ICC_Config_Test.h"
-
-#ifndef ICC_BUILD_FOR_M4
-extern
-ICC_Config_t * ICC_Config_Ptr_M4;          /**< pointer to M4 current configuration */
-#endif
-
-extern int ICC_Dump_Shared_Config(void)
-{
-    int dump_count = 0;
-#ifdef ICC_BUILD_FOR_M4
-    ICC_DUMP_PTR(dump_count, ICC_Config_t, ICC_Default_Config_Ptr);
-#else
-    ICC_DUMP_PTR(dump_count, ICC_Config_t, ICC_Config_Ptr_M4);
-#endif
-    return dump_count;
-}
-
-EXPORT_SYMBOL(ICC_Dump_Shared_Config);
-
 #endif
 

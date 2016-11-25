@@ -108,6 +108,17 @@ typedef ICC_Fifo_Os_Config_t (ICC_Fifo_Os_Config_Array_t)[][2];
 
 typedef ICC_Channel_Config_t (ICC_ChannelsConfig_Array_t)[];
 
+#ifdef ICC_LINUX2LINUX
+
+    typedef struct {
+        uint32_t              ICC_Initialized_Shared[ 2 ];                       /**< ICC state on each node */
+        ICC_Channel_Ram_t     ICC_Channels_Ram_Shared[ ICC_CFG_MAX_CHANNELS ]; /**< runtime structure for each channel */
+        ICC_Fifo_Ram_t        ICC_Fifo_Ram_Shared[ ICC_CFG_MAX_CHANNELS ][ 2 ];  /**< fifos ordered priority wise for each node */
+        ICC_Signal_Fifo_Ram_t ICC_Node_Sig_Fifo_Ram_Shared[ 2 ];              /**< signal fifo for each node */
+    } ICC_Runtime_Shared_t;
+
+#endif
+
 /*==================================================================================================
                                  GLOBAL VARIABLES DECLARATION
 ==================================================================================================*/
@@ -124,38 +135,16 @@ typedef ICC_Channel_Config_t (ICC_ChannelsConfig_Array_t)[];
 #endif
 
     /*
-     * declaration of ICC top level configuration structure
+     * declaration of ICC top level configuration structures
      */
 
-#ifndef ICC_LINUX2LINUX
 
-    #ifdef ICC_BUILD_FOR_M4
-    extern const ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
-    #else
-    extern ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
-    #endif
-    ICC_Config_t ICC_Config0;
-
+#ifdef ICC_BUILD_FOR_M4
+extern const ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
 #else
-
-    #ifdef ICC_BUILD_FOR_M4
-
-        #define RELOCATED_PTR(obj) obj ## _Rel
-
-        extern ICC_Config_t * RELOCATED_PTR(ICC_Config0);
-
-        #define ICC_Default_Config_Ptr (RELOCATED_PTR(ICC_Config0))
-
-    #else
-
-        extern ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
-        ICC_Config_t ICC_Config0;
-
-        #define ICC_Default_Config_Ptr (&ICC_Config0)
-
-    #endif
-
+extern ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
 #endif
+ICC_Config_t ICC_Config0;
 
 #ifdef ICC_BUILD_FOR_M4
     #define ICC_STOP_SEC_SHARED_VAR_UNSPECIFIED
@@ -221,30 +210,6 @@ typedef ICC_Channel_Config_t (ICC_ChannelsConfig_Array_t)[];
                                     ICC_IN const ICC_Node_State_t  node_state  /**< the new state the node transitioned to */
                                 );
         
-#endif
-
-#ifdef ICC_LINUX2LINUX
-
-    typedef struct {
-        uint32_t              ICC_Initialized_Shared[ 2 ];                       /**< ICC state on each node */
-        ICC_Channel_Ram_t     ICC_Channels_Ram_Shared[ ICC_CFG_MAX_CHANNELS ]; /**< runtime structure for each channel */
-        ICC_Fifo_Ram_t        ICC_Fifo_Ram_Shared[ ICC_CFG_MAX_CHANNELS ][ 2 ];  /**< fifos ordered priority wise for each node */
-        ICC_Signal_Fifo_Ram_t ICC_Node_Sig_Fifo_Ram_Shared[ 2 ];              /**< signal fifo for each node */
-    } ICC_Runtime_Shared_t;
-
-#ifdef ICC_BUILD_FOR_M4
-
-    /*
-     * This function relocates the main ICC config object and its dependencies
-     * to a destination buffer received as argument.
-     * The function returns the pointer where data was relocated.
-     */
-    extern
-    char * ICC_Relocate_Config(void);
-#endif
-
-extern int ICC_Dump_Shared_Config(void);
-
 #endif
 
 #endif /* ICC_CONFIG_H */

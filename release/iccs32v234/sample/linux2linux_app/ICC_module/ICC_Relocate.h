@@ -34,6 +34,8 @@
 #ifndef ICC_RELOCATE_H
 #define ICC_RELOCATE_H
 
+#include "ICC_Types.h"
+#include "ICC_Config.h"
 
 /* dest is the destination address
  * obj is the source object (NOT pointer to an object!)
@@ -173,10 +175,5 @@ ICC_Config_t * RELOCATE_ICC_Config_t(char **dest_ptr, const ICC_Config_t *obj)
 
     return relocated_obj;
 }
-
-#define RELOCATE_CONFIG(dest, obj) \
-    if (!RELOCATED_PTR(obj)) { \
-        RELOCATED_PTR(obj) = RELOCATE_ICC_Config_t(&dest, &obj); \
-    }
 
 #endif /* ICC_RELOCATE_H */

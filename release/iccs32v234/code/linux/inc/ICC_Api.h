@@ -85,6 +85,34 @@ typedef enum {
 #define ICC_START_SEC_TEXT_CODE
 #include "ICC_MemMap.h"
 
+#if (defined(ICC_BUILD_FOR_M4) && defined(ICC_LINUX2LINUX))
+
+/**
+ *
+ * Called by the master node (which initializes the shared memory) when required
+ * to relocate a static config object and its dependencies to a shared memory
+ * buffer received as argument.
+ *
+ * If base_addr is NULL, by default the start of the shared memory is used as
+ * base address for the relocation.
+ * In case of multiple configuration, it is recommended to use:
+ * - for config 0: base_addr = NULL,
+ * - for config 1: base_addr = address of relocated config 0 + sizeof(ICC_Config_t),
+ * - etc.
+ *
+ * Returns the address of the relocated config object.
+ */
+
+ICC_ATTR_SEC_TEXT_CODE
+extern
+void *
+ICC_Relocate_Config(
+                ICC_IN ICC_Config_t * config,
+                ICC_IN void         * base_addr
+              );
+
+#endif
+
 /**
  *
  * Called by each core to initialize ICC for the current node.
@@ -117,6 +145,7 @@ ICC_ATTR_SEC_TEXT_CODE
 extern
 ICC_Err_t
 ICC_Finalize( void );
+
 
 #ifdef ICC_USE_POLLING
 

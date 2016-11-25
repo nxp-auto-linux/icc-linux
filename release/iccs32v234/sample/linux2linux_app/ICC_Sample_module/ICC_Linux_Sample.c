@@ -42,7 +42,7 @@
 #endif
 
 /* Un-comment this if you want to debug the virtual memory */
-//#define DUMP_SHARED_MEM
+#define DUMP_SHARED_MEM
 
 /* The following 2 macros define what is displayed by the applications:
  * - statistics - a statistic with ICC_Data_kthread execution count and average time - every n seconds
@@ -82,6 +82,7 @@ unsigned char snd_buffer[SND_BUF_SIZE];
 unsigned char rcv_buffer[RCV_BUF_SIZE];
 
 volatile atomic_t thread_on = { 1 };
+
 
 #ifdef ICC_STATISTICS
 
@@ -368,11 +369,34 @@ void USER_ICC_Node_State_Update_CB_App(
 
 #endif  /* ICC_BUILD_FOR_M4 */
 
+#ifdef DUMP_SHARED_MEM
+
+#include "ICC_Config_Test.h"
+
+#ifndef ICC_BUILD_FOR_M4
+extern
+ICC_Config_t * ICC_Config_Ptr_M4;          /**< pointer to M4 current configuration */
+#endif
+
+int ICC_Dump_Config(ICC_Config_t *config)
+{
+    int dump_count = 0;
+
+    if (config) {
+        ICC_DUMP_PTR(dump_count, ICC_Config_t, config);
+    }
+
+    return dump_count;
+}
+
+#endif
+
 /* Start_ICC_Sample - starts the sample code */
 int Start_ICC_Sample(void)
 {
     int i;
     ICC_Err_t return_code;
+    ICC_Config_t *config = &ICC_Config0;
 
     struct task_struct *task_data;
 
@@ -397,14 +421,17 @@ int Start_ICC_Sample(void)
 
     watch_CB_Node=0;
 
-#ifdef ICC_BUILD_FOR_M4
+#if (defined(ICC_BUILD_FOR_M4) && defined(ICC_LINUX2LINUX))
     /* Re-locate the objects in ICC_Config.c, at address IRAM_BASE_ADDR + 4 (first uint32 is used for polling/synchronization) */
-    ICC_Relocate_Config();
+    config = ICC_Relocate_Config(config, NULL);
+    if (!config) {
+        ICC_SAMPLE_LOG("Start_ICC_Sample: Failed to relocate config\n");
+    }
     /* TODO: use incoming icc_bar.bar_size to validate that the RC can access all shared mem */
 #endif
 
     /* initialize ICC */
-    if ((return_code = ICC_Initialize( ICC_Default_Config_Ptr )) != ICC_SUCCESS) {
+    if ((return_code = ICC_Initialize( config )) != ICC_SUCCESS) {
 
         ICC_SAMPLE_LOG("Start_ICC_Sample: ICC_Initialize failed with error code: %d\n", return_code);
 
@@ -414,7 +441,11 @@ int Start_ICC_Sample(void)
     ICC_SAMPLE_LOG("ICC_Initialize ... done\n");
 
 #ifdef DUMP_SHARED_MEM
-    ICC_Dump_Shared_Config();
+#ifdef ICC_BUILD_FOR_M4
+    ICC_Dump_Config(config);
+#else
+    ICC_Dump_Config(ICC_Config_Ptr_M4);
+#endif
 #endif
 
 #ifdef ICC_USE_POLLING
@@ -435,11 +466,11 @@ int Start_ICC_Sample(void)
 #endif
 
     /* open communication channels */
-    for (i = 0; i < ICC_CROSS_VALUE_OF(ICC_Default_Config_Ptr->Channels_Count); i++)
+    for (i = 0; i < ICC_CROSS_VALUE_OF(config->Channels_Count); i++)
     {
 
         #ifdef ICC_CFG_HEARTBEAT_ENABLED
-            if( i != ICC_CROSS_VALUE_OF(ICC_Default_Config_Ptr->ICC_Heartbeat_Os_Config)->channel_id )
+            if( i != ICC_CROSS_VALUE_OF(config->ICC_Heartbeat_Os_Config)->channel_id )
         #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
         ICC_CHECK_ERR_CODE(ICC_Open_Channel(i));
