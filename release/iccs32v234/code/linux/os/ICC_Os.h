@@ -71,9 +71,13 @@ extern ICC_Config_t * ICC_Config_Ptr_M4_Remote;
 
 #endif
 #else
+
+#include "ICC_Hw_Platform.h"
+
 extern char * ICC_Shared_Virt_Base_Addr;
 #define ICC_OS_Phys_To_Virt(phys_addr) \
-        (((char*)(((unsigned int)phys_addr) & 0xFFFFFFFF) - (char*)ICC_SHARED_PHYS_BASE_ADDR) + ICC_Shared_Virt_Base_Addr)
+        (((char*)(((unsigned long)phys_addr) & 0xFFFFFFFF) - (char*)ICC_SHARED_PHYS_BASE_ADDR) + ICC_Shared_Virt_Base_Addr)
+
 #endif
 
 
@@ -88,12 +92,20 @@ extern
 ICC_Err_t ICC_OS_Initialize( ICC_IN const ICC_Config_t * config_ptr );
 
 /*
- * OS specific initialization of interrupts
+ * OS specific initialization of interrupts.
+ * No interrupts used when using polling.
  */
+#ifdef ICC_USE_POLLING
+
+#define ICC_OS_Init_Interrupts() (ICC_SUCCESS)
+
+#else
+
 ICC_ATTR_SEC_TEXT_CODE
 extern
 ICC_Err_t ICC_OS_Init_Interrupts( void );
 
+#endif
 
 /*
  * Finalize OS specific elements

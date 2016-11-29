@@ -32,11 +32,13 @@
 *
 ==================================================================================================*/
 
-#include "ICC_Config.h"
-#include "ICC_Os.h"
-
 #ifndef ICC_CONFIG_TEST_H
 #define ICC_CONFIG_TEST_H
+
+#ifdef ICC_LINUX2LINUX
+
+#include "ICC_Config.h"
+#include "ICC_Os.h"
 
 #define PRINT(...) count += printk(KERN_ALERT __VA_ARGS__)
 
@@ -217,5 +219,6 @@ int print_ICC_Config_t(ICC_Config_t * obj)
             dump_count += count; \
         }
 
+#endif  /* ICC_LINUX2LINUX */
 
 #endif /* ICC_CONFIG_TEST_H */

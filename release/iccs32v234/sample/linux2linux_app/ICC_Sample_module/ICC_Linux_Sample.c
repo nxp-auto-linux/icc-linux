@@ -42,7 +42,7 @@
 #endif
 
 /* Un-comment this if you want to debug the virtual memory */
-#define DUMP_SHARED_MEM
+//#define DUMP_SHARED_MEM
 
 /* The following 2 macros define what is displayed by the applications:
  * - statistics - a statistic with ICC_Data_kthread execution count and average time - every n seconds
@@ -369,7 +369,7 @@ void USER_ICC_Node_State_Update_CB_App(
 
 #endif  /* ICC_BUILD_FOR_M4 */
 
-#ifdef DUMP_SHARED_MEM
+#if (defined(ICC_LINUX2LINUX) && defined(DUMP_SHARED_MEM))
 
 #include "ICC_Config_Test.h"
 
@@ -440,7 +440,7 @@ int Start_ICC_Sample(void)
 
     ICC_SAMPLE_LOG("ICC_Initialize ... done\n");
 
-#ifdef DUMP_SHARED_MEM
+#if (defined(ICC_LINUX2LINUX) && defined(DUMP_SHARED_MEM))
 #ifdef ICC_BUILD_FOR_M4
     ICC_Dump_Config(config);
 #else
@@ -458,7 +458,7 @@ int Start_ICC_Sample(void)
     }
 #else
     ICC_SAMPLE_LOG("Notifying peer ...\n");
-    ICC_Notify_Remote_Alive();
+    ICC_Notify_Peer_Alive();
 #endif
 
     ICC_SAMPLE_LOG("Peers connected\n");

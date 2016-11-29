@@ -2,7 +2,11 @@
 SRC_ROOT := $(PWD)/../../..
 CONFIG_USED = $(SRC_ROOT)/sample/config/include
 
-EXTRA_CFLAGS += -O0 -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums -DICC_MIX_32_64_SUPPORT -DICC_LINUX2LINUX -DICC_USE_POLLING
+EXTRA_CFLAGS += -O0 -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums -DICC_MIX_32_64_SUPPORT
+
+ifneq ($(CONFIG),RTOS)
+    EXTRA_CFLAGS += -DICC_LINUX2LINUX -DICC_USE_POLLING
+endif
 
 ifeq ($(CONFIG),EP)
     EXTRA_CFLAGS += -DICC_BUILD_FOR_M4
@@ -33,4 +37,6 @@ ICC_dev_$(CONFIG)-objs += ../../../code/linux/src/ICC_Api.o
 ICC_dev_$(CONFIG)-objs += ../../../code/linux/src/ICC_Sig_Fifo.o
 ICC_dev_$(CONFIG)-objs += ../../../code/linux/src/ICC_Fifo.o
 ICC_dev_$(CONFIG)-objs += ../../../code/linux/os/Linux/ICC_Os_Linux.o
-
+ifeq ($(CONFIG),RTOS)
+ICC_dev_$(CONFIG)-objs := ./ICC_Interrupts.o
+endif

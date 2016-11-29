@@ -184,11 +184,11 @@ ICC_Compare_Fifo_Conf( const ICC_Fifo_Config_t * fifo_config_APP,
 
 ICC_ATTR_SEC_TEXT_CODE
 extern
-ICC_Err_t ICC_Notify_Remote( void );
+ICC_Err_t ICC_Notify_Peer( void );
 
 ICC_ATTR_SEC_TEXT_CODE
 extern
-void ICC_Clear_Notify_From_Remote( void );
+void ICC_Clear_Notify_From_Peer( void );
 
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
 ICC_ATTR_SEC_TEXT_CODE
@@ -203,13 +203,15 @@ void ICC_Clear_Notify_Local( void );
 #else
 
 ICC_ATTR_SEC_TEXT_CODE
-ICC_Err_t ICC_Notify_Remote(void)
+ICC_Err_t ICC_Notify_Peer(void)
 {
     ICC_HW_Trigger_Cpu2Cpu_Interrupt( ICC_CFG_HW_CPU2CPU_IRQ ); /**< trigger remote interrupt */
+
+    return ICC_SUCCESS;
 }
 
 ICC_ATTR_SEC_TEXT_CODE
-void ICC_Clear_Notify_From_Remote(void)
+void ICC_Clear_Notify_From_Peer(void)
 {
     ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_CPU2CPU_IRQ);
 }
@@ -358,8 +360,8 @@ ICC_Initialize(
             channel_conf_M4 = (ICC_Channel_Config_t *) ICC_OS_Phys_To_Virt(&(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->Channels_Ptr)[i]));
 
             for (j=0; j<2; j++) {
-                fifo_config_APP = &channel_conf->fifos_cfg[ j ];
-                fifo_config_M4  = &channel_conf_M4->fifos_cfg[ j ];
+                fifo_config_APP = (ICC_Fifo_Config_t *)&channel_conf->fifos_cfg[ j ];
+                fifo_config_M4  = (ICC_Fifo_Config_t *)&channel_conf_M4->fifos_cfg[ j ];
 
                 ICC_CHECK_ERR_CODE( ICC_Compare_Fifo_Conf(fifo_config_APP, fifo_config_M4) );
 
@@ -464,7 +466,8 @@ ICC_Initialize(
      * when the peer is not initialized.
      */
 #ifndef ICC_USE_POLLING
-    ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
+
+    ICC_CHECK_ERR_CODE(ICC_Notify_Peer());
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
     ICC_Notify_Local();
 #endif
@@ -554,7 +557,7 @@ ICC_Finalize( void )
     }
 
     ICC_CHECK_ERR_CODE_NO_RETURN( ICC_Sig_Fifo_Signal( (ICC_Signal_Fifo_Ram_t *)&((*ICC_Node_Sig_Fifo_Ram)[ ICC_TX_FIFO ]), ICC_NODE_STATE_UNINIT ) );
-    ICC_CHECK_ERR_CODE_NO_RETURN(ICC_Notify_Remote());
+    ICC_CHECK_ERR_CODE_NO_RETURN(ICC_Notify_Peer());
 
     #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
     ICC_CHECK_ERR_CODE_NO_RETURN( ICC_Sig_Fifo_Signal( (ICC_Signal_Fifo_Ram_t *)&ICC_Signal_Fifo_Node_Ram_Local , ICC_NODE_STATE_UNINIT ) );
@@ -657,7 +660,7 @@ ICC_Open_Channel(
     #endif
 
     ICC_CHECK_ERR_CODE_NO_RETURN( ICC_Sig_Fifo_Signal( (ICC_Signal_Fifo_Ram_t *)&channel_ram->sig_fifo_remote[ ICC_TX_FIFO ], channel_new_state ) );
-    ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
+    ICC_CHECK_ERR_CODE(ICC_Notify_Peer());
 
     return return_code;
 }
@@ -718,7 +721,7 @@ ICC_Close_Channel(
     #endif
 
     ICC_CHECK_ERR_CODE_NO_RETURN( ICC_Sig_Fifo_Signal( (ICC_Signal_Fifo_Ram_t *)&channel_ram->sig_fifo_remote[ ICC_TX_FIFO ], channel_new_state ) );
-    ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
+    ICC_CHECK_ERR_CODE(ICC_Notify_Peer());
 
     return return_code;
 }
@@ -1092,7 +1095,7 @@ ICC_Msg_Send (
        ICC_FIFO_Msg_Wr_Sig(fifo_ram); /**< signal new message */
 
 
-    ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
+    ICC_CHECK_ERR_CODE(ICC_Notify_Peer());
     ICC_CHECK_ERR_CODE( ICC_OS_Release_Semaphore( channel_id, ICC_TX_FIFO  ) );
 
 
@@ -1305,7 +1308,7 @@ ICC_Msg_Recv(
         if ( ICC_RX_NORMAL == rx_operation ) {
 
             ICC_FIFO_Msg_Rd_Sig(fifo_ram); /**< signal only if message extracted from fifo */
-            ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
+            ICC_CHECK_ERR_CODE(ICC_Notify_Peer());
         }
 
 
@@ -1338,7 +1341,7 @@ ICC_Remote_Event_Handler(void)
     unsigned int hb_channel_id;
     #endif
     
-    ICC_Clear_Notify_From_Remote();
+    ICC_Clear_Notify_From_Peer();
 
 
     /*

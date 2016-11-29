@@ -147,16 +147,39 @@ ICC_Err_t
 ICC_Finalize( void );
 
 
-#ifdef ICC_USE_POLLING
+/**
+ *
+ * Called by the core using the shared memory (slave) to notify the
+ * core who initialized the shared memory (master) that it is connected
+ * and ready to exchange messages.
+ *
+ */
 
+#ifdef ICC_USE_POLLING
 ICC_ATTR_SEC_TEXT_CODE
 extern
-void ICC_Notify_Remote_Alive( void );
+void ICC_Notify_Peer_Alive( void );
+#else
+#define ICC_Notify_Peer_Alive()
+#endif
 
+/**
+ *
+ * Called by the core who initialized the shared memory (master) after the
+ * initialization is completed, in order to place itself in a wait mode until
+ * a peer (slave) connected to its shared memory.
+ *
+ * After ICC_Wait_For_Peer() returns, messages can be safelly exchanged between
+ * the two cores.
+ *
+ */
+
+#ifdef ICC_USE_POLLING
 ICC_ATTR_SEC_TEXT_CODE
 extern
 ICC_Err_t ICC_Wait_For_Peer( void );
-
+#else
+#define ICC_Wait_For_Peer() (ICC_SUCCESS)
 #endif
 
 /**

@@ -54,12 +54,9 @@ MODULE_DESCRIPTION("ICC device");
 MODULE_AUTHOR("Freescale Semiconductor");
 MODULE_LICENSE("GPL");
 
-#define MODULE_NAME     "ICC"
-#define BASEMINOR       0
-#define NUM_MINORS      1
-
 #define LOG_LEVEL       KERN_ALERT
 
+#include "ICC_Platform.h"
 #include "ICC_time.h"
 
 #ifndef ICC_USE_BAR
@@ -155,6 +152,8 @@ struct handshake {
 	uint64_t rc_ddr_addr;
 };
 
+#ifdef ICC_LINUX2LINUX
+
 #ifndef ICC_BUILD_FOR_M4
 /* BAR attributes are initialized on the RC side only */
 static struct s32v_bar icc_bar = {
@@ -164,6 +163,8 @@ static struct s32v_bar icc_bar = {
 #else
 static struct s32v_bar icc_bar;
 #endif
+
+#endif /* ICC_LINUX2LINUX */
 
 /* first 128 bits are for the hand shake */
 #define ICC_CONFIG_OFFSET_FROM_BASE (sizeof(struct handshake))
@@ -175,16 +176,6 @@ struct ICC_device_data {
 struct ICC_device_data devs[NUM_MINORS];
 static dev_t dev_no;
 
-#ifndef ICC_USE_POLLING
-
-struct ICC_platform_data {
-    struct device * dev;
-    unsigned int shared_irq;
-    unsigned int local_irq;
-};
-
-static struct ICC_platform_data * icc_data;
-
 static struct of_device_id ICC_dt_ids[] = {
     {
         .compatible = "fsl,s32v234-icc",
@@ -193,16 +184,18 @@ static struct of_device_id ICC_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, ICC_dt_ids);
 
+static struct ICC_platform_data * icc_data;
+
 static int ICC_probe(struct platform_device *pdev)
 {
     icc_data = devm_kzalloc(&pdev->dev, sizeof(*icc_data), GFP_KERNEL);
     if (!icc_data)
         return -ENOMEM;
 
-    icc_data->dev = &pdev->dev;
-    icc_data->shared_irq = platform_get_irq(pdev, ICC_CFG_HW_CPU2CPU_IRQ);
-#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-    icc_data->local_irq = platform_get_irq(pdev, ICC_CFG_HW_LOCAL_IRQ);
+    icc_data->pdev = pdev;
+
+#ifndef ICC_USE_POLLING
+    init_interrupt_data(icc_data);
 #endif
 
     platform_set_drvdata(pdev, icc_data);
@@ -220,30 +213,19 @@ static int ICC_remove(struct platform_device *pdev)
     return 0;
 }
 
-static int ICC_suspend(struct device *dev)
-{
-    return 0;
-}
-
-static int ICC_resume(struct device *dev)
-{
-    return 0;
-}
-
-static SIMPLE_DEV_PM_OPS(ICC_pm_ops, ICC_suspend, ICC_resume);
-
 static struct platform_driver ICC_driver = {
 	.probe		= ICC_probe,
 	.remove		= ICC_remove,
 	.driver		= {
 		.name	= MODULE_NAME,
 		.owner	= THIS_MODULE,
-		.of_match_table	= ICC_dt_ids,
-		.pm	= &ICC_pm_ops,
+		.of_match_table	= ICC_dt_ids
 	},
 };
 
-#else
+
+
+#ifdef ICC_USE_POLLING
 
 #include <linux/kthread.h>
 #include <linux/delay.h>
@@ -431,7 +413,7 @@ err:
 #ifdef ICC_USE_POLLING
 
 ICC_ATTR_SEC_TEXT_CODE
-ICC_Err_t ICC_Notify_Remote( void )
+ICC_Err_t ICC_Notify_Peer( void )
 {
     if (!icc_polling.ping_addr) {
     	return ICC_ERR_PARAM_INVAL;
@@ -452,7 +434,7 @@ ICC_Err_t ICC_Notify_Remote( void )
 }
 
 ICC_ATTR_SEC_TEXT_CODE
-void ICC_Notify_Remote_Alive( void )
+void ICC_Notify_Peer_Alive( void )
 {
     if (icc_polling.ping_addr) {
 #ifdef ICC_BUILD_FOR_M4
@@ -495,7 +477,7 @@ ICC_Err_t ICC_Wait_For_Peer( void )
 }
 
 ICC_ATTR_SEC_TEXT_CODE
-void ICC_Clear_Notify_From_Remote( void )
+void ICC_Clear_Notify_From_Peer( void )
 {
 	if (icc_polling.poll_addr) {
 		*icc_polling.poll_addr = WAIT_PATTERN;
@@ -566,9 +548,9 @@ static void local_cleanup(void)
         release_mem_region(IRAM_BASE_ADDR, MAP_DDR_SIZE);
     }
 
-#ifndef ICC_USE_POLLING
     platform_driver_unregister(&ICC_driver);
-#else
+
+    #ifdef ICC_USE_POLLING
     pcie_shmem_poll_exit();
     pcie_shmem_ping_exit();
 #endif
@@ -591,12 +573,10 @@ static int __init ICC_dev_init(void)
 
     printk(LOG_LEVEL "[ICC_dev_init] Freescale ICC linux driver\n");
 
-#ifndef ICC_USE_POLLING
     err = platform_driver_register(&ICC_driver);
     if (err) {
         return err;
     }
-#endif
 
     /* Initialize shared memory */
     ICC_Mem_Region = request_mem_region(IRAM_BASE_ADDR, MAP_DDR_SIZE, "ICC_shmem");
@@ -688,47 +668,6 @@ static void __exit ICC_dev_exit(void)
     printk(LOG_LEVEL "[ICC_dev_exit] \n");
 }
 
-#ifndef ICC_USE_POLLING
-
-struct device * ICC_get_device(void)
-{
-    if (icc_data) {
-        return icc_data->dev;
-    }
-
-    printk(KERN_ERR "[ICC_get_device] Invalid (NULL) internal data\n");
-    return NULL;
-}
-
-char * ICC_get_device_name(void)
-{
-    return MODULE_NAME;
-}
-
-unsigned int ICC_get_shared_irq(void)
-{
-    if (icc_data) {
-        return icc_data->shared_irq;
-    }
-
-    printk(KERN_ERR "[ICC_get_shared_irq] Invalid (NULL) internal data\n");
-    return (unsigned int)(-1);
-}
-
-#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-unsigned int ICC_get_local_irq(void)
-{
-    if (icc_data) {
-        return icc_data->local_irq;
-    }
-
-    printk(KERN_ERR "[ICC_get_local_irq] Invalid (NULL) internal data\n");
-    return (unsigned int)(-1);
-}
-#endif
-
-#endif  /* ICC_USE_POLLING */
-
 /**
  * Exporting ICC API functions to be used by other kernel modules
  */
@@ -762,8 +701,11 @@ EXPORT_SYMBOL(ICC_Msg_Recv);
 #endif
 
 #ifdef ICC_USE_POLLING
-EXPORT_SYMBOL(ICC_Notify_Remote_Alive);
+#ifdef ICC_BUILD_FOR_M4
 EXPORT_SYMBOL(ICC_Wait_For_Peer);
+#else
+EXPORT_SYMBOL(ICC_Notify_Peer_Alive);
+#endif
 #endif
 
 module_init(ICC_dev_init);

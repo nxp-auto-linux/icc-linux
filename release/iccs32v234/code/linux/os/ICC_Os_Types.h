@@ -51,12 +51,6 @@ extern "C"
 
     /* Linux OS */
 
-#ifdef ICC_UTEST
-typedef uint32_t wait_queue_head_t;
-struct semaphore {
-    uint32_t count;
-};
-#else
     #include <linux/types.h>
     #include <linux/module.h>
     #include <linux/version.h>
@@ -72,8 +66,6 @@ struct semaphore {
     #include <linux/slab.h>
     #include <linux/interrupt.h>
     #include <linux/sched.h>
-#endif
-
 
 
 /*
