@@ -27,6 +27,7 @@
 
 
 #include "ICC_Config.h"
+
 #include "ICC_Types.h"
 
 #if (defined(ICC_BUILD_FOR_M4) && defined(ICC_LINUX2LINUX))
@@ -465,6 +466,7 @@ ICC_Config_t ICC_Config0 = {
 			ICC_CROSS_INIT(NULL_PTR),
         #endif
 };
+
 
 #ifdef ICC_BUILD_FOR_M4
     #define ICC_STOP_SEC_SHARED_VAR_UNSPECIFIED

@@ -101,8 +101,7 @@ extern "C"
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA ICC_Config_t * ICC_Config_Ptr = NULL_PTR;  /**< pointer to current configuration structure */
 
 #ifndef ICC_BUILD_FOR_M4
-        extern
-        ICC_Config_t * ICC_Config_Ptr_M4;          /**< pointer to M4 current configuration */
+        extern ICC_Config_t * ICC_Config_Ptr_M4;          /**< pointer to M4 current configuration */
 #endif
 
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_PTR_VECTOR(uint32_t)      ICC_Initialized  = NULL_PTR;                            /**< shows if ICC is initialized */

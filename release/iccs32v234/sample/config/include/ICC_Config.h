@@ -146,6 +146,7 @@ extern ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
 #endif
 ICC_Config_t ICC_Config0;
 
+
 #ifdef ICC_BUILD_FOR_M4
     #define ICC_STOP_SEC_SHARED_VAR_UNSPECIFIED
     #include "ICC_MemMap.h"
@@ -211,6 +212,8 @@ ICC_Config_t ICC_Config0;
                                 );
         
 #endif
+
+
 
 #endif /* ICC_CONFIG_H */
 

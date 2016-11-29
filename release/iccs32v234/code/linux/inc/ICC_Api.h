@@ -155,7 +155,7 @@ ICC_Finalize( void );
  *
  */
 
-#ifdef ICC_USE_POLLING
+#if (defined(ICC_USE_POLLING) && !defined(ICC_BUILD_FOR_M4))
 ICC_ATTR_SEC_TEXT_CODE
 extern
 void ICC_Notify_Peer_Alive( void );
@@ -169,12 +169,12 @@ void ICC_Notify_Peer_Alive( void );
  * initialization is completed, in order to place itself in a wait mode until
  * a peer (slave) connected to its shared memory.
  *
- * After ICC_Wait_For_Peer() returns, messages can be safelly exchanged between
+ * After ICC_Wait_For_Peer() returns, messages can be safely exchanged between
  * the two cores.
  *
  */
 
-#ifdef ICC_USE_POLLING
+#if (defined(ICC_USE_POLLING) && defined(ICC_BUILD_FOR_M4))
 ICC_ATTR_SEC_TEXT_CODE
 extern
 ICC_Err_t ICC_Wait_For_Peer( void );

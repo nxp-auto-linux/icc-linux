@@ -38,5 +38,8 @@ ICC_dev_$(CONFIG)-objs += ../../../code/linux/src/ICC_Sig_Fifo.o
 ICC_dev_$(CONFIG)-objs += ../../../code/linux/src/ICC_Fifo.o
 ICC_dev_$(CONFIG)-objs += ../../../code/linux/os/Linux/ICC_Os_Linux.o
 ifeq ($(CONFIG),RTOS)
-ICC_dev_$(CONFIG)-objs := ./ICC_Interrupts.o
+ICC_dev_$(CONFIG)-objs += ./ICC_Interrupts.o
+else
+ICC_dev_$(CONFIG)-objs += ./ICC_Pcie.o
+ICC_dev_$(CONFIG)-objs += ./ICC_Polling.o
 endif

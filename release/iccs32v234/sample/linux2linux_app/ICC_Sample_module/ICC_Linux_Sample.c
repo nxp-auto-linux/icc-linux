@@ -208,7 +208,9 @@ inline ICC_Err_t ICC_Data_Receive(ICC_Timeout_t timeout)
     return icc_status;
 }
 
+#ifdef ICC_USE_POLLING
 extern void ICC_Timer_Update_ns(uint64_t new_time_ns);
+#endif
 
 int ICC_Data_kthread(void *data)
 {
@@ -259,8 +261,11 @@ int ICC_Data_kthread(void *data)
                 icc_last_func_sec = exec_time_ns / NSEC_PER_SEC;
             }
 #endif
+
+#ifdef ICC_USE_POLLING
             exec_time_ns = get_ns(&ts2, &ts1);
             ICC_Timer_Update_ns(exec_time_ns);
+#endif
         }
     }; /* end while(1) */
 
@@ -396,7 +401,7 @@ int Start_ICC_Sample(void)
 {
     int i;
     ICC_Err_t return_code;
-    ICC_Config_t *config = &ICC_Config0;
+    ICC_Config_t *config = (ICC_Config_t *)&ICC_Config0;
 
     struct task_struct *task_data;
 

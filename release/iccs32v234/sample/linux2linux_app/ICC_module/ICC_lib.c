@@ -57,117 +57,19 @@ MODULE_LICENSE("GPL");
 #define LOG_LEVEL       KERN_ALERT
 
 #include "ICC_Platform.h"
-#include "ICC_time.h"
 
-#ifndef ICC_USE_BAR
-#define ICC_USE_BAR 	2
-#endif
-
-#define DO_TEST_EXPAND(VAL)  VAL ## 0
-#define TEST_EXPAND(VAL)     DO_TEST_EXPAND(VAL)
-
-#define DO_GET_BAR_ADDRESS(BAR, SUFFIX) EP_BAR ## BAR ## _ ## SUFFIX
-#define GET_BAR_ADDRESS(BAR) 	DO_GET_BAR_ADDRESS(BAR, ADDR)
-#define GET_BAR_END(BAR) 		DO_GET_BAR_ADDRESS(BAR, END)
-
-/* FIXME remove hardcoding of addresses. */
-
-#define EP_PCIE_BASE_ADDR 0x72000000
-#define EP_DDR_ADDR 0x8FF00000
-
-#ifndef ICC_BUILD_FOR_M4
-
-/* define BARs for communication from the RC side
- * TODO: take them from device tree */
-#ifndef ICC_PCIE_SHMEM_BLUEBOX
-#define EP_BAR0_ADDR	0x72100000
-#define EP_BAR0_END 	0x721fffff  /* 1MB */
-#define EP_BAR2_ADDR	0x72200000
-#define EP_BAR2_END		0x722fffff  /* 1MB */
-#define EP_BAR4_ADDR	0x72310000
-#define EP_BAR4_END		0x72310fff  /* 4KB */
-#define EP_BAR5_ADDR	0x72300000
-#define EP_BAR5_END		0x7230ffff  /* 64Kb */
+#ifdef ICC_LINUX2LINUX
+/* first 128 bits are for the hand shake */
+#define ICC_CONFIG_OFFSET_FROM_BASE (sizeof(struct handshake))
 #else
-#define EP_BAR0_ADDR	0x1446000000
-#define EP_BAR0_END 	0x14460fffff  /* 1MB */
-#define EP_BAR2_ADDR	0x1446100000
-#define EP_BAR2_END		0x14461fffff  /* 1MB */
-#define EP_BAR4_ADDR	0x1446210000
-#define EP_BAR4_END		0x1446210fff  /* 4KB */
-#define EP_BAR5_ADDR	0x1446200000
-#define EP_BAR5_END		0x144620ffff  /* 64Kb */
+#define ICC_CONFIG_OFFSET_FROM_BASE (0)
 #endif
-
-#define EP_BAR_ADDR	GET_BAR_ADDRESS(ICC_USE_BAR)
-
-#if (TEST_EXPAND(EP_BAR_ADDR) == 0)
-#error Invalid BAR selected
-#else
-#define EP_BAR_SIZE	(GET_BAR_END(ICC_USE_BAR) - EP_BAR_ADDR + 1)
-#endif
-
-/* Physical memory mapped by the RC CPU.
- * The RC's shared DDR mapping is different in the Bluebox vs S32V EVB case.
- * For the moment, this setting is statically defined in the Makefile.
- */
-#ifdef ICC_PCIE_SHMEM_BLUEBOX  /* LS2-S32V */
-/* for LS2 kernel started with mem=13568M, unallocated RAM starts at 0x8350000000 */
-#define RC_DDR_ADDR     0x8350000000
-#else                           /* EVB-PCIE */
-#define RC_DDR_ADDR     0x8FF00000
-#endif
-
-#endif
-
-#ifdef ICC_BUILD_FOR_M4
-    /* M4 stands for the module replacing the RTOS app, that is the one initializing the shared mem.
-     * In our case that would be the PCIe EndPoint. */
-    #define IRAM_BASE_ADDR EP_DDR_ADDR
-    #define IRAM_PING_ADDR EP_PCIE_BASE_ADDR
-    #define IRAM_POLL_ADDR EP_DDR_ADDR
-
-#else
-
-    #define IRAM_BASE_ADDR EP_BAR_ADDR
-    #define IRAM_PING_ADDR EP_BAR_ADDR
-    #define IRAM_POLL_ADDR RC_DDR_ADDR
-
-#endif
-
-#define MAP_DDR_SIZE    1024 * 1024 * 1 /* 1 MB */
 
 #ifndef ICC_BUILD_FOR_M4
 ICC_Config_t * ICC_Config_Ptr_M4;
 ICC_Config_t * ICC_Config_Ptr_M4_Remote;
 #endif
 
-struct s32v_bar {
-	uint64_t bar_addr;
-	uint32_t bar_size;
-};
-
-struct handshake {
-	struct s32v_bar rc_bar;
-	uint64_t rc_ddr_addr;
-};
-
-#ifdef ICC_LINUX2LINUX
-
-#ifndef ICC_BUILD_FOR_M4
-/* BAR attributes are initialized on the RC side only */
-static struct s32v_bar icc_bar = {
-		EP_BAR_ADDR,
-		EP_BAR_SIZE
-};
-#else
-static struct s32v_bar icc_bar;
-#endif
-
-#endif /* ICC_LINUX2LINUX */
-
-/* first 128 bits are for the hand shake */
-#define ICC_CONFIG_OFFSET_FROM_BASE (sizeof(struct handshake))
 
 struct ICC_device_data {
     struct cdev cdev;
@@ -223,283 +125,6 @@ static struct platform_driver ICC_driver = {
 	},
 };
 
-
-
-#ifdef ICC_USE_POLLING
-
-#include <linux/kthread.h>
-#include <linux/delay.h>
-
-/* Value for 'incoming data from peer' */
-#define WAKE_UP_PATTERN     0x42  /* answer to life the universe and everything */
-/* Waiting value */
-#define WAIT_PATTERN        0x0
-
-struct ping_poll {
-	uint32_t *poll_addr;
-	uint32_t *ping_addr;
-	struct task_struct *poll_thread;
-	bool terminate_communication;
-};
-
-static struct ping_poll icc_polling = {0, 0, 0, false};
-
-ICC_ATTR_SEC_TEXT_CODE
-extern void
-ICC_Remote_Event_Handler(void);
-
-static int poll_thread_fn(void *arg)
-{
-    uint32_t *addr = (uint32_t *)arg;
-
-    while (!kthread_should_stop()) {
-        ICC_Sleep();
-        if (*addr == WAKE_UP_PATTERN) {
-            /* event detected */
-            ICC_Remote_Event_Handler();
-        }
-    }
-
-    icc_polling.poll_thread = NULL; /* notify completion */
-
-    return 0;
-}
-
-static int pcie_shmem_poll_init(void)
-{
-    int err = 0;
-
-    icc_polling.poll_addr = ioremap_nocache(IRAM_POLL_ADDR, SZ_4K);
-    if (!icc_polling.poll_addr) {
-        pr_warn("Could not ioremap %#llx\n", IRAM_POLL_ADDR);
-        err = -EIO;
-        goto ioremap_error;
-    }
-    /* Initialize it before we poll for changes */
-    *icc_polling.poll_addr = WAIT_PATTERN;
-
-    /* Start the polling thread */
-    icc_polling.poll_thread = kthread_run(poll_thread_fn, icc_polling.poll_addr, "shmem_poll_thread");
-    if (IS_ERR(icc_polling.poll_thread)) {
-        pr_warn("Error starting poll thread");
-        err = -EFAULT;
-        goto poll_thread_error;
-    }
-
-    return 0;
-
-poll_thread_error:
-    iounmap(icc_polling.poll_addr);
-    icc_polling.poll_addr = NULL;
-    icc_polling.poll_thread = NULL;
-ioremap_error:
-    return err;
-}
-
-static void pcie_shmem_poll_exit(void)
-{
-    /* terminate functions waiting in module context */
-    icc_polling.terminate_communication = true;
-
-    /* terminate the spawned kthreads */
-    if (icc_polling.poll_thread) {
-        kthread_stop(icc_polling.poll_thread);
-    }
-
-    do {
-        /* wait for the kthreads to actually stop, before cutting off the addresses */
-        msleep_interruptible(DEFAULT_TIMEOUT_MS * 10);
-    } while (icc_polling.poll_thread);
-
-    iounmap(icc_polling.poll_addr);
-    icc_polling.poll_addr = NULL;
-}
-
-static int pcie_shmem_ping_init(void)
-{
-    icc_polling.ping_addr = ioremap_nocache(IRAM_PING_ADDR, SZ_4K);
-    if (!icc_polling.ping_addr) {
-        pr_warn("Could not ioremap %#x\n", IRAM_PING_ADDR);
-        return -EIO;
-    }
-
-    return 0;
-}
-
-static void pcie_shmem_ping_exit(void)
-{
-    iounmap(icc_polling.ping_addr);
-    icc_polling.ping_addr = NULL;
-}
-
-#endif  /* ICC_USE_POLLING */
-
-/* following code is calling an API custom-exported from the PCIe driver */
-
-#ifdef ICC_BUILD_FOR_M4
-
-struct s32v_inbound_region {
-    uint32_t  bar_nr;
-    uint32_t  target_addr;
-    uint32_t  region;
-};
-
-struct s32v_outbound_region {
-    uint64_t target_addr;
-    uint64_t base_addr;
-    uint32_t size;
-    uint32_t region;
-    uint32_t region_type;
-};
-
-static struct s32v_inbound_region icc_inb = {
-    ICC_USE_BAR,      /* BAR2 */
-    EP_DDR_ADDR,    /* locally-mapped DDR on EP */
-    0       /* region 0 */
-};
-
-/* Outbound region structure */
-static struct s32v_outbound_region icc_outb = {
-    0,      /* target_addr */
-    EP_PCIE_BASE_ADDR,    /* base_addr */
-    MAP_DDR_SIZE,   /* size >= 64K(min for PCIE on S32V) */
-    0,      /* region number */
-    0       /* region type = mem */
-};
-
-extern int s32v_pcie_setup_outbound(void * data);
-extern int s32v_pcie_setup_inbound(void * data);
-
-static int pcie_init_inbound(struct s32v_inbound_region *inb)
-{
-    int ret = 0;
-
-    /* Setup the inbound window for transactions from RC */
-    ret = s32v_pcie_setup_inbound(inb);
-
-    if (ret < 0) {
-        printk(KERN_ERR "[pcie_init_inbound] Error while setting inbound region\n");
-        goto err;
-    } else {
-        printk("Inbound region setup successfully\n");
-    }
-
-err:
-    return ret;
-}
-
-static int pcie_init_outbound(struct s32v_outbound_region *outb)
-{
-    int ret = 0;
-
-    /* Setup outbound window for accessing RC mem */
-    ret = s32v_pcie_setup_outbound(outb);
-
-    if (ret < 0) {
-        printk(KERN_ERR "[pcie_mappings_init] Error while setting outbound region\n");
-        goto err;
-    } else {
-        printk("Outbound region setup successfully\n");
-        printk("\tRC %#llx (BAR %d) mapped to EP %#llx, size %d\n", icc_bar.bar_addr, icc_inb.bar_nr, icc_inb.target_addr, icc_bar.bar_size);
-        printk("\tEP %#llx mapped to RC %#llx, size %d\n", icc_outb.base_addr, icc_outb.target_addr, icc_outb.size);
-    }
-
-err:
-    return ret;
-}
-
-#endif  /* ICC_BUILD_FOR_M4 */
-
-#ifdef ICC_USE_POLLING
-
-ICC_ATTR_SEC_TEXT_CODE
-ICC_Err_t ICC_Notify_Peer( void )
-{
-    if (!icc_polling.ping_addr) {
-    	return ICC_ERR_PARAM_INVAL;
-    }
-
-	/* wait for the peer to become available */
-	while (!icc_polling.terminate_communication && (*icc_polling.ping_addr != WAIT_PATTERN)) {
-		ICC_Sleep();
-	}
-
-	if (icc_polling.terminate_communication) {
-		return ICC_ERR_TIMEOUT;
-	}
-
-	*icc_polling.ping_addr = WAKE_UP_PATTERN;
-
-    return ICC_SUCCESS;
-}
-
-ICC_ATTR_SEC_TEXT_CODE
-void ICC_Notify_Peer_Alive( void )
-{
-    if (icc_polling.ping_addr) {
-#ifdef ICC_BUILD_FOR_M4
-    	*icc_polling.ping_addr = WAKE_UP_PATTERN;
-#else
-    	struct handshake * phshake = (struct handshake *)icc_polling.ping_addr;
-    	phshake->rc_bar = icc_bar;
-        phshake->rc_ddr_addr = IRAM_POLL_ADDR;
-#endif
-    }
-}
-
-ICC_ATTR_SEC_TEXT_CODE
-ICC_Err_t ICC_Wait_For_Peer( void )
-{
-	if (!icc_polling.poll_addr) {
-		return ICC_ERR_PARAM_INVAL;
-	}
-
-    while (!icc_polling.terminate_communication && (*icc_polling.poll_addr == WAIT_PATTERN)) {
-   		ICC_Sleep();
-    }
-
-    if (icc_polling.terminate_communication) {
-    	return ICC_ERR_TIMEOUT;
-    }
-
-#ifdef ICC_BUILD_FOR_M4
-    {
-        struct handshake * phshake = (struct handshake *)icc_polling.poll_addr;
-        icc_outb.target_addr = phshake->rc_ddr_addr;
-        icc_bar.bar_addr = phshake->rc_bar.bar_addr;
-        icc_bar.bar_size = phshake->rc_bar.bar_addr;
-        pcie_init_outbound(&icc_outb);
-    }
-#endif
-    *icc_polling.poll_addr = WAIT_PATTERN;
-
-    return ICC_SUCCESS;
-}
-
-ICC_ATTR_SEC_TEXT_CODE
-void ICC_Clear_Notify_From_Peer( void )
-{
-	if (icc_polling.poll_addr) {
-		*icc_polling.poll_addr = WAIT_PATTERN;
-	}
-}
-
-#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-ICC_ATTR_SEC_TEXT_CODE
-void ICC_Notify_Local( void )
-{
-    // not supported
-}
-
-ICC_ATTR_SEC_TEXT_CODE
-void ICC_Clear_Notify_Local( void )
-{
-    // not supported
-}
-#endif
-
-#endif
-
 static int ICC_dev_open(struct inode *inode, struct file *file)
 {
     struct ICC_device_data *data = container_of(inode->i_cdev,
@@ -529,15 +154,12 @@ static const struct file_operations ICC_fops = {
 char * ICC_Shared_Virt_Base_Addr;
 struct resource * ICC_Mem_Region;
 
-#ifdef ICC_USE_POLLING
-struct resource * ICC_Ping_Region;
-#endif
-
 static void local_cleanup(void)
 {
     if (ICC_Shared_Virt_Base_Addr) {
         iounmap(ICC_Shared_Virt_Base_Addr);
         ICC_Shared_Virt_Base_Addr = NULL;
+
 #ifndef ICC_BUILD_FOR_M4
         ICC_Config_Ptr_M4 = NULL;
         ICC_Config_Ptr_M4_Remote = NULL;
@@ -545,14 +167,14 @@ static void local_cleanup(void)
     }
 
     if (ICC_Mem_Region) {
-        release_mem_region(IRAM_BASE_ADDR, MAP_DDR_SIZE);
+        release_mem_region(get_shmem_base_address(), get_shmem_size());
     }
 
     platform_driver_unregister(&ICC_driver);
 
-    #ifdef ICC_USE_POLLING
-    pcie_shmem_poll_exit();
-    pcie_shmem_ping_exit();
+#ifdef ICC_USE_POLLING
+    shmem_poll_exit();
+    shmem_ping_exit();
 #endif
 }
 
@@ -579,7 +201,7 @@ static int __init ICC_dev_init(void)
     }
 
     /* Initialize shared memory */
-    ICC_Mem_Region = request_mem_region(IRAM_BASE_ADDR, MAP_DDR_SIZE, "ICC_shmem");
+    ICC_Mem_Region = request_mem_region(get_shmem_base_address(), get_shmem_size(), "ICC_shmem");
     if (!ICC_Mem_Region) {
         printk (KERN_ERR "[ICC_dev_init] Failed to request mem region!\n");
         err = -ENOMEM;
@@ -589,10 +211,10 @@ static int __init ICC_dev_init(void)
     /* ICC Shared mem is mapped differently on RC and EP, but in both cases it physically
      * resides on EP side.
      */
-    ICC_Shared_Virt_Base_Addr = ioremap_nocache(IRAM_BASE_ADDR, MAP_DDR_SIZE) + ICC_CONFIG_OFFSET_FROM_BASE;
-    printk(LOG_LEVEL "[ICC_dev_init] reserved %#llx size is %d\n", ICC_Shared_Virt_Base_Addr, MAP_DDR_SIZE );
+    ICC_Shared_Virt_Base_Addr = ioremap_nocache(get_shmem_base_address(), get_shmem_size()) + ICC_CONFIG_OFFSET_FROM_BASE;
+    printk(LOG_LEVEL "[ICC_dev_init] reserved %#llx size is %d\n", ICC_Shared_Virt_Base_Addr, get_shmem_size() - ICC_CONFIG_OFFSET_FROM_BASE);
     if( !ICC_Shared_Virt_Base_Addr ){
-        printk(KERN_ERR "[ICC_dev_init] ICC_Shared_Virt_Base_Addr virtual mapping has failed for %#x\n", IRAM_BASE_ADDR);
+        printk(KERN_ERR "[ICC_dev_init] ICC_Shared_Virt_Base_Addr virtual mapping has failed for %#x\n", get_shmem_base_address());
         err = -ENOMEM;
         goto cleanup;
     }
@@ -604,7 +226,7 @@ static int __init ICC_dev_init(void)
      */
     ICC_Config_Ptr_M4 = (ICC_Config_t *)(ICC_Shared_Virt_Base_Addr);
     shared_start = (uint64_t *)ICC_Config_Ptr_M4;
-    for (i = 0; i < MAP_DDR_SIZE / sizeof(uint64_t); i++, shared_start++) {
+    for (i = 0; i < get_shmem_size() / sizeof(uint64_t); i++, shared_start++) {
         union local_magic * crt_start = (union local_magic *)shared_start;
 	    if ((ICC_Local_Magic.raw.m0 == crt_start->raw.m0) &&
 		(ICC_Local_Magic.raw.m1 == crt_start->raw.m1)){
@@ -622,12 +244,12 @@ static int __init ICC_dev_init(void)
 
 #ifdef ICC_BUILD_FOR_M4
     /* setup PCIE */
-    pcie_init_inbound(&icc_inb);
+    pcie_init_inbound();
 #endif
 
 #ifdef ICC_USE_POLLING
-    pcie_shmem_poll_init();
-    pcie_shmem_ping_init();
+    shmem_poll_init();
+    shmem_ping_init();
 #endif
 
     /* register device */
