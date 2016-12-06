@@ -40,11 +40,17 @@
 #ifndef ICC_HW_MSCM_H_
 #define ICC_HW_MSCM_H_
 
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/kernel.h>
+#include <linux/fs.h>
+#include <linux/cdev.h>
+#include <linux/ioport.h>
+#include <linux/io.h>
+#include <linux/mm.h>
+#include <asm/io.h>
 
 #include "ICC_Hw_Platform.h"
-
-
-
 
     #define ICC_ASM  asm volatile
     #define ICC_MSYNC() ICC_ASM("dsb sy\n")
@@ -60,22 +66,6 @@
 
 
     #define ICC_MSCM_IRCPxIR_INTx_MASK(n)   ((0x00000001UL) << (n))
-
-
-
-
-
-
-
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/kernel.h>
-#include <linux/fs.h>
-#include <linux/cdev.h>
-#include <linux/ioport.h>
-#include <linux/io.h>
-#include <linux/mm.h>
-#include <asm/io.h>
 
 
 #define ICC_START_SEC_VAR_UNSPECIFIED

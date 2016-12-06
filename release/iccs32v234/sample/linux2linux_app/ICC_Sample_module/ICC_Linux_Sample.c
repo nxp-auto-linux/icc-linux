@@ -34,12 +34,13 @@
 *
 ==================================================================================================*/
 
-#include "ICC_Api.h"
 #include <linux/kthread.h>
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
     #include <asm/atomic.h>
 #endif
+
+#include "ICC_Api.h"
 
 /* Un-comment this if you want to debug the virtual memory */
 //#define DUMP_SHARED_MEM

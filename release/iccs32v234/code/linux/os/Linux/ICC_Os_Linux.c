@@ -42,17 +42,6 @@ extern "C"
 {
 #endif
 
-#include "ICC_Config.h"
-
-#include "ICC_Os.h"
-#include "ICC_Types.h"
-#include "ICC_Fifo.h"
-#include "ICC_Private.h"
-
-#ifndef ICC_USE_POLLING
-#include "ICC_Hw.h"
-#endif
-
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -63,8 +52,18 @@ extern "C"
 #include <linux/mm.h>
 #include <asm/io.h>
 #include <asm/atomic.h>
-
 #include <linux/interrupt.h>
+
+#include "ICC_Config.h"
+
+#include "ICC_Os.h"
+#include "ICC_Types.h"
+#include "ICC_Fifo.h"
+#include "ICC_Private.h"
+
+#ifndef ICC_USE_POLLING
+#include "ICC_Hw.h"
+#endif
 
 /*
  * Implement Os API using Linux specifics

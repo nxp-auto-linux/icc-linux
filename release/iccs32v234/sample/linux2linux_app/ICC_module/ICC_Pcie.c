@@ -31,6 +31,8 @@
 *
 ==================================================================================================*/
 
+#ifdef ICC_LINUX2LINUX
+
 #include <linux/kernel.h>
 #include <linux/ioport.h>
 #include <linux/io.h>
@@ -42,8 +44,6 @@
 #include "ICC_Platform.h"
 
 #define LOG_LEVEL       KERN_ALERT
-
-#ifdef ICC_LINUX2LINUX
 
 #ifndef ICC_USE_BAR
 #define ICC_USE_BAR 	2

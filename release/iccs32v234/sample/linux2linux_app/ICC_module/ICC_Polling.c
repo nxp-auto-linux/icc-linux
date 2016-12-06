@@ -31,14 +31,14 @@
 *
 ==================================================================================================*/
 
+#ifdef ICC_USE_POLLING
+
 #include <linux/kernel.h>
 #include <linux/ioport.h>
 #include <linux/io.h>
 #include <linux/mm.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
-
-#ifdef ICC_USE_POLLING
 
 #include <linux/kthread.h>
 #include <linux/delay.h>

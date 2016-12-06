@@ -31,6 +31,8 @@
 *
 ==================================================================================================*/
 
+#ifndef ICC_USE_POLLING
+
 #include <linux/kernel.h>
 #include <linux/ioport.h>
 #include <linux/io.h>
@@ -44,8 +46,6 @@
 #include "ICC_Hw_Mscm.h"
 
 #define LOG_LEVEL       KERN_ALERT
-
-#ifndef ICC_USE_POLLING
 
 #define IRAM_BASE_ADDR  0x3E900000
 #define IRAM_SIZE       0x40000

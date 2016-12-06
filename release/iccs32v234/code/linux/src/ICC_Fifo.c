@@ -43,6 +43,7 @@ extern "C"
 {
 #endif
 
+#include <linux/string.h>
 
 #include "ICC_Config.h"
 
@@ -52,8 +53,11 @@ extern "C"
 #include "ICC_Hw.h"
 
 
-        #include <linux/string.h>
-
+/*
+ * This custom memcpy() is required because default kernel memcpy()
+ * has alignment requirements which are not met by ICC_FIFO_*() functions who call it.
+ * As a result, ICC modules crash when using default memcpy().
+ */
 void * memcpy (void *dst, const void *src, size_t n)
 {
     void           *res = dst;
