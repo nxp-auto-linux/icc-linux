@@ -175,12 +175,6 @@ ICC_Compare_Fifo_Conf( const ICC_Fifo_Config_t * fifo_config_APP,
  *                                       GLOBAL FUNCTIONS                                        *
  *===============================================================================================*/
 
-#ifdef ICC_USE_POLLING
-
-/* Declare notify functions here as 'extern'.
- * Implementation must be provided elsewhere.
- */
-
 ICC_ATTR_SEC_TEXT_CODE
 extern
 ICC_Err_t ICC_Notify_Peer( void );
@@ -199,37 +193,6 @@ extern
 void ICC_Clear_Notify_Local( void );
 #endif
 
-#else
-
-ICC_ATTR_SEC_TEXT_CODE
-ICC_Err_t ICC_Notify_Peer(void)
-{
-    ICC_HW_Trigger_Cpu2Cpu_Interrupt( ICC_CFG_HW_CPU2CPU_IRQ ); /**< trigger remote interrupt */
-
-    return ICC_SUCCESS;
-}
-
-ICC_ATTR_SEC_TEXT_CODE
-void ICC_Clear_Notify_From_Peer(void)
-{
-    ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_CPU2CPU_IRQ);
-}
-
-#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-ICC_ATTR_SEC_TEXT_CODE
-void ICC_Notify_Local(void)
-{
-    ICC_HW_Trigger_Local_Interrupt( ICC_CFG_HW_LOCAL_IRQ ); /**< trigger local interrupt */
-}
-
-ICC_ATTR_SEC_TEXT_CODE
-void ICC_Clear_Notify_Local(void)
-{
-    ICC_HW_Clear_Local_Interrupt( ICC_CFG_HW_LOCAL_IRQ ); /**< trigger local interrupt */
-}
-#endif
-
-#endif
 
 #if (defined(ICC_LINUX2LINUX) && defined(ICC_BUILD_FOR_M4))
 

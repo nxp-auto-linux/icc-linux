@@ -1,12 +1,9 @@
 /**
-*   @file    ICC_lib.c
-*   @version 0.0.2
+*   @file    ICC_Polling.c
+*   @version 0.0.1
 *
-*   @brief   ICC - Inter Core Communication polling support
-*   @details       Inter Core Communication polling support
-*
-*   @addtogroup [ICC]
-*   @{
+*   @brief   ICC - Inter Core Communication device driver polling support
+*   @details       Inter Core Communication device driver polling support
 */
 /*==================================================================================================
 *   Project              : ICC
@@ -34,21 +31,12 @@
 *
 ==================================================================================================*/
 
-#include <linux/module.h>
-#include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/fs.h>
-#include <linux/cdev.h>
 #include <linux/ioport.h>
 #include <linux/io.h>
 #include <linux/mm.h>
-
-#include <linux/of_address.h>
+#include <linux/platform_device.h>
 #include <linux/interrupt.h>
-#include <linux/of_platform.h>
-#include <linux/of_irq.h>
-
-#define LOG_LEVEL       KERN_ALERT
 
 #ifdef ICC_USE_POLLING
 
@@ -59,19 +47,12 @@
 #include "ICC_Platform.h"
 #include "ICC_time.h"
 
+#define LOG_LEVEL       KERN_ALERT
+
 /* Value for 'incoming data from peer' */
 #define WAKE_UP_PATTERN     0x42  /* answer to life the universe and everything */
 /* Waiting value */
 #define WAIT_PATTERN        0x0
-
-struct ping_poll {
-	uint32_t *poll_addr;
-	uint32_t *ping_addr;
-	struct task_struct *poll_thread;
-	bool terminate_communication;
-};
-
-static struct ping_poll icc_polling = {0, 0, 0, false};
 
 ICC_ATTR_SEC_TEXT_CODE
 extern void
@@ -79,8 +60,13 @@ ICC_Remote_Event_Handler(void);
 
 static int poll_thread_fn(void *arg)
 {
-    uint32_t *addr = (uint32_t *)arg;
+    struct ping_poll *icc_polling = (struct ping_poll*)arg;
+    uint32_t *addr = NULL;
 
+    if (!icc_polling)
+        return -EINVAL;
+
+    addr = icc_polling->poll_addr;
     while (!kthread_should_stop()) {
         ICC_Sleep();
         if (*addr == WAKE_UP_PATTERN) {
@@ -89,160 +75,198 @@ static int poll_thread_fn(void *arg)
         }
     }
 
-    icc_polling.poll_thread = NULL; /* notify completion */
+    icc_polling->poll_thread = NULL; /* notify completion */
 
     return 0;
 }
 
-int shmem_poll_init(void)
+int shmem_poll_init(struct ICC_platform_data *icc_data)
 {
-    int err = 0;
+    if (icc_data) {
+        int err = 0;
+        struct ping_poll *icc_polling = NULL;
+        struct device *dev;
 
-    icc_polling.poll_addr = ioremap_nocache(get_shmem_poll_addr(), SZ_4K);
-    if (!icc_polling.poll_addr) {
-        pr_warn("Could not ioremap %#llx\n", get_shmem_poll_addr());
-        err = -EIO;
-        goto ioremap_error;
-    }
-    /* Initialize it before we poll for changes */
-    *icc_polling.poll_addr = WAIT_PATTERN;
+        icc_polling = &icc_data->icc_polling;
+        if (!icc_polling)
+            return -EINVAL;
 
-    /* Start the polling thread */
-    icc_polling.poll_thread = kthread_run(poll_thread_fn, icc_polling.poll_addr, "shmem_poll_thread");
-    if (IS_ERR(icc_polling.poll_thread)) {
-        pr_warn("Error starting poll thread");
-        err = -EFAULT;
-        goto poll_thread_error;
-    }
+        dev = &icc_data->pdev->dev;
 
-    return 0;
+        icc_polling->poll_addr = devm_ioremap_nocache(dev, get_shmem_poll_addr(), SZ_4K);
+        if (!icc_polling->poll_addr) {
+            pr_warn("Could not ioremap %#llx\n", get_shmem_poll_addr());
+            return -EIO;
+        }
+        /* Initialize it before we poll for changes */
+        *(icc_polling->poll_addr) = WAIT_PATTERN;
+
+        /* Start the polling thread */
+        icc_polling->poll_thread = kthread_run(poll_thread_fn, icc_polling, "shmem_poll_thread");
+        if (IS_ERR(icc_polling->poll_thread)) {
+            pr_warn("Error starting poll thread");
+            err = -EFAULT;
+            goto poll_thread_error;
+        }
+
+        return 0;
 
 poll_thread_error:
-    iounmap(icc_polling.poll_addr);
-    icc_polling.poll_addr = NULL;
-    icc_polling.poll_thread = NULL;
-ioremap_error:
-    return err;
+        icc_polling->poll_addr = NULL;
+        icc_polling->poll_thread = NULL;
+        return err;
+    }
+
+    return -EINVAL;
 }
 
-void shmem_poll_exit(void)
+void shmem_poll_exit(struct ICC_platform_data *icc_data)
 {
-    /* terminate functions waiting in module context */
-    icc_polling.terminate_communication = true;
+    if (icc_data) {
+        struct ping_poll *icc_polling = &(icc_data->icc_polling);
 
-    /* terminate the spawned kthreads */
-    if (icc_polling.poll_thread) {
-        kthread_stop(icc_polling.poll_thread);
+        /* terminate functions waiting in module context */
+        icc_polling->terminate_communication = true;
+
+        /* terminate the spawned kthreads */
+        if (icc_polling->poll_thread) {
+            kthread_stop(icc_polling->poll_thread);
+        }
+
+        do {
+            /* wait for the kthreads to actually stop, before cutting off the addresses */
+            msleep_interruptible(DEFAULT_TIMEOUT_MS * 10);
+        } while (icc_polling->poll_thread);
+
+        iounmap(icc_polling->poll_addr);
+        icc_polling->poll_addr = NULL;
     }
-
-    do {
-        /* wait for the kthreads to actually stop, before cutting off the addresses */
-        msleep_interruptible(DEFAULT_TIMEOUT_MS * 10);
-    } while (icc_polling.poll_thread);
-
-    iounmap(icc_polling.poll_addr);
-    icc_polling.poll_addr = NULL;
 }
 
-int shmem_ping_init(void)
+int shmem_ping_init(struct ICC_platform_data *icc_data)
 {
-    icc_polling.ping_addr = ioremap_nocache(get_shmem_ping_addr(), SZ_4K);
-    if (!icc_polling.ping_addr) {
-        pr_warn("Could not ioremap %#x\n", get_shmem_ping_addr());
-        return -EIO;
+    if (icc_data) {
+        struct ping_poll *icc_polling = NULL;
+        struct device *dev;
+
+        icc_polling = &icc_data->icc_polling;
+        if (!icc_polling)
+            return -EINVAL;
+
+        dev = &icc_data->pdev->dev;
+
+        icc_polling->ping_addr = devm_ioremap_nocache(dev, get_shmem_ping_addr(), SZ_4K);
+        if (!icc_polling->ping_addr) {
+            pr_warn("Could not ioremap %#x\n", get_shmem_ping_addr());
+            return -EIO;
+        }
+
+        return 0;
     }
 
-    return 0;
+    return -EINVAL;
 }
 
-void shmem_ping_exit(void)
+void shmem_ping_exit(struct ICC_platform_data *icc_data)
 {
-    iounmap(icc_polling.ping_addr);
-    icc_polling.ping_addr = NULL;
+    if (icc_data) {
+        struct ping_poll *icc_polling = &(icc_data->icc_polling);
+        icc_polling->ping_addr = NULL;
+    }
 }
 
-ICC_ATTR_SEC_TEXT_CODE
-ICC_Err_t ICC_Notify_Peer( void )
+int poll_notify_peer(struct ICC_platform_data *icc_data)
 {
-    if (!icc_polling.ping_addr) {
-        return ICC_ERR_PARAM_INVAL;
+    if (icc_data) {
+        struct ping_poll *icc_polling = &(icc_data->icc_polling);
+
+        if (!icc_polling->ping_addr) {
+            return -EINVAL;
+        }
+
+        /* wait for the peer to become available */
+        while (!icc_polling->terminate_communication && (*(icc_polling->ping_addr) != WAIT_PATTERN)) {
+            ICC_Sleep();
+        }
+
+        if (icc_polling->terminate_communication) {
+            return -ETIMEDOUT;
+        }
+
+        *(icc_polling->ping_addr) = WAKE_UP_PATTERN;
+
+        return 0;
     }
 
-    /* wait for the peer to become available */
-    while (!icc_polling.terminate_communication && (*icc_polling.ping_addr != WAIT_PATTERN)) {
-        ICC_Sleep();
-    }
-
-    if (icc_polling.terminate_communication) {
-        return ICC_ERR_TIMEOUT;
-    }
-
-    *icc_polling.ping_addr = WAKE_UP_PATTERN;
-
-    return ICC_SUCCESS;
+    return -EINVAL;
 }
 
 #ifndef ICC_BUILD_FOR_M4
 
-void ICC_Notify_Peer_Alive( void )
+int poll_notify_peer_alive(struct ICC_platform_data *icc_data)
 {
-    if (icc_polling.ping_addr) {
+    if (icc_data) {
+        struct ping_poll *icc_polling = &(icc_data->icc_polling);
 
-        struct handshake * phshake = (struct handshake *)icc_polling.ping_addr;
-        /* BAR attributes are initialized on the RC side only */
-        struct s32v_bar icc_bar;
-        pcie_init_bar(&icc_bar);
+        if (icc_polling->ping_addr) {
 
-        phshake->rc_bar = icc_bar;
-        phshake->rc_ddr_addr = get_shmem_poll_addr();
+            struct handshake *phshake = (struct handshake *)(icc_polling->ping_addr);
+            /* BAR attributes are initialized on the RC side only */
+            struct s32v_bar icc_bar;
+            pcie_init_bar(&icc_bar);
+
+            phshake->rc_bar = icc_bar;
+            phshake->rc_ddr_addr = get_shmem_poll_addr();
+
+            return 0;
+        }
     }
+
+    return -EINVAL;
 }
 
 #else
 
-ICC_Err_t ICC_Wait_For_Peer( void )
+int poll_wait_for_peer(struct ICC_platform_data *icc_data)
 {
-    if (icc_polling.poll_addr) {
-        struct handshake * phshake;
+    if (icc_data) {
+        struct ping_poll *icc_polling = &(icc_data->icc_polling);
 
-        while (!icc_polling.terminate_communication && (*icc_polling.poll_addr == WAIT_PATTERN)) {
-            ICC_Sleep();
+        if (icc_polling->poll_addr) {
+            struct handshake * phshake;
+
+            while (!icc_polling->terminate_communication &&
+                   (*(icc_polling->poll_addr) == WAIT_PATTERN)) {
+                ICC_Sleep();
+            }
+
+            if (icc_polling->terminate_communication) {
+                return -ETIMEDOUT;
+            }
+
+            phshake = (struct handshake *)(icc_polling->poll_addr);
+            pcie_init_outbound(phshake);
+
+            *(icc_polling->poll_addr) = WAIT_PATTERN;
+
+            return 0;
         }
-
-        if (icc_polling.terminate_communication) {
-            return ICC_ERR_TIMEOUT;
-        }
-
-        phshake = (struct handshake *)icc_polling.poll_addr;
-        pcie_init_outbound(phshake);
-
-        *icc_polling.poll_addr = WAIT_PATTERN;
-
-        return ICC_SUCCESS;
     }
 
-    return ICC_ERR_PARAM_INVAL;
+    return -EINVAL;
 }
 
 #endif  /* ICC_BUILD_FOR_M4 */
 
-void ICC_Clear_Notify_From_Peer( void )
+void poll_clear_notify_from_peer(struct ICC_platform_data *icc_data)
 {
-    if (icc_polling.poll_addr) {
-        *icc_polling.poll_addr = WAIT_PATTERN;
+    if (icc_data) {
+        struct ping_poll *icc_polling = &(icc_data->icc_polling);
+
+        if (icc_polling->poll_addr) {
+            *(icc_polling->poll_addr) = WAIT_PATTERN;
+        }
     }
 }
-
-#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-void ICC_Notify_Local( void )
-{
-    // not supported
-}
-
-void ICC_Clear_Notify_Local( void )
-{
-    // not supported
-}
-#endif
 
 #endif  /* ICC_USE_POLLING */

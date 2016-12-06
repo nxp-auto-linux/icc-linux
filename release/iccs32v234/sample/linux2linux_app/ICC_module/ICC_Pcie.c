@@ -1,12 +1,9 @@
 /**
-*   @file    ICC_lib.c
-*   @version 0.0.2
+*   @file    ICC_Pcie.c
+*   @version 0.0.1
 *
-*   @brief   ICC - Inter Core Communication PCI Express support
-*   @details       Inter Core Communication PCI Express support
-*
-*   @addtogroup [ICC]
-*   @{
+*   @brief   ICC - Inter Core Communication device driver PCI Express support
+*   @details       Inter Core Communication device driver PCI Express support
 */
 /*==================================================================================================
 *   Project              : ICC
@@ -34,25 +31,17 @@
 *
 ==================================================================================================*/
 
-#include <linux/module.h>
-#include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/fs.h>
-#include <linux/cdev.h>
 #include <linux/ioport.h>
 #include <linux/io.h>
 #include <linux/mm.h>
 
-#include <linux/of_address.h>
 #include <linux/interrupt.h>
-#include <linux/of_platform.h>
-#include <linux/of_irq.h>
 
 #include "ICC_Api.h"
+#include "ICC_Platform.h"
 
 #define LOG_LEVEL       KERN_ALERT
-
-#include "ICC_Platform.h"
 
 #ifdef ICC_LINUX2LINUX
 

@@ -1,12 +1,9 @@
 /**
 *   @file    ICC_Interrupts.c
-*   @version 0.0.2
+*   @version 0.0.1
 *
 *   @brief   ICC - Inter Core Communication device driver interrupt support
 *   @details       Inter Core Communication device driver interrupt support
-*
-*   @addtogroup [ICC]
-*   @{
 */
 /*==================================================================================================
 *   Project              : ICC
@@ -34,26 +31,80 @@
 *
 ==================================================================================================*/
 
-#include <linux/module.h>
-#include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/fs.h>
-#include <linux/cdev.h>
 #include <linux/ioport.h>
 #include <linux/io.h>
 #include <linux/mm.h>
-
-#include <linux/of_address.h>
+#include <linux/platform_device.h>
+#include <linux/printk.h>
 #include <linux/interrupt.h>
-#include <linux/of_platform.h>
-#include <linux/of_irq.h>
 
 #include "ICC_Api.h"
 #include "ICC_Platform.h"
+#include "ICC_Hw_Mscm.h"
 
 #define LOG_LEVEL       KERN_ALERT
 
 #ifndef ICC_USE_POLLING
+
+#define IRAM_BASE_ADDR  0x3E900000
+#define IRAM_SIZE       0x40000
+
+const uint64_t get_shmem_base_address(void)
+{
+    return IRAM_BASE_ADDR;
+}
+
+const uint32_t get_shmem_size(void)
+{
+    return IRAM_SIZE;
+}
+
+ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS char * ICC_HW_MSCM_VIRT_BASE;
+
+int intr_notify_peer(void)
+{
+    if (ICC_HW_MSCM_VIRT_BASE) {
+        ICC_HW_Trigger_Cpu2Cpu_Interrupt( ICC_CFG_HW_CPU2CPU_IRQ ); /**< trigger remote interrupt */
+
+        return 0;
+    }
+
+    printk (KERN_ERR "Interrupts not registered\n");
+    return -EINVAL;
+}
+
+void intr_clear_notify_from_peer(void)
+{
+    if (ICC_HW_MSCM_VIRT_BASE) {
+        ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_CPU2CPU_IRQ);
+        return;
+    }
+
+    printk (KERN_ERR "Interrupts not registered\n");
+}
+
+#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+void intr_notify_local(void)
+{
+    if (ICC_HW_MSCM_VIRT_BASE) {
+        ICC_HW_Trigger_Local_Interrupt( ICC_CFG_HW_LOCAL_IRQ ); /**< trigger local interrupt */
+        return;
+    }
+
+    printk (KERN_ERR "Interrupts not registered\n");
+}
+
+void intr_clear_notify_local(void)
+{
+    if (ICC_HW_MSCM_VIRT_BASE) {
+        ICC_HW_Clear_Local_Interrupt( ICC_CFG_HW_LOCAL_IRQ ); /**< trigger local interrupt */
+        return;
+    }
+
+    printk (KERN_ERR "Interrupts not registered\n");
+}
+#endif
 
 extern
 void ICC_Remote_Event_Handler(void);
@@ -65,7 +116,6 @@ void ICC_Local_Event_Handler(void);
 
 #endif
 
-#ifndef ICC_USE_POLLING
 static
 irqreturn_t ICC_Cpu2Cpu_ISR_Handler(int irq, void *dev_id)
 {
@@ -73,7 +123,6 @@ irqreturn_t ICC_Cpu2Cpu_ISR_Handler(int irq, void *dev_id)
 
     return IRQ_HANDLED;
 }
-#endif
 
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
 static
@@ -86,10 +135,10 @@ irqreturn_t ICC_Local_ISR_Handler(int irq, void *dev_id)
 
 #endif
 
-static int ICC_Enable_Peer_Interrupt(struct ICC_platform_data * icc_data)
+static int ICC_Enable_Peer_Interrupt(struct ICC_platform_data *icc_data)
 {
     if (icc_data) {
-        struct device * dev = &icc_data->pdev->dev;
+        struct device *dev = &(icc_data->pdev->dev);
         unsigned int shared_irq = icc_data->shared_irq;
 
         if (!dev)
@@ -138,9 +187,19 @@ int init_interrupt_data(struct ICC_platform_data * icc_data)
     if (icc_data) {
         int err = 0;
         struct platform_device * pdev = icc_data->pdev;
+        struct device *dev = &pdev->dev;
 
         if (!pdev)
             return -ENODEV;
+
+        ICC_HW_MSCM_VIRT_BASE = devm_ioremap_nocache(dev, ICC_HW_MSCM_BASE, ICC_HW_MSCM_SIZE);
+        printk(LOG_LEVEL "[init_interrupt_data] reserved ICC_HW_MSCM_VIRT_BASE=%#llx size is %d\n", ICC_HW_MSCM_VIRT_BASE, ICC_HW_MSCM_SIZE);
+
+        if (NULL == ICC_HW_MSCM_VIRT_BASE)
+        {
+            printk (KERN_ALERT "MSCM ioremap failed\n");
+            return -ENOMEM;
+        }
 
         icc_data->shared_irq = platform_get_irq(pdev, ICC_CFG_HW_CPU2CPU_IRQ);
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)

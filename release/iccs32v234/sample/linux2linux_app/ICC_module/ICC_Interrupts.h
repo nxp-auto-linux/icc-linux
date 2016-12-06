@@ -1,9 +1,9 @@
 /**
-*   @file    ICC_Platform.h
+*   @file    ICC_Interrupts.h
 *   @version 0.0.1
 *
-*   @brief   ICC - Inter Core Communication generic platform definitions
-*   @details       Inter Core Communication generic platform definitions
+*   @brief   ICC - Inter Core Communication device driver interrupt support
+*   @details       Inter Core Communication device driver interrupt support
 */
 /*==================================================================================================
 *   Project              : ICC
@@ -31,29 +31,23 @@
 *
 ==================================================================================================*/
 
-#ifndef ICC_PLATFORM_H
-#define ICC_PLATFORM_H
+#ifndef ICC_INTERRUPTS_H
+#define ICC_INTERRUPTS_H
 
-#define MODULE_NAME     "ICC"
-#define BASEMINOR       0
-#define NUM_MINORS      1
-
-#include "ICC_Polling.h"
-#include "ICC_Interrupts.h"
-#include "ICC_Pcie.h"
-
-struct ICC_platform_data {
-    struct platform_device *pdev;
 #ifndef ICC_USE_POLLING
-    uint32_t shared_irq;
-    uint32_t local_irq;
-#else
-    struct ping_poll icc_polling;
+
+struct ICC_platform_data;
+
+int intr_notify_peer(void);
+void intr_clear_notify_from_peer(void);
+
+#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+void intr_notify_local(void);
+void intr_clear_notify_local(void);
 #endif
-};
 
-const uint64_t get_shmem_base_address(void);
+int init_interrupt_data(struct ICC_platform_data * icc_data);
 
-const uint32_t get_shmem_size(void);
+#endif
 
-#endif /* ICC_PLATFORM_H */
+#endif /* ICC_INTERRUPTS_H */

@@ -76,10 +76,6 @@ extern "C"
     ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS extern ICC_Fifo_Ram_t (* ICC_Fifo_Ram)[ ICC_CFG_MAX_CHANNELS ][ 2 ];
     ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA extern volatile unsigned int          (* ICC_Initialized)[2];
 
-#ifndef ICC_USE_POLLING
-    ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS char * ICC_HW_MSCM_VIRT_BASE;
-#endif
-
     ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS extern ICC_Config_t * ICC_Config_Ptr;
 
 #ifndef ICC_CFG_NO_TIMEOUT
@@ -182,29 +178,18 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
         }
     }
 
-#ifndef ICC_USE_POLLING
-
-    ICC_HW_MSCM_VIRT_BASE = ioremap_nocache(ICC_HW_MSCM_BASE, 0x1000);
-
-    if (NULL == ICC_HW_MSCM_VIRT_BASE)
-    {
-        printk (KERN_ALERT "MSCM ioremap failed\n");
-
-        return ICC_ERR_GENERAL;
-    }
-
-#endif
-
     return ICC_SUCCESS;
 }
 
 #ifndef ICC_USE_POLLING
 
+ICC_ATTR_SEC_TEXT_CODE
 extern
 void ICC_Clear_Notify_From_Peer(void);
 
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
 
+ICC_ATTR_SEC_TEXT_CODE
 extern
 void ICC_Clear_Notify_Local(void);
 
@@ -243,12 +228,6 @@ ICC_OS_Finalize(void)
     ICC_Fifo_Ram_t           * fifo_ram = NULL;
     ICC_Fifo_Os_Ram_t        * fifo_os_ram = NULL;
 #endif /* no ICC_CFG_NO_TIMEOUT */
-
-#ifndef ICC_USE_POLLING
-
-    iounmap(ICC_HW_MSCM_VIRT_BASE);
-
-#endif
 
 #ifndef ICC_CFG_NO_TIMEOUT
     /* free the waitqueue */

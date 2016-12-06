@@ -1,9 +1,9 @@
 /**
-*   @file    ICC_Platform.h
+*   @file    ICC_Polling.h
 *   @version 0.0.1
 *
-*   @brief   ICC - Inter Core Communication generic platform definitions
-*   @details       Inter Core Communication generic platform definitions
+*   @brief   ICC - Inter Core Communication device driver polling support
+*   @details       Inter Core Communication device driver polling support
 */
 /*==================================================================================================
 *   Project              : ICC
@@ -31,29 +31,39 @@
 *
 ==================================================================================================*/
 
-#ifndef ICC_PLATFORM_H
-#define ICC_PLATFORM_H
+#ifndef ICC_POLLING_H
+#define ICC_POLLING_H
 
-#define MODULE_NAME     "ICC"
-#define BASEMINOR       0
-#define NUM_MINORS      1
+#ifdef ICC_USE_POLLING
 
-#include "ICC_Polling.h"
-#include "ICC_Interrupts.h"
-#include "ICC_Pcie.h"
-
-struct ICC_platform_data {
-    struct platform_device *pdev;
-#ifndef ICC_USE_POLLING
-    uint32_t shared_irq;
-    uint32_t local_irq;
-#else
-    struct ping_poll icc_polling;
-#endif
+struct ping_poll {
+    uint32_t *poll_addr;
+    uint32_t *ping_addr;
+    struct task_struct *poll_thread;
+    bool terminate_communication;
 };
 
-const uint64_t get_shmem_base_address(void);
+struct ICC_platform_data;
 
-const uint32_t get_shmem_size(void);
+const uint64_t get_shmem_poll_addr(void);
+const uint64_t get_shmem_ping_addr(void);
 
-#endif /* ICC_PLATFORM_H */
+int shmem_poll_init(struct ICC_platform_data *icc_data);
+void shmem_poll_exit(struct ICC_platform_data *icc_data);
+
+int shmem_ping_init(struct ICC_platform_data *icc_data);
+void shmem_ping_exit(struct ICC_platform_data *icc_data);
+
+int poll_notify_peer(struct ICC_platform_data *icc_data);
+
+#ifndef ICC_BUILD_FOR_M4
+int poll_notify_peer_alive(struct ICC_platform_data *icc_data);
+#else
+int poll_wait_for_peer(struct ICC_platform_data *icc_data);
+#endif
+
+void poll_clear_notify_from_peer(struct ICC_platform_data *icc_data);
+
+#endif /* ICC_USE_POLLING */
+
+#endif /* ICC_POLLING_H */

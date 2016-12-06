@@ -1,5 +1,5 @@
 /**
-*   @file    ICC_Platform.h
+*   @file    ICC_Pcie.h
 *   @version 0.0.1
 *
 *   @brief   ICC - Inter Core Communication generic platform definitions
@@ -31,29 +31,50 @@
 *
 ==================================================================================================*/
 
-#ifndef ICC_PLATFORM_H
-#define ICC_PLATFORM_H
+#ifndef ICC_PCIE_H
+#define ICC_PCIE_H
 
-#define MODULE_NAME     "ICC"
-#define BASEMINOR       0
-#define NUM_MINORS      1
+#ifdef ICC_LINUX2LINUX
 
-#include "ICC_Polling.h"
-#include "ICC_Interrupts.h"
-#include "ICC_Pcie.h"
-
-struct ICC_platform_data {
-    struct platform_device *pdev;
-#ifndef ICC_USE_POLLING
-    uint32_t shared_irq;
-    uint32_t local_irq;
-#else
-    struct ping_poll icc_polling;
-#endif
+struct s32v_bar {
+    uint64_t bar_addr;
+    uint32_t bar_size;
+    uint32_t bar_nr;
 };
 
-const uint64_t get_shmem_base_address(void);
+struct handshake {
+    struct s32v_bar rc_bar;
+    uint64_t rc_ddr_addr;
+};
 
-const uint32_t get_shmem_size(void);
+struct ICC_platform_data;
 
-#endif /* ICC_PLATFORM_H */
+#ifdef ICC_BUILD_FOR_M4
+
+struct s32v_inbound_region {
+    uint32_t  bar_nr;
+    uint32_t  target_addr;
+    uint32_t  region;
+};
+
+struct s32v_outbound_region {
+    uint64_t target_addr;
+    uint64_t base_addr;
+    uint32_t size;
+    uint32_t region;
+    uint32_t region_type;
+};
+
+int pcie_init_inbound(void);
+int pcie_init_outbound(struct handshake *phshake);
+
+#else
+
+/* BAR attributes are initialized on the RC side only with EP defaults */
+int pcie_init_bar(struct s32v_bar *bar);
+
+#endif
+#endif
+
+
+#endif /* ICC_PCIE_H */

@@ -158,9 +158,9 @@ ICC_Finalize( void );
 #if (defined(ICC_USE_POLLING) && !defined(ICC_BUILD_FOR_M4))
 ICC_ATTR_SEC_TEXT_CODE
 extern
-void ICC_Notify_Peer_Alive( void );
+ICC_Err_t ICC_Notify_Peer_Alive( void );
 #else
-#define ICC_Notify_Peer_Alive()
+#define ICC_Notify_Peer_Alive() ( ICC_SUCCESS )
 #endif
 
 /**
@@ -179,7 +179,7 @@ ICC_ATTR_SEC_TEXT_CODE
 extern
 ICC_Err_t ICC_Wait_For_Peer( void );
 #else
-#define ICC_Wait_For_Peer() (ICC_SUCCESS)
+#define ICC_Wait_For_Peer() ( ICC_SUCCESS )
 #endif
 
 /**
