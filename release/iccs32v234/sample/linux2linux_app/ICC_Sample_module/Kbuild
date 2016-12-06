@@ -31,9 +31,16 @@ ifneq ($(CC),$(LD))
 endif
 
 ## Objects to build ##
-obj-m := ICC_Sample_$(CONFIG).o
-ccflags-y += $(INCLUDE_DEPENDENCIES)
+COMMON_OBJS := ./ICC_Sample_dev.o
+COMMON_OBJS += ./ICC_Linux_Sample.o
+COMMON_OBJS += ../../config/src/ICC_Config.o
 
-ICC_Sample_$(CONFIG)-objs := ./ICC_Sample_dev.o
-ICC_Sample_$(CONFIG)-objs += ./ICC_Linux_Sample.o
-ICC_Sample_$(CONFIG)-objs += ../../config/src/ICC_Config.o
+ifeq ($(CONFIG),RTOS)
+obj-m := ICC_Sample.o
+ICC_Sample-objs := $(COMMON_OBJS)
+else
+obj-m := ICC_Sample_$(CONFIG).o
+ICC_Sample_$(CONFIG)-objs := $(COMMON_OBJS)
+endif
+
+ccflags-y += $(INCLUDE_DEPENDENCIES)

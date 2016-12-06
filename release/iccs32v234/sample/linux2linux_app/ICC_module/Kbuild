@@ -30,16 +30,21 @@ ifneq ($(CC),$(LD))
 endif
 
 ## Objects to build ##
-obj-m := ICC_dev_$(CONFIG).o
-ccflags-y += $(INCLUDE_DEPENDENCIES)
-ICC_dev_$(CONFIG)-objs := ./ICC_lib.o
-ICC_dev_$(CONFIG)-objs += ../../../code/linux/src/ICC_Api.o
-ICC_dev_$(CONFIG)-objs += ../../../code/linux/src/ICC_Sig_Fifo.o
-ICC_dev_$(CONFIG)-objs += ../../../code/linux/src/ICC_Fifo.o
-ICC_dev_$(CONFIG)-objs += ../../../code/linux/os/Linux/ICC_Os_Linux.o
+COMMON_OBJS := ./ICC_lib.o
+COMMON_OBJS += ../../../code/linux/src/ICC_Api.o
+COMMON_OBJS += ../../../code/linux/src/ICC_Sig_Fifo.o
+COMMON_OBJS += ../../../code/linux/src/ICC_Fifo.o
+COMMON_OBJS += ../../../code/linux/os/Linux/ICC_Os_Linux.o
+
 ifeq ($(CONFIG),RTOS)
-ICC_dev_$(CONFIG)-objs += ./ICC_Interrupts.o
+obj-m := ICC_dev.o
+ICC_dev-objs := $(COMMON_OBJS)
+ICC_dev-objs += ./ICC_Interrupts.o
 else
+obj-m := ICC_dev_$(CONFIG).o
+ICC_dev_$(CONFIG)-objs := $(COMMON_OBJS)
 ICC_dev_$(CONFIG)-objs += ./ICC_Pcie.o
 ICC_dev_$(CONFIG)-objs += ./ICC_Polling.o
 endif
+
+ccflags-y += $(INCLUDE_DEPENDENCIES)

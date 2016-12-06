@@ -26,12 +26,7 @@
 # BB_RC for RootComplex (ls208xx rdb), in a BlueBox setup setup for Linux over PCIE
 CONFIG ?= RTOS
 
-ifeq ($(CONFIG),RTOS)
-SRC := $(shell pwd)/release/iccs32v234/sample/linux_app
-else
 SRC := $(shell pwd)/release/iccs32v234/sample/linux2linux_app
-endif
-
 
 MODULE_SRC := $(SRC)/ICC_module
 SAMPLE_MODULE_SRC := $(SRC)/ICC_Sample_module
