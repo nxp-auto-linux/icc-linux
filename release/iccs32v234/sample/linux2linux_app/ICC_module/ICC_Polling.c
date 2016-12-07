@@ -44,7 +44,7 @@
 #include <linux/delay.h>
 
 #include "ICC_Api.h"
-#include "ICC_Platform.h"
+#include "ICC_Sw_Platform.h"
 #include "ICC_time.h"
 
 #define LOG_LEVEL       KERN_ALERT

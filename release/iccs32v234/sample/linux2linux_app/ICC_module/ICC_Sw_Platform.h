@@ -1,5 +1,5 @@
 /**
-*   @file    ICC_Platform.h
+*   @file    ICC_Sw_Platform.h
 *   @version 0.0.1
 *
 *   @brief   ICC - Inter Core Communication generic platform definitions

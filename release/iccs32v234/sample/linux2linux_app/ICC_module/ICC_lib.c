@@ -49,7 +49,7 @@
 #include <linux/of_irq.h>
 
 #include "ICC_Api.h"
-#include "ICC_Platform.h"
+#include "ICC_Sw_Platform.h"
 
 MODULE_DESCRIPTION("ICC device");
 MODULE_AUTHOR("Freescale Semiconductor");
