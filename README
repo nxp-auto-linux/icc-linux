@@ -1,39 +1,40 @@
 Freescale ARM Inter Core Communication for Linux - S32V234 (Treerunner)
 =======================================================================
 
+The InterCore Communication (ICC) is a subsystem which enables applications to run on 
+different (heterogenous) cores in multicore systems, located either on the same target 
+or on different targets, running different Operating Systems.
 This package contains the S32V234 (Treerunner) port for the Linux part of the 
-Freescale ARM Inter Core Communication(ICC) product.
+ICC product.
+
+Currently, ICC enables the communication between applications running on:
+- ARM® Cortex®-A53 and ARM® Cortex®-M4 cores on the S32V234 platform
+- ARM® Cortex®-A53 core on S32V234 PCIe and ARM® Cortex®-A53 on S32V234 EVB over PCI Express
+- ARM® Cortex®-A53 core on S32V234 PCIe and ARM® Cortex®-A57 on LS2080A/LS2085A RDB over PCI
+Express, in the BlueBox dual platform system.
+
 It is assumed that this git repo has been cloned to a local directory, e.g. 
 '/path/to/icc'.
-
-ICC is designed to work on ARM platforms with two cores.
 Prior to being used it needs to be integrated with the Operating Systems running
-on each core.
+on each of the targetted cores.
 
 This linux package provides the Linux source code required for building the Linux
-ICC module (ICC_dev.ko) in '/path/to/icc/release/iccs32v234/sample/linux_app/ICC_module',
-the Linux ICC Sample module (ICC_Sample.ko) in 
+ICC module (ICC_dev*.ko) in '/path/to/icc/release/iccs32v234/sample/linux_app/ICC_module',
+the Linux ICC Sample module (ICC_Sample*.ko) in 
 '/path/to/icc/release/iccs32v234/sample/linux_app/ICC_Sample_module',
 as well as a binary image for the AUTOSAR ICC pre-built sample application
 (icc_sample_asr.bin) in '/path/to/icc/release/iccs32v234/sample/autosar_app'
-which is required to be loaded on the M4 core prior to loading the Linux modules.
+which is required to be loaded on the M4 core prior to loading the Linux modules in the 
+M4 - A53 ICC setup.
 
-Updating the device tree
+For all supported setups, it is assumed that the kernel sources are located in 
+'/path/to/kernel/sources' and the kernel build output (binaries and Module.symvers),
+if different from kernel sources directory, is located in '/path/to/kernel/build/artifacts'.
+
+Building the ICC modules
 ------------------------
-In order to have the ICC demo functional, we need to configure the interrupts
-to be used by ICC in the Linux kernel device tree. For this, add the following
-block to s32v234.dtsi under the 'soc' node:
-	icc-linux {
-		compatible = "fsl,s32v234-icc";
-		interrupts = < 0 0 4 >,
-			     < 0 1 4 >;
-	};
-This .dtsi file is usually located in folder
-'/path/to/kernel/sources/arch/arm64/boot/dts/freescale/s32v234.dtsi'.
-
-Building the modules
---------------------
-In order to build the modules, the following variables must be set in the Linux
+ICC modules must be built after the kernel is built.
+In order to build the ICC modules, the following variables must be set in the Linux
 shell:
 
 ARCH=arm64
@@ -41,22 +42,41 @@ CROSS_COMPILE=the cross toolchain specific prefix for the build tools (e.g.:
 	/path/to/bsp/build_*_release/tmp/sysroots/x86_64-linux/usr/bin/aarch64-fsl-linux/aarch64-fsl-linux-
 	for yocto builds or 
 	/path/to/toolchain/bin/aarch64-linux-gnu- for stand-alone toolchains)
-KERNEL_SRC=path to the kernel sources
 KERNELDIR=path to the kernel binaries (containing Module.symvers)
 
-The modules can be built from the shell by running 'make' from the sources root
-directory ('/path/to/icc').
-The binaries will be generated in the directories:
-'/path/to/icc/release/iccs32v234/sample/linux_app/ICC_module' and 
-'/path/to/icc/release/iccs32v234/sample/linux_app/ICC_Sample_module'.
+ICC is built from the shell by running 'make' from the sources root directory
+('/path/to/icc').
+The result of the build consists in two modules: 
+'/path/to/icc/release/iccs32v234/sample/linux_app/ICC_module/ICC_dev.ko' and 
+'/path/to/icc/release/iccs32v234/sample/linux_app/ICC_Sample_module/ICC_Sample.ko'.
+
+1. ICC between M4 and A53 on S32V234
+====================================
+This setup enables communication between applications running AutoSAR OS on M4, and 
+applications running Linux on A53. Supported platforms are S32V234 PCIe and EVB.
+
+Update the device tree
+----------------------
+In order to have the ICC demo functional, we need to configure the interrupts
+to be used by ICC in the Linux kernel device tree. For this, add the following
+block to s32v234.dtsi under the 'soc' node:
+    icc-linux {
+        compatible = "fsl,s32v234-icc";
+        interrupts = < 0 0 4 >,
+                     < 0 1 4 >;
+    };
+This .dtsi file is usually located in folder
+'/path/to/kernel/sources/arch/arm64/boot/dts/freescale/s32v234.dtsi'.
+The .dtb can be (re)built with the command 'make dtbs' in directory
+'/path/to/kernel/sources'
 
 Running the AUTOSAR image on M4
 -------------------------------
 This can be achieved using the latest u-boot build, which has support for this
 task.
-The AUTOSAR sample binary image must be copied to a FAT partition on your 
-SD card (e.g. the one containing the kernel image and the dtb, assumed to be
-the first partition on the SD card).
+The AUTOSAR sample binary image (icc_sample_asr.bin) must be copied to a FAT
+partition on your SD card (e.g. the one containing the kernel image and the dtb,
+assumed to be the first partition on the SD card).
 
 From the u-boot prompt, run the following commands:
 => initsram 0x3E809000 0x200000; fatload mmc 0:1 0x3E809000 /icc_sample_asr.bin; startm4 0x3e809200
@@ -64,10 +84,38 @@ Then boot the kernel.
 
 Running the ICC demo
 --------------------
-There is no spectacular output when the demo is running. If there's something
-wrong, there will be error messages displayed by the Linux modules.
+The output of the demo consists in periodic messages in the console with the number
+of executions of the main thread loop and average execution time of the loop.   
+If there's something wrong while running the demo, there will be error messages
+displayed by the Linux modules.
+
 After starting the M4 image, booting the kernel and inserting the ICC modules,
-one could monitor the ICC interrupt and see its evolution:
+one could monitor the following:
+
+- output from the modules module:
+root@s32v234evb:~# insmod /icc/ICC_dev.ko                                 
+[ 2057.839087] [init_interrupt_data] reserved ICC_HW_MSCM_VIRT_BASE=0xffffff800128e000 size is 1000
+[ 2057.849030] [ICC_dev_init] reserved ICC_Shared_Virt_Base_Addr=0xffffff8001300000 size is 262144
+[ 2057.857829] [ICC_dev_init] ICC Shared Config found at address 0xffffff8001301ca0
+[ 2057.864944] [ICC_dev_init] ICC Shared Config local virtual address: 0xffffff8001301ca0 
+[ 2057.872836] [ICC_dev_init] ICC Shared Config remote virtual address: 0x0 
+[ 2057.880983] [ICC_dev_init] Freescale ICC linux driver
+[ 2057.885800] [ICC_dev_init] Major number 248
+root@s32v234evb:~# insmod /icc/ICC_Sample.ko 
+[ 2069.189456] [ICC_Sample_dev_init] Major number 247
+[ 2069.193907] ICC_Initialize ... done
+[ 2069.197729] Opening all channels ... done
+[ 2069.201457] ICC data kthread ICC_Data_kthrea: started
+[ 2069.206731] icc data kthread: exec 1 times; 18250 ns in average
+[ 2069.212343] Finishing the initialization of the ICC_Sample_dev 
+root@s32v234evb:~# [ 2071.532742] icc data kthread: exec 11445 times; 202544 ns in average
+[ 2074.532795] icc data kthread: exec 26030 times; 203963 ns in average
+[ 2077.532733] icc data kthread: exec 40605 times; 204412 ns in average
+[ 2080.532735] icc data kthread: exec 55178 times; 204632 ns in average
+..........
+
+- contents of the file '/proc/interrupts', which outputs how many times the 
+ICC interrupt occurred:
 
 s32v234evb:~$ cat /proc/interrupts 
            CPU0
@@ -76,10 +124,189 @@ s32v234evb:~$ cat /proc/interrupts
  18:          0       GIC  40 Level     edma-tx_0-15
 .....
 
-If the line for ICC changes, then everything is running ok.
+If the line for ICC changes each time the cat command is run, then everything is running ok.
 
-Additional information
+2. ICC between two A5 cores over PCI Express
+============================================
+
+2.1 ICC between two S32V234 platforms (PCIE and EVB) over PCI Express
+---------------------------------------------------------------------
+
+This setup enables communication between two Linux applications (kernel modules) running on two
+A53 cores physically located on two different S32V234boards, an PCIE and an EVB. The PCIE board
+must configured as PCI Express End Point, while the EVB must be configured as PCI Express Root Complex.
+
+Configure S32v234 PCIe as PCI Express End Point
+-----------------------------------------------
+In the directory where the kernel sources are located, please run the kernel configurator
+('make menuconfig').
+In the kernel configurator window, enable Freescale S32V234 PCIe Host controller.
+For S32V234 EVB (Root Compex), leave the End Point option unchecked:
+Bus support -->
+PCI host controller drivers -->
+[*] Freescale S32V234 PCIeHost controller
+[ ] Freescale S32V234 PCIeEP
+
+For S32V234 PCIe (End Point), select everything under PCIe End Point support:
+Bus support -->
+PCI host controller drivers -->
+[*] Freescale S32V234 PCIeHost controller
+[*] Freescale S32V234 PCIeEP
+[*] Ignore Freescale S32V234 erratum ERR009852
+[*] Freescale S32V234 PCIeDW DMA
+
+Exit and save as default configuration, then build the kernel (run 'make' from kernel
+source directory).
+
+Run Linux and the ICC Demo
+--------------------------
+For S32V234 PCIe:
+- In uboot:
+	- Make sure you have the variable "ignoreERR009852" set:
+	=> setenv ignoreERR009852 1
+	- Update the kernel boot args, by adding "mem=255M" in order to reserve the upper most 1 Mb of
+	memory for ICC
+- Boot the kernel
+- From Linux, start ICC by inserting the two modules in this exact order:
+ICC_dev_EP.ko and ICC_Sample_EP.ko:
+root@s32v234pcie:~# insmod /icc/ICC_dev_EP.ko
+[ 54.503854] [ICC_dev_init] Freescale ICC linux driver
+[ 54.508565] [ICC_dev_init] reserved 0xffffff8001200018 size is 1048576
+[ 54.515053] Inbound region setup successfully
+[ 54.519426] [ICC_dev_init] Major number 248
+root@s32v234pcie:~# insmod /icc/ICC_Sample_EP.ko
+[ 60.456975] [ICC_Sample_dev_init] Major number 247
+[ 60.461527] ICC_Initialize ... done
+[ 60.464834] Waiting for peer ...
+
+For S32V234 EVB:
+- In uboot:
+	- Update the kernel boot args, by adding "mem=255M" in order to reserve the 
+	upper most 1 Mb of memory for ICC
+- Boot the kernel
+- From Linux, start ICC by inserting the two modules in this exact order:
+ICC_dev_RC.ko and ICC_Sample_RC.ko:
+root@s32v234evb:~# insmod /icc/ICC_dev_RC.ko
+[ 63.524574] [ICC_dev_init] Freescale ICC linux driver
+[ 63.529305] [ICC_dev_init] reserved 0xffffff8001280018 size is 1048576
+[ 63.536597] [ICC_dev_init] ICC Shared Con?g found at address 0xffffff8001281d50
+[ 63.543692] [ICC_dev_init] ICC Shared Con?g local virtual address: 0xffffff8001281d50
+[ 63.551618] [ICC_dev_init] ICC Shared Con?g remote virtual address: 0xffffff8001201d50
+[ 63.559790] [ICC_dev_init] Major number 248
+root@s32v234evb:~# insmod /icc/ICC_Sample_RC.ko
+[ 68.734267] [ICC_Sample_dev_init] Major number 247
+[ 68.738755] ICC_Initialize ... done
+[ 68.742297] Notifying peer ...
+[ 68.745201] Peers connected
+[ 68.800049] Opening all channels ... done
+[ 68.803800] ICC data kthread ICC_Data_kthrea: started
+[ 68.808728] Finishing the initialization of the ICC_Sample_dev
+
+After this, the two applications will begin to communicate.
+Please look on the appropriate consoles.
+
+For S32V234 PCIe:
+[ 81.519570] Outbound region setup successfully
+[ 81.523642] RC 0x72200000 (BAR 2) mapped to EP 0x8ff00000, size 1914699776
+[ 81.530572] EP 0x72000000 mapped to RC 0x8ff00000, size 1048576
+[ 81.536484] Peers connected
+[ 81.569581] Opening all channels ... done
+[ 81.573322] ICC data kthread ICC_Data_kthrea: started
+[ 81.578214] Finishing the initialization of the ICC_Sample_dev
+root@s32v234pcie:~# [ 81.609619] icc data kthread: exec 1 times; 36280083 ns in average
+[ 84.569598] icc data kthread: exec 75 times; 39872495 ns in average
+[ 87.569596] icc data kthread: exec 150 times; 39896835 ns in average
+[ 90.569596] icc data kthread: exec 225 times; 39904598 ns in average
+.....
+
+For S32V234 EVB:
+root@s32v234evb:~# [ 68.850039] icc data kthread: exec 1 times; 46218583 ns in average
+[ 71.070026] icc data kthread: exec 56 times; 40363589 ns in average
+[ 74.090025] icc data kthread: exec 131 times; 40262813 ns in average
+[ 77.070025] icc data kthread: exec 205 times; 40236143 ns in average
+.....
+
+2.2 ICC on BlueBox (S32V234 PCIe and LS2080A/LS2085A RDB over PCI Express)
+-------------------------------------------------------------------------
+
+This setup enables communication between the two boards part of the BlueBox, by running
+two Linux applications (kernel modules) on the A5x cores physically located on both sides
+of the PCI Express.
+The S32V234 PCIe board by default is configured as PCI Express End Point, while the LS2
+by default is configured as PCI Express Root Complex.
+NOTE: In order to have PCI Express End Point support working for ICC, the End Point kernel
+configuration must have "Ignore Freescale S32V234 erratum ERR009852" checked.
+
+Run Linux and ICC demo
 ----------------------
+For S32V234 PCIe:
+- In uboot:
+	- Make sure you have the variable "ignoreERR009852" set:
+	=> setenv ignoreERR009852 1
+	- Update the kernel boot args, by adding "mem=255M" in order to reserve the upper most
+	1 Mb of memory for ICC
+- Boot the kernel
+- From Linux, start ICC by inserting the two modules in this exact order:
+ICC_dev_EP.ko and ICC_Sample_EP.ko:
+root@s32v234pcie:~# insmod /icc/ICC_dev_EP.ko
+[ 273.135591] [ICC_dev_init] Freescale ICC linux driver
+[ 273.140398] [ICC_dev_init] reserved 0xffffff8001200018 size is 1048576
+[ 273.146812] Inbound region setup successfully
+[ 273.151533] [ICC_dev_init] Major number 248
+root@s32v234pcie:~# insmod /icc/ICC_Sample_EP.ko
+[ 279.560429] [ICC_Sample_dev_init] Major number 247
+[ 279.564921] ICC_Initialize ... done
+[ 279.568346] Waiting for peer ...
+
+For LS2 RDB:
+- In uboot:
+	-Update the kernel boot args, by adding "mem=13568M" in order to reserve the upper most
+	block of memory for ICC
+- Boot the kernel
+- From Linux, start ICC by inserting the two modules in this exact order: 
+ICC_dev_BB_RC.ko and ICC_Sample_BB_RC.ko:
+root@ls2bluebox:~# insmod /icc/ICC_dev_BB_RC.ko
+[ 231.881085] [ ICC_dev_init] Freescale ICC linux driver
+[ 231.886203] [ ICC_dev_init] reserved 0xffff000009080018 size is 1048576
+[ 231.894301] [ ICC_dev_init] ICC Shared Con?g found at address 0xffff000009081d50
+[ 231.901728] [ ICC_dev_init] ICC Shared Con?g local virtual address: 0xffff000009081d50
+[ 231.909764] [ ICC_dev_init] ICC Shared Con?g remote virtual address: 0xffffff8001201d50
+[ 231.917952] [ ICC_dev_init] Major number 248
+root@ls2bluebox:~# insmod /icc/ICC_Sample_BB_RC.ko
+[ 238.070616] [ICC_Sample_dev_init] Major number 247
+[ 238.075521] ICC_Initialize ... done
+[ 238.079041] Notifying peer ...
+[ 238.082100] Peers connected
+[ 238.158338] Opening all channels ... done
+[ 238.162407] ICC data kthread ICC_Data_kthrea: started
+[ 238.167471] Finishing the initialization of the ICC_Sample_dev
+
+After this, the two applications will begin to communicate. Please look on the appropriate
+consoles.
+
+For S32V234 PCIe:
+[ 299.969692] Outbound region setup successfully
+[ 299.973795] RC 0x1446100000 (BAR 2) mapped to EP 0x8ff00000, size 1175453696
+[ 299.980936] EP 0x72000000 mapped to RC 0x8350000000, size 1048576
+[ 299.987078] Peers connected
+[ 300.009692] Opening all channels ... done
+[ 300.013456] ICC data kthread ICC_Data_kthrea: started
+[ 300.018386] Finishing the initialization of the ICC_Sample_dev
+root@s32v234pcie:~# [ 300.059732] icc data kthread: exec 1 times; 46261750 ns in average
+[ 302.599692] icc data kthread: exec 64 times; 40318118 ns in average
+[ 305.599712] icc data kthread: exec 139 times; 40103829 ns in average
+[ 308.599711] icc data kthread: exec 214 times; 40039235 ns in average
+.....
+
+For LS2 RDB:
+root@ls2bluebox:~# [238.198344] icc data kthread: exec 1 times; 35930160 ns in average
+[ 241.088338] icc data kthread: exec 73 times; 39996015 ns in average
+[ 244.088341] icc data kthread: exec 148 times; 39955418 ns in average
+[ 247.088341] icc data kthread: exec 223 times; 39941746 ns in average
+.....
+
+Appendix: Additional information
+================================
 
 For more information on the release, please see the release notes in
 sub-directory release/iccs32v234/release_notes, the ICC User Manual in
