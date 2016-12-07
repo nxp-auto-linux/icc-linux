@@ -5,7 +5,7 @@ ifeq ($(findstring $(CONFIG),RTOS EP RC BB_RC),)
 endif
 
 SRC_ROOT := $(PWD)/../../..
-CONFIG_USED = $(SRC_ROOT)/sample/config/include
+CONFIG_USED := $(SRC_ROOT)/sample/config/include
 
 EXTRA_CFLAGS += -O0 -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums -DICC_MIX_32_64_SUPPORT
 

@@ -18,6 +18,7 @@
 *   Build Version        : S32V234_ICC_0.8.0
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP
 *   
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -53,7 +54,7 @@ extern "C"
 #include "ICC_Hw.h"
 
 
-/*
+/**
  * This custom memcpy() is required because default kernel memcpy()
  * has alignment requirements which are not met by ICC_FIFO_*() functions who call it.
  * As a result, ICC modules crash when using default memcpy().
@@ -89,12 +90,12 @@ void * memcpy (void *dst, const void *src, size_t n)
 #include "ICC_MemMap.h"
 
 
-/*
-* Use this to determine if the FIFO head is before/after its tail.
-* Returns:
-*   (*)  0, if tail address >= head address
-    (**) 1, if tail address < head address 
-*/
+/**
+ * Use this to determine if the FIFO head is before/after its tail.
+ * Returns:
+ *   (*)  0, if tail address >= head address
+ *   (**) 1, if tail address < head address
+ */
 ICC_ATTR_SEC_TEXT_CODE
 static inline unsigned int ICC_FIFO_HeadTail_Order( ICC_FIFO_IN ICC_Fifo_Ram_t * queue_ICC )
 {
@@ -104,8 +105,8 @@ static inline unsigned int ICC_FIFO_HeadTail_Order( ICC_FIFO_IN ICC_Fifo_Ram_t *
     return ( queue_ICC->tail >= queue_ICC->head ) ? 0 : 1;
 }
 
-/*
- * initialize the ICC_Fifo_Ram_t structure
+/**
+ * Initialize the ICC_Fifo_Ram_t structure
  */
 ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t
@@ -134,8 +135,8 @@ ICC_FIFO_Init(ICC_FIFO_IN       ICC_Fifo_Ram_t       * queue_ICC,
 }
 
 
-/*
- * simplified version of Push for the header only
+/**
+ * Simplified version of Push for the header only
  */
 ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t
@@ -192,8 +193,8 @@ ICC_FIFO_Push_Header(ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
     return ICC_SUCCESS;
 }
 
-/*
- * simplified version of Pop for the header only
+/**
+ * Simplified version of Pop for the header only
  */
 ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t
@@ -258,8 +259,8 @@ ICC_FIFO_Pop_Header(ICC_FIFO_IN  ICC_Fifo_Ram_t   * queue_ICC,
 }
 
 
-/*
- * simplified version of Peek for the header only
+/**
+ * Simplified version of Peek for the header only
  */
 ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t
@@ -316,8 +317,8 @@ ICC_FIFO_Peek_Header(ICC_FIFO_IN  ICC_Fifo_Ram_t   * queue_ICC,
 
 
 
-/*
- * push all the data that is handled to it
+/**
+ * Push all the data that is handled to it
  */
 ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t
@@ -372,8 +373,8 @@ ICC_FIFO_Push( ICC_FIFO_IN ICC_Fifo_Ram_t    * queue_ICC,
     return ICC_SUCCESS;
 }
 
-/*
- * pop specified amount of data to buffer
+/**
+ * Pop specified amount of data to buffer
  */
 ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t
@@ -445,8 +446,8 @@ ICC_FIFO_Pop( ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
     return ICC_SUCCESS;
 }
 
-/*
- * like pop but do not free the fifo buffer
+/**
+ * Like Pop but do not free the fifo buffer
  */
 ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t
@@ -501,8 +502,8 @@ ICC_FIFO_Peek( ICC_FIFO_IN ICC_Fifo_Ram_t   * queue_ICC,
     return ICC_SUCCESS;
 }
 
-/*
- * get fifo pending data in bytes
+/**
+ * Get fifo pending data in bytes
  */
 ICC_ATTR_SEC_TEXT_CODE
 unsigned int 
@@ -536,8 +537,8 @@ ICC_FIFO_Pending( ICC_FIFO_IN  ICC_Fifo_Ram_t   * queue_ICC )
     }
 }
 
-/*
- * get fifo free data in bytes
+/**
+ * Get fifo free data in bytes
  */
 ICC_ATTR_SEC_TEXT_CODE
 unsigned int 
@@ -569,8 +570,8 @@ ICC_FIFO_Free( ICC_FIFO_IN ICC_Fifo_Ram_t    * queue_ICC )
 }
 
 
-/*
- * check if the specified message fits into the fifo
+/**
+ * Check if the specified message fits into the fifo
  *
  * ICC_SUCCESS - is returned if there is enough space available in the fifo to fit the
  *               specified message size
@@ -629,8 +630,8 @@ ICC_Fifo_Msg_Fits( ICC_FIFO_IN  ICC_Fifo_Ram_t * queue_ICC,
 
 }
 
-/*
- * wr signals pending ?
+/**
+ * Wr signals pending ?
  */
 ICC_ATTR_SEC_TEXT_CODE
 unsigned int
@@ -640,8 +641,8 @@ ICC_FIFO_Msg_Wr_Sig_Pending( ICC_FIFO_IN  ICC_Fifo_Ram_t * queue_ICC ){
     return ((queue_ICC)->wr[ICC_GET_CORE_ID] != (queue_ICC)->wr[ICC_GET_REMOTE_CORE_ID]);
 }
 
-/*
- * rd signals pending ?
+/**
+ * Rd signals pending ?
  */
 ICC_ATTR_SEC_TEXT_CODE
 unsigned int

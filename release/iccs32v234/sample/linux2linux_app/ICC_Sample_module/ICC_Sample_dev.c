@@ -17,6 +17,7 @@
 *   Build Version        :
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP
 *   
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -136,7 +137,7 @@ static void ICC_Sample_dev_exit(void)
     unregister_chrdev_region(dev_no, NUM_MINORS);
     printk(LOG_LEVEL "Finishing unregister the ICC_Sample_dev \n");
 
-    // wait for any thread activity to finish
+    /* wait for any thread activity to finish */
     msleep(100);
 }
 

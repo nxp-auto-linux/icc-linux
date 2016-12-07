@@ -1,5 +1,6 @@
 #
-# Copyright (C) 2016 Freescale Semiconductor, Inc.
+# (c) Copyright 2016 Freescale Semiconductor, Inc.
+# (c) Copyright 2016 NXP
 # All rights reserved.
 #
 # This software may be distributed under the terms of the

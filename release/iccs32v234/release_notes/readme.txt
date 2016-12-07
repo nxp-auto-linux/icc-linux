@@ -5,7 +5,8 @@ Readme.txt
 Freescale(TM) and the Freescale logo are trademarks of Freescale Semiconductor,
 Inc. All other product or service names are the property of their respective
 owners.
-(C) Freescale Semiconductor, Inc. 2014,2016
+(c) Copyright 2014,2016 Freescale Semiconductor Inc.
+(c) Copyright 2016 NXP
 *******************************************************************************
 
 This package contains Freescale ARM Inter Core Communication(ICC) S32V234 EAR 0.8.0.

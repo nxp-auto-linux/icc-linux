@@ -1,28 +1,57 @@
-/*
- * ICC_time.h
- *
- *  Created on: Nov 10, 2016
- *      Author: vcvv001
- */
+/**
+*   @file    ICC_time.h
+*   @version 0.0.1
+*
+*   @brief   ICC - Inter Core Communication timing management for polling.
+*   @details       Inter Core Communication timing management for polling.
+*/
+/*==================================================================================================
+*   Project              : ICC
+*   Platform             : ARM
+*   Peripheral           :
+*   Dependencies         : none
+*
+*   Build Version        :
+*
+*   (c) Copyright 2016 NXP
+*
+*   This program is free software; you can redistribute it and/or
+*   modify it under the terms of the GNU General Public License
+*   as published by the Free Software Foundation; either version 2
+*   of the License, or (at your option) any later version
+*
+*   This program is distributed in the hope that it will be useful,
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*   GNU General Public License for more details.
+*
+*   You should have received a copy of the GNU General Public License
+*   along with this program; if not, write to the Free Software
+*   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*
+==================================================================================================*/
 
 #ifndef ICC_TIME_H
 #define ICC_TIME_H
-
-//#define AUTO_POLL_TIME
-
-#define DEFAULT_TIMEOUT_MS	10  // 1 jiffy (msleep_interruptible works on jiffy resolution)
-#define MAX_TIMEOUT_NS	(DEFAULT_TIMEOUT_MS * NSEC_PER_MSEC)
-#define MIN_TIMEOUT_NS	100
-#define AVG_TIMEOUT_NS	400000
 
 #include <linux/time.h>
 #include <linux/delay.h>
 #include <asm/atomic.h>
 
+/*
+ * Define AUTO_POLL_TIME if you want the polling interval to auto-adjust based on the
+ * execution of the main demo thread function
+ */
+
+#define DEFAULT_TIMEOUT_MS	10  /* 1 jiffy (msleep_interruptible works on jiffy resolution) */
+#define MAX_TIMEOUT_NS	(DEFAULT_TIMEOUT_MS * NSEC_PER_MSEC)
+#define MIN_TIMEOUT_NS	100
+#define AVG_TIMEOUT_NS	400000
+
 #ifdef AUTO_POLL_TIME
 
 #define TIMEOUT_GRAN	10
-#define MAX_IDLE_COUNT	20  // idle counts after which timeout gets multiplied
+#define MAX_IDLE_COUNT	20  /* idle counts after which timeout gets multiplied */
 #define MULTIPLY_ON_IDLE(val)	((val) <<= 4) /* mul by 16 */
 #define SHOULD_UPDATE_TIMEOUT(exec_count)	((uint32_t)exec_count & 0xFFFFFFC) /* every 4 executions */
 #define EPSILON(count)	(count >> 10) /* count / 1024  -> basically 1024 time units (ns) -> on us level */
@@ -68,7 +97,7 @@ void timer_sleep(void)
 	} else if (crt_timeout >> 10) {
 		usleep_range(crt_timeout >> 10, crt_timeout >> 8); /* sort-of-transform ns to us */
 	} else {
-		// timeout too small
+		/* timeout too small */
 		usleep_range(1, 10);  /* these are us, do not use MIN_TIMEOUT_NS */
 	}
 }
@@ -105,7 +134,6 @@ void ICC_Timer_Update_ns(uint64_t new_exec_time_ns)
 		}
 		if (EPSILON(abs(new_timeout - crt_timeout))) {
 			atomic_set(&icc_timer.timeout_ns, (int)new_timeout);
-			//printk(KERN_ALERT "Updated poll time to %d ns\n", (int)new_timeout);
 		}
 
 	}

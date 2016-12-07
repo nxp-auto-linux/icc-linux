@@ -18,6 +18,7 @@
 *   Build Version        : S32V234_ICC_0.8.0
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP
 *   
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -319,10 +320,10 @@ typedef struct {
 } ICC_ALIGN(8) ICC_Channel_Config_t;
 
 #ifdef ICC_FSL_AUTOSAR_OS
-// this is equivalent to: typedef ICC_Fifo_Os_Config_t (*PMatrix_ICC_Fifo_Os_Config_t)[][2];
+/* this is equivalent to: typedef ICC_Fifo_Os_Config_t (*PMatrix_ICC_Fifo_Os_Config_t)[][2]; */
 ICC_DEFINE_PTR_MATRIX(ICC_Fifo_Os_Config_t, 2);
 #endif
-// Array definitions:
+/* Array definitions */
 ICC_DEFINE_PTR_VECTOR(uint32_t, 2);
 ICC_DEFINE_PTR_MATRIX(ICC_Fifo_Ram_t, 2);
 ICC_DEFINE_PTR_VECTOR(ICC_Signal_Fifo_Ram_t, 2);

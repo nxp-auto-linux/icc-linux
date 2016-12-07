@@ -1,17 +1,40 @@
 /**
- * ICC_Test_Types.c - main source file for the test application.
- *
- * This application performs a parity check between the old dirty implementation
- * (with zero paddings) and the new one based on 64 bit unions.
- *
- * The result will be a message ending in PASSED or FAILED.
- *
- *  SW Version           : 0.8.0
- *  Build Version        : S32V234_ICC_0.8.0
- *
- *  Copyright (c) 2016 NXP Semiconductor
- *  All Rights Reserved.
- */
+*   @file    ICC_Test_Types.c
+*   @version 0.0.1
+*
+*   @brief   Main source file for the test application.
+*   @details       Main source file for the test application.
+*
+*   This application performs relocation of an ICC configuration into a custom
+*   buffer, and does a parity check between the two objects.
+*
+*   The result will be a message ending in PASSED or FAILED.
+*/
+/*==================================================================================================
+*   Project              : ICC
+*   Platform             : ARM
+*   Peripheral           :
+*   Dependencies         : none
+*
+*   Build Version        :
+*
+*   (c) Copyright 2016 NXP
+*
+*   This program is free software; you can redistribute it and/or
+*   modify it under the terms of the GNU General Public License
+*   as published by the Free Software Foundation; either version 2
+*   of the License, or (at your option) any later version
+*
+*   This program is distributed in the hope that it will be useful,
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*   GNU General Public License for more details.
+*
+*   You should have received a copy of the GNU General Public License
+*   along with this program; if not, write to the Free Software
+*   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*
+==================================================================================================*/
 
 #include <string.h>
 #include <stdio.h>

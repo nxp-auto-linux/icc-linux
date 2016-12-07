@@ -13,7 +13,7 @@
 *
 *   Build Version        :
 *
-*   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP
 *
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -51,9 +51,9 @@
 #define LOG_LEVEL       KERN_ALERT
 
 /* Value for 'incoming data from peer' */
-#define WAKE_UP_PATTERN     0x42  /* answer to life the universe and everything */
+#define WAKE_UP_PATTERN     42  /* answer to life the universe and everything */
 /* Waiting value */
-#define WAIT_PATTERN        0x0
+#define WAIT_PATTERN        0
 
 void ICC_Remote_Event_Handler(void);
 
@@ -179,18 +179,15 @@ int poll_notify_peer(struct ICC_platform_data *icc_data)
     if (icc_data) {
         struct ping_poll *icc_polling = &(icc_data->icc_polling);
 
-        if (!icc_polling->ping_addr) {
+        if (!icc_polling->ping_addr)
             return -EINVAL;
-        }
 
         /* wait for the peer to become available */
-        while (!icc_polling->terminate_communication && (*(icc_polling->ping_addr) != WAIT_PATTERN)) {
+        while (!icc_polling->terminate_communication && (*(icc_polling->ping_addr) != WAIT_PATTERN))
             ICC_Sleep();
-        }
 
-        if (icc_polling->terminate_communication) {
+        if (icc_polling->terminate_communication)
             return -ETIMEDOUT;
-        }
 
         *(icc_polling->ping_addr) = WAKE_UP_PATTERN;
 
@@ -235,13 +232,11 @@ int poll_wait_for_peer(struct ICC_platform_data *icc_data)
             struct handshake * phshake;
 
             while (!icc_polling->terminate_communication &&
-                   (*(icc_polling->poll_addr) == WAIT_PATTERN)) {
+                   (*(icc_polling->poll_addr) == WAIT_PATTERN))
                 ICC_Sleep();
-            }
 
-            if (icc_polling->terminate_communication) {
+            if (icc_polling->terminate_communication)
                 return -ETIMEDOUT;
-            }
 
             phshake = (struct handshake *)(icc_polling->poll_addr);
             pcie_init_outbound(phshake);
