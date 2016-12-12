@@ -36,14 +36,14 @@
 #include <linux/io.h>
 #include <linux/mm.h>
 #include <linux/platform_device.h>
-#include <linux/printk.h>
 #include <linux/interrupt.h>
 
 #include "ICC_Api.h"
 #include "ICC_Sw_Platform.h"
 #include "ICC_Hw.h"
 
-#define LOG_LEVEL       KERN_ALERT
+#include "ICC_Log.h"
+
 
 #define IRAM_BASE_ADDR  0x3E900000
 #define IRAM_SIZE       0x40000
@@ -69,7 +69,7 @@ int intr_notify_peer(void)
         return 0;
     }
 
-    printk (KERN_ERR "Interrupts not registered\n");
+    ICC_ERR("Interrupts not registered");
     return -EINVAL;
 }
 
@@ -80,7 +80,7 @@ void intr_clear_notify_from_peer(void)
         return;
     }
 
-    printk (KERN_ERR "Interrupts not registered\n");
+    ICC_ERR("Interrupts not registered");
 }
 
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
@@ -91,7 +91,7 @@ void intr_notify_local(void)
         return;
     }
 
-    printk (KERN_ERR "Interrupts not registered\n");
+    ICC_ERR("Interrupts not registered");
 }
 
 void intr_clear_notify_local(void)
@@ -101,7 +101,7 @@ void intr_clear_notify_local(void)
         return;
     }
 
-    printk (KERN_ERR "Interrupts not registered\n");
+    ICC_ERR("Interrupts not registered");
 }
 #endif
 
@@ -146,7 +146,7 @@ static int ICC_Enable_Peer_Interrupt(struct ICC_platform_data *icc_data)
         /* request interrupt line for inter-core notifications */
         if (devm_request_irq(dev, shared_irq, ICC_Cpu2Cpu_ISR_Handler, 0, MODULE_NAME, NULL) != 0)
         {
-            printk (KERN_ERR "Failed to register interrupt\n");
+            ICC_ERR("Failed to register interrupt");
             return -ENODEV;
         }
 
@@ -169,7 +169,7 @@ int ICC_Enable_Local_Interrupt(struct ICC_platform_data * icc_data)
 
         /* request interrupt line for local core notifications */
         if (devm_request_irq(dev, local_irq, ICC_Local_ISR_Handler, 0, MODULE_NAME, NULL) != 0) {
-            printk (KERN_ERR "Failed to register local interrupt\n");
+            ICC_ERR("Failed to register local interrupt");
             return -ENODEV;
         }
 
@@ -219,11 +219,11 @@ int init_interrupt_data(struct ICC_platform_data * icc_data)
             return -ENODEV;
 
         ICC_HW_MSCM_VIRT_BASE = devm_ioremap_nocache(dev, ICC_HW_MSCM_BASE, ICC_HW_MSCM_SIZE);
-        printk(LOG_LEVEL "[init_interrupt_data] reserved ICC_HW_MSCM_VIRT_BASE=%#llx size is %d\n", ICC_HW_MSCM_VIRT_BASE, ICC_HW_MSCM_SIZE);
+        ICC_INFO("reserved ICC_HW_MSCM_VIRT_BASE=%#llx size is %d", ICC_HW_MSCM_VIRT_BASE, ICC_HW_MSCM_SIZE);
 
         if (NULL == ICC_HW_MSCM_VIRT_BASE)
         {
-            printk (KERN_ALERT "MSCM ioremap failed\n");
+            ICC_ERR("MSCM ioremap failed");
             return -ENOMEM;
         }
 

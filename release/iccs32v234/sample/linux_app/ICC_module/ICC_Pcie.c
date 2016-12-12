@@ -43,8 +43,7 @@
 #include "ICC_Api.h"
 #include "ICC_Sw_Platform.h"
 #include "ICC_Pcie.h"
-
-#define LOG_LEVEL       KERN_ALERT
+#include "ICC_Log.h"
 
 #ifndef ICC_USE_BAR
 #define ICC_USE_BAR 	2
@@ -169,16 +168,14 @@ int pcie_init_inbound(void)
         0               /* region 0 */
     };
 
-    printk("pcie_init_inbound\n");
-
     /* Setup the inbound window for transactions from RC */
     err = s32v_pcie_setup_inbound(&icc_inb);
 
     if (err) {
-        printk(KERN_ERR "[pcie_init_inbound] Error while setting inbound region\n");
+        ICC_ERR("Error while setting inbound region");
     } else {
-        printk("Inbound region setup successfully\n");
-        printk("\tEP %#llx mapped to EP BAR %d\n", icc_inb.target_addr, icc_inb.bar_nr);
+        ICC_INFO("Inbound region setup successfully");
+        ICC_INFO("\tEP %#llx mapped to EP BAR %d", icc_inb.target_addr, icc_inb.bar_nr);
     }
 
     return err;
@@ -204,9 +201,9 @@ int pcie_init_outbound(struct handshake *phshake)
         err = s32v_pcie_setup_outbound(&icc_outb);
 
         if (!err) {
-            printk("Outbound region setup successfully\n");
-            printk("\tRC %#llx mapped to EP BAR %d, size %d\n", icc_bar.bar_addr, icc_bar.bar_nr, icc_bar.bar_size);
-            printk("\tEP %#llx mapped to RC %#llx, size %d\n", icc_outb.base_addr, icc_outb.target_addr, icc_outb.size);
+            ICC_INFO("Outbound region setup successfully");
+            ICC_INFO("\tRC %#llx mapped to EP BAR %d, size %d", icc_bar.bar_addr, icc_bar.bar_nr, icc_bar.bar_size);
+            ICC_INFO("\tEP %#llx mapped to RC %#llx, size %d", icc_outb.base_addr, icc_outb.target_addr, icc_outb.size);
         }
     } else
         err = -EINVAL;

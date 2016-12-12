@@ -47,8 +47,7 @@
 #include "ICC_time.h"
 #include "ICC_Err.h"
 #include "ICC_Pcie.h"
-
-#define LOG_LEVEL       KERN_ALERT
+#include "ICC_Log.h"
 
 /* Value for 'incoming data from peer' */
 #define WAKE_UP_PATTERN     42  /* answer to life the universe and everything */
@@ -94,7 +93,7 @@ int shmem_poll_init(struct ICC_platform_data *icc_data)
 
         icc_polling->poll_addr = devm_ioremap_nocache(dev, get_shmem_poll_addr(), SZ_4K);
         if (!icc_polling->poll_addr) {
-            pr_warn("Could not ioremap %#llx\n", get_shmem_poll_addr());
+            ICC_ERR("Could not ioremap %#llx", get_shmem_poll_addr());
             return -EIO;
         }
         /* Initialize it before we poll for changes */
@@ -103,7 +102,7 @@ int shmem_poll_init(struct ICC_platform_data *icc_data)
         /* Start the polling thread */
         icc_polling->poll_thread = kthread_run(poll_thread_fn, icc_polling, "shmem_poll_thread");
         if (IS_ERR(icc_polling->poll_thread)) {
-            pr_warn("Error starting poll thread");
+            ICC_ERR("Error starting poll thread");
             err = -EFAULT;
             goto poll_thread_error;
         }
@@ -156,7 +155,7 @@ int shmem_ping_init(struct ICC_platform_data *icc_data)
 
         icc_polling->ping_addr = devm_ioremap_nocache(dev, get_shmem_ping_addr(), SZ_4K);
         if (!icc_polling->ping_addr) {
-            pr_warn("Could not ioremap %#x\n", get_shmem_ping_addr());
+            ICC_ERR("Could not ioremap %#x", get_shmem_ping_addr());
             return -EIO;
         }
 
