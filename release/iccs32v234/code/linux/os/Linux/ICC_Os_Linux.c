@@ -61,10 +61,6 @@ extern "C"
 #include "ICC_Fifo.h"
 #include "ICC_Private.h"
 
-#ifndef ICC_USE_POLLING
-#include "ICC_Hw.h"
-#endif
-
 /*
  * Implement Os API using Linux specifics
  */
@@ -179,44 +175,6 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
 
     return ICC_SUCCESS;
 }
-
-#ifndef ICC_USE_POLLING
-
-ICC_ATTR_SEC_TEXT_CODE
-extern
-void ICC_Clear_Notify_From_Peer(void);
-
-#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-
-ICC_ATTR_SEC_TEXT_CODE
-extern
-void ICC_Clear_Notify_Local(void);
-
-#endif
-
-/*
- * OS specific initialization of interrupts.
- * This function has restricted functionality, since interrupt
- * related code is device specific and should be handled by the
- * device initialization code.
- */
-ICC_ATTR_SEC_TEXT_CODE
-ICC_Err_t ICC_OS_Init_Interrupts( void )
-{
-    if ( ICC_NODE_STATE_UNINIT == (*ICC_Initialized)[ ICC_GET_REMOTE_CORE_ID ] )
-    {
-       ICC_Clear_Notify_From_Peer();
-    }
-
-    #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-        ICC_Clear_Notify_Local();
-
-    #endif
-
-    return ICC_SUCCESS;
-}
-
-#endif
 
 ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t

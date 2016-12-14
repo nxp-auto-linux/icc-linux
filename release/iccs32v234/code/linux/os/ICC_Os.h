@@ -95,17 +95,9 @@ ICC_Err_t ICC_OS_Initialize( ICC_IN const ICC_Config_t * config_ptr );
  * OS specific initialization of interrupts.
  * No interrupts used when using polling.
  */
-#ifdef ICC_USE_POLLING
-
-#define ICC_OS_Init_Interrupts() (ICC_SUCCESS)
-
-#else
-
 ICC_ATTR_SEC_TEXT_CODE
 extern
 ICC_Err_t ICC_OS_Init_Interrupts( void );
-
-#endif
 
 /*
  * Finalize OS specific elements

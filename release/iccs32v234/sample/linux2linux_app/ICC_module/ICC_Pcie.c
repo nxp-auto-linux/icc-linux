@@ -151,7 +151,6 @@ const uint64_t get_shmem_ping_addr(void)
 
 #endif
 
-
 /* following code is calling an API custom-exported from the PCIe driver */
 
 #ifdef ICC_BUILD_FOR_M4
@@ -228,5 +227,26 @@ int pcie_init_bar(struct s32v_bar *bar)
 }
 
 #endif  /* ICC_BUILD_FOR_M4 */
+
+void shmem_init(struct ICC_platform_data *icc_data)
+{
+#ifdef ICC_BUILD_FOR_M4
+        /* setup PCIE */
+        pcie_init_inbound();
+#endif
+
+#ifdef ICC_USE_POLLING
+        shmem_poll_init(icc_data);
+        shmem_ping_init(icc_data);
+#endif
+}
+
+void shmem_cleanup(struct ICC_platform_data *icc_data)
+{
+#ifdef ICC_USE_POLLING
+    shmem_poll_exit(icc_data);
+    shmem_ping_exit(icc_data);
+#endif
+}
 
 #endif  /* ICC_LINUX2LINUX */

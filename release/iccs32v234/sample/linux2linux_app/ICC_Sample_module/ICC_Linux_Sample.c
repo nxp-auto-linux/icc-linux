@@ -454,7 +454,7 @@ int Start_ICC_Sample(void)
 #endif
 #endif
 
-#ifdef ICC_USE_POLLING
+#ifdef ICC_LINUX2LINUX
 
 #ifdef ICC_BUILD_FOR_M4
     ICC_SAMPLE_LOG("Waiting for peer ...\n");

@@ -50,6 +50,7 @@
 
 #include "ICC_Api.h"
 #include "ICC_Sw_Platform.h"
+#include "ICC_Notification.h"
 
 MODULE_DESCRIPTION("ICC device");
 MODULE_AUTHOR("Freescale Semiconductor");
@@ -105,38 +106,29 @@ ICC_Config_t * ICC_Config_Ptr_M4;
 ICC_Config_t * ICC_Config_Ptr_M4_Remote;
 #endif
 
-ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t ICC_Notify_Peer( void )
 {
-    int err = 0;
-
-#ifdef ICC_USE_POLLING
-    err = poll_notify_peer(icc_plat_data);
-#else
-    err = intr_notify_peer();
-#endif
+    int err = notify_peer(icc_plat_data);
 
     return (err == -ETIMEDOUT ? ICC_ERR_TIMEOUT :
             (err ? ICC_ERR_OS_LINUX_REGISTER_IRQ : ICC_SUCCESS));
 }
 
-#ifdef ICC_USE_POLLING
+#ifdef ICC_LINUX2LINUX
 
 #ifndef ICC_BUILD_FOR_M4
-ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t ICC_Notify_Peer_Alive(void)
 {
-    int err = poll_notify_peer_alive(icc_plat_data);
+    int err = notify_peer_alive(icc_plat_data);
 
     return (err ? ICC_ERR_OS_LINUX_REGISTER_IRQ : ICC_SUCCESS);
 }
 
 #else
 
-ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t ICC_Wait_For_Peer(void)
 {
-    int err = poll_wait_for_peer(icc_plat_data);
+    int err = wait_for_peer(icc_plat_data);
 
     return (err == -ETIMEDOUT ? ICC_ERR_TIMEOUT :
             (err ? ICC_ERR_OS_LINUX_REGISTER_IRQ : ICC_SUCCESS));
@@ -144,37 +136,23 @@ ICC_Err_t ICC_Wait_For_Peer(void)
 
 #endif  /* ICC_BUILD_FOR_M4 */
 
-#endif  /* ICC_USE_POLLING */
+#endif  /* ICC_LINUX2LINUX */
 
-ICC_ATTR_SEC_TEXT_CODE
 void ICC_Clear_Notify_From_Peer(void)
 {
-#ifdef ICC_USE_POLLING
-    poll_clear_notify_from_peer(icc_plat_data);
-#else
-    intr_clear_notify_from_peer();
-#endif
+    clear_notify_from_peer(icc_plat_data);
 }
 
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-ICC_ATTR_SEC_TEXT_CODE
 void ICC_Notify_Local(void)
 {
-    // not supported for polling
-
-#ifndef ICC_USE_POLLING
-    intr_notify_local();
-#endif
+    notify_local();
 }
 
 ICC_ATTR_SEC_TEXT_CODE
 void ICC_Clear_Notify_Local(void)
 {
-    // not supported for polling
-
-#ifndef ICC_USE_POLLING
-    intr_clear_notify_local();
-#endif
+    clear_notify_local();
 }
 #endif
 
@@ -189,10 +167,7 @@ static void local_cleanup(struct ICC_platform_data *icc_data)
 #endif
     }
 
-#ifdef ICC_USE_POLLING
-    shmem_poll_exit(icc_data);
-    shmem_ping_exit(icc_data);
-#endif
+    shmem_cleanup(icc_data);
 }
 
 union local_magic {
@@ -213,7 +188,7 @@ static int local_init(struct ICC_platform_data * icc_data)
 #endif
         struct device *dev = &icc_data->pdev->dev;
 
-        /* Initialize shared memory */
+        /* Reserve shared memory */
         if (!devm_request_mem_region(dev, get_shmem_base_address(), get_shmem_size(), "ICC_shmem")) {
             printk (KERN_ERR "[ICC_dev_init] Failed to request mem region!\n");
             err = -ENOMEM;
@@ -231,9 +206,11 @@ static int local_init(struct ICC_platform_data * icc_data)
             goto cleanup;
         }
 
+        shmem_init(icc_data);
+
 #ifndef ICC_BUILD_FOR_M4
 
-        /* discover location of the configuration
+        /* Discover location of the configuration
          */
         ICC_Config_Ptr_M4 = (ICC_Config_t *)(ICC_Shared_Virt_Base_Addr);
         shared_start = (uint64_t *)ICC_Config_Ptr_M4;
@@ -251,16 +228,6 @@ static int local_init(struct ICC_platform_data * icc_data)
 
         printk(LOG_LEVEL "[ICC_dev_init] ICC Shared Config local virtual address: %#llx \n", ICC_Config_Ptr_M4);
         printk(LOG_LEVEL "[ICC_dev_init] ICC Shared Config remote virtual address: %#llx \n", ICC_Config_Ptr_M4_Remote);
-#endif
-
-#ifdef ICC_BUILD_FOR_M4
-        /* setup PCIE */
-        pcie_init_inbound();
-#endif
-
-#ifdef ICC_USE_POLLING
-        shmem_poll_init(icc_data);
-        shmem_ping_init(icc_data);
 #endif
 
         return 0;
@@ -286,9 +253,7 @@ static int ICC_probe(struct platform_device *pdev)
 
     icc_plat_data->pdev = pdev;
 
-#ifndef ICC_USE_POLLING
-    init_interrupt_data(icc_plat_data);
-#endif
+    init_notifications(icc_plat_data);
 
     platform_set_drvdata(pdev, icc_plat_data);
 
@@ -396,17 +361,11 @@ EXPORT_SYMBOL(ICC_Msg_Recv);
 #ifdef ICC_LINUX2LINUX
 #ifdef ICC_BUILD_FOR_M4
     EXPORT_SYMBOL(ICC_Shared_Virt_Base_Addr);
+    EXPORT_SYMBOL(ICC_Wait_For_Peer);
 #else
     EXPORT_SYMBOL(ICC_Config_Ptr_M4);
     EXPORT_SYMBOL(ICC_Config_Ptr_M4_Remote);
-#endif
-#endif
-
-#ifdef ICC_USE_POLLING
-#ifdef ICC_BUILD_FOR_M4
-EXPORT_SYMBOL(ICC_Wait_For_Peer);
-#else
-EXPORT_SYMBOL(ICC_Notify_Peer_Alive);
+    EXPORT_SYMBOL(ICC_Notify_Peer_Alive);
 #endif
 #endif
 

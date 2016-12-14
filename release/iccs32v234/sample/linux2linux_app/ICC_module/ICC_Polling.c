@@ -43,9 +43,9 @@
 #include <linux/kthread.h>
 #include <linux/delay.h>
 
-#include "ICC_Api.h"
 #include "ICC_Sw_Platform.h"
 #include "ICC_time.h"
+#include "ICC_Err.h"
 
 #define LOG_LEVEL       KERN_ALERT
 
@@ -54,9 +54,7 @@
 /* Waiting value */
 #define WAIT_PATTERN        0x0
 
-ICC_ATTR_SEC_TEXT_CODE
-extern void
-ICC_Remote_Event_Handler(void);
+void ICC_Remote_Event_Handler(void);
 
 static int poll_thread_fn(void *arg)
 {
@@ -267,6 +265,19 @@ void poll_clear_notify_from_peer(struct ICC_platform_data *icc_data)
             *(icc_polling->poll_addr) = WAIT_PATTERN;
         }
     }
+}
+
+/*
+ * OS specific initialization of interrupts.
+ * This function has restricted functionality, since interrupt
+ * related code is device specific and should be handled by the
+ * device initialization code.
+ *
+ * No special initialization when using polling.
+ */
+ICC_Err_t ICC_OS_Init_Interrupts( void )
+{
+    return ICC_SUCCESS;
 }
 
 #endif  /* ICC_USE_POLLING */

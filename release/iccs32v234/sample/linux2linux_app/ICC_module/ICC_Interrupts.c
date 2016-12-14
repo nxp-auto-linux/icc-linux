@@ -43,7 +43,7 @@
 
 #include "ICC_Api.h"
 #include "ICC_Sw_Platform.h"
-#include "ICC_Hw_Mscm.h"
+#include "ICC_Hw.h"
 
 #define LOG_LEVEL       KERN_ALERT
 
@@ -60,7 +60,14 @@ const uint32_t get_shmem_size(void)
     return IRAM_SIZE;
 }
 
+void shmem_init(struct ICC_platform_data *icc_data)
+{}
+
+void shmem_cleanup(struct ICC_platform_data *icc_data)
+{}
+
 ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS char * ICC_HW_MSCM_VIRT_BASE;
+ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA extern unsigned int (* ICC_Initialized)[2];
 
 int intr_notify_peer(void)
 {
@@ -181,6 +188,33 @@ int ICC_Enable_Local_Interrupt(struct ICC_platform_data * icc_data)
 }
 
 #endif
+
+extern void ICC_Clear_Notify_From_Peer(void);
+
+#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+extern void ICC_Clear_Notify_Local(void);
+#endif
+
+/*
+ * OS specific initialization of interrupts.
+ * This function has restricted functionality, since interrupt
+ * related code is device specific and should be handled by the
+ * device initialization code.
+ */
+ICC_Err_t ICC_OS_Init_Interrupts( void )
+{
+    if ( ICC_NODE_STATE_UNINIT == (*ICC_Initialized)[ ICC_GET_REMOTE_CORE_ID ] )
+    {
+       ICC_Clear_Notify_From_Peer();
+    }
+
+    #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+        ICC_Clear_Notify_Local();
+    #endif
+
+    return ICC_SUCCESS;
+}
+
 
 int init_interrupt_data(struct ICC_platform_data * icc_data)
 {
