@@ -44,10 +44,8 @@
 #include <linux/io.h>
 #include <linux/mm.h>
 
-#include <linux/of_address.h>
 #include <linux/interrupt.h>
 #include <linux/of_platform.h>
-#include <linux/of_irq.h>
 
 #include "ICC_Api.h"
 #include "ICC_Notification.h"

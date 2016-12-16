@@ -36,6 +36,9 @@
 #include <linux/io.h>
 #include <linux/mm.h>
 #include <linux/platform_device.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
+
 #include <linux/interrupt.h>
 
 #include "ICC_Api.h"
@@ -47,6 +50,8 @@
 
 #define IRAM_BASE_ADDR  0x3E900000
 #define IRAM_SIZE       0x40000
+
+#define MSCM_NODE_REF_NAME "mscm-parent"
 
 const uint64_t get_shmem_base_address(void)
 {
@@ -213,11 +218,10 @@ int init_interrupt_data(struct ICC_platform_data * icc_data)
     if (icc_data) {
         int err = 0;
         struct platform_device * pdev = icc_data->pdev;
-        struct device *dev = &pdev->dev;
+        struct device *dev = &(pdev->dev);
+        struct device_node *crt = dev->of_node, *mscm = NULL;
 
-        if (!pdev)
-            return -ENODEV;
-
+        icc_data->shared_irq = -ENXIO;
         ICC_HW_MSCM_VIRT_BASE = devm_ioremap_nocache(dev, ICC_HW_MSCM_BASE, ICC_HW_MSCM_SIZE);
         ICC_INFO("reserved ICC_HW_MSCM_VIRT_BASE=%#llx size is %d", ICC_HW_MSCM_VIRT_BASE, ICC_HW_MSCM_SIZE);
 
@@ -227,10 +231,56 @@ int init_interrupt_data(struct ICC_platform_data * icc_data)
             return -ENOMEM;
         }
 
-        icc_data->shared_irq = platform_get_irq(pdev, ICC_CFG_HW_CPU2CPU_IRQ);
+        ICC_INFO("Check MSCM handle");
+        /* workaround for a strange situation:
+         * pdev->dev->of_node is null in this function context.
+         * In 'platform_get_irq' function context, it is not null.
+         * platform_get_irq():dev->dev.of_node is equal to init_interrupt_data():pdev->dev.fwnode
+         * where 'fwnode' is the next field in 'struct device' after 'of_node'.
+         */
+        if (!crt) {
+            crt = (struct device_node *)(dev->fwnode);
+        }
+        ICC_DEBUG("node pointer: %p", crt);
+        mscm = of_parse_phandle(crt, MSCM_NODE_REF_NAME, 0);
+        if (mscm) {
+            /* search the mscm-parent reference if it exists */
+            icc_data->shared_irq = of_irq_get(mscm, ICC_CFG_HW_CPU2CPU_IRQ);
+            ICC_INFO("reserved irq=%d from MSCM reference", icc_data->shared_irq);
+
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-        icc_data->local_irq = platform_get_irq(pdev, ICC_CFG_HW_LOCAL_IRQ);
+            icc_data->local_irq = of_irq_get(mscm, ICC_CFG_HW_LOCAL_IRQ);
 #endif
+        }
+        else {
+            /* check the mscm-parent as property */
+            int sz = 0;
+            struct device_node *regnode = NULL;
+            uint32_t reghandle;
+            const void* prop = of_get_property(crt, MSCM_NODE_REF_NAME, &sz);
+
+            if (prop) {
+                reghandle = be32_to_cpup(prop);
+                ICC_INFO("MSCM handle=0x%X", reghandle);
+                regnode = of_find_node_by_phandle(reghandle);
+                ICC_INFO("MSCM node=0x%p", regnode);
+                icc_data->shared_irq = of_irq_get(regnode, ICC_CFG_HW_CPU2CPU_IRQ);
+                ICC_INFO("reserved irq=%d from MSCM property", icc_data->shared_irq);
+
+#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+                icc_data->local_irq = of_irq_get(regnode, ICC_CFG_HW_LOCAL_IRQ);
+#endif
+            }
+            if (icc_data->shared_irq < 0) {
+                /* search the icc node itself for the interrupts - backwards compatibility */
+                icc_data->shared_irq = platform_get_irq(pdev, ICC_CFG_HW_CPU2CPU_IRQ);
+                ICC_INFO("reserved irq=%d", icc_data->shared_irq);
+
+#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+                icc_data->local_irq = platform_get_irq(pdev, ICC_CFG_HW_LOCAL_IRQ);
+#endif
+            }
+        }
 
         /* request interrupt line for intercore notifications */
         if ((err = ICC_Enable_Peer_Interrupt(icc_data)) != 0) {
