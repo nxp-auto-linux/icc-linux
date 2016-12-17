@@ -46,6 +46,7 @@
 #include "ICC_Sw_Platform.h"
 #include "ICC_time.h"
 #include "ICC_Err.h"
+#include "ICC_Pcie.h"
 
 #define LOG_LEVEL       KERN_ALERT
 

@@ -49,7 +49,6 @@
 #include <linux/of_irq.h>
 
 #include "ICC_Api.h"
-#include "ICC_Sw_Platform.h"
 #include "ICC_Notification.h"
 
 MODULE_DESCRIPTION("ICC device");
@@ -167,7 +166,7 @@ static void local_cleanup(struct ICC_platform_data *icc_data)
 #endif
     }
 
-    shmem_cleanup(icc_data);
+    cleanup_shmem(icc_data);
 }
 
 union local_magic {
@@ -206,7 +205,7 @@ static int local_init(struct ICC_platform_data * icc_data)
             goto cleanup;
         }
 
-        shmem_init(icc_data);
+        init_shmem(icc_data);
 
 #ifndef ICC_BUILD_FOR_M4
 

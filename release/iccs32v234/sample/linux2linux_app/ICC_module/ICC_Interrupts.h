@@ -34,8 +34,6 @@
 #ifndef ICC_INTERRUPTS_H
 #define ICC_INTERRUPTS_H
 
-#ifndef ICC_USE_POLLING
-
 struct ICC_platform_data;
 
 int intr_notify_peer(void);
@@ -47,7 +45,5 @@ void intr_clear_notify_local(void);
 #endif
 
 int init_interrupt_data(struct ICC_platform_data * icc_data);
-
-#endif
 
 #endif /* ICC_INTERRUPTS_H */

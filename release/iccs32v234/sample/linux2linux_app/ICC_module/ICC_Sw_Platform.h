@@ -38,9 +38,9 @@
 #define BASEMINOR       0
 #define NUM_MINORS      1
 
+#ifdef ICC_USE_POLLING
 #include "ICC_Polling.h"
-#include "ICC_Interrupts.h"
-#include "ICC_Pcie.h"
+#endif
 
 struct ICC_platform_data {
     struct platform_device *pdev;
@@ -51,13 +51,5 @@ struct ICC_platform_data {
     struct ping_poll icc_polling;
 #endif
 };
-
-const uint64_t get_shmem_base_address(void);
-
-const uint32_t get_shmem_size(void);
-
-void shmem_init(struct ICC_platform_data *icc_data);
-
-void shmem_cleanup(struct ICC_platform_data *icc_data);
 
 #endif /* ICC_PLATFORM_H */

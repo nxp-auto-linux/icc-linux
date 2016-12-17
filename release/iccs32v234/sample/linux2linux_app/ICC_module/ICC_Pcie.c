@@ -42,6 +42,7 @@
 
 #include "ICC_Api.h"
 #include "ICC_Sw_Platform.h"
+#include "ICC_Pcie.h"
 
 #define LOG_LEVEL       KERN_ALERT
 
@@ -168,6 +169,8 @@ int pcie_init_inbound(void)
         0               /* region 0 */
     };
 
+    printk("pcie_init_inbound\n");
+
     /* Setup the inbound window for transactions from RC */
     err = s32v_pcie_setup_inbound(&icc_inb);
 
@@ -228,7 +231,7 @@ int pcie_init_bar(struct s32v_bar *bar)
 
 #endif  /* ICC_BUILD_FOR_M4 */
 
-void shmem_init(struct ICC_platform_data *icc_data)
+void pcie_init_shmem(struct ICC_platform_data *icc_data)
 {
 #ifdef ICC_BUILD_FOR_M4
         /* setup PCIE */
@@ -241,7 +244,7 @@ void shmem_init(struct ICC_platform_data *icc_data)
 #endif
 }
 
-void shmem_cleanup(struct ICC_platform_data *icc_data)
+void pcie_cleanup_shmem(struct ICC_platform_data *icc_data)
 {
 #ifdef ICC_USE_POLLING
     shmem_poll_exit(icc_data);

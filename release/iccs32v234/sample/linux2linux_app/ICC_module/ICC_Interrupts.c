@@ -31,8 +31,6 @@
 *
 ==================================================================================================*/
 
-#ifndef ICC_USE_POLLING
-
 #include <linux/kernel.h>
 #include <linux/ioport.h>
 #include <linux/io.h>
@@ -59,12 +57,6 @@ const uint32_t get_shmem_size(void)
 {
     return IRAM_SIZE;
 }
-
-void shmem_init(struct ICC_platform_data *icc_data)
-{}
-
-void shmem_cleanup(struct ICC_platform_data *icc_data)
-{}
 
 ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS char * ICC_HW_MSCM_VIRT_BASE;
 ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA extern unsigned int (* ICC_Initialized)[2];
@@ -257,6 +249,4 @@ int init_interrupt_data(struct ICC_platform_data * icc_data)
 
     return -EINVAL;
 }
-
-#endif
 

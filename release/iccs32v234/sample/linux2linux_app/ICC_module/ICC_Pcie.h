@@ -49,6 +49,9 @@ struct handshake {
 
 struct ICC_platform_data;
 
+void pcie_init_shmem(struct ICC_platform_data *icc_data);
+void pcie_cleanup_shmem(struct ICC_platform_data *icc_data);
+
 #ifdef ICC_BUILD_FOR_M4
 
 struct s32v_inbound_region {

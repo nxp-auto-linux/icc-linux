@@ -34,8 +34,6 @@
 #ifndef ICC_POLLING_H
 #define ICC_POLLING_H
 
-#ifdef ICC_USE_POLLING
-
 struct ping_poll {
     uint32_t *poll_addr;
     uint32_t *ping_addr;
@@ -63,7 +61,5 @@ int poll_wait_for_peer(struct ICC_platform_data *icc_data);
 #endif
 
 void poll_clear_notify_from_peer(struct ICC_platform_data *icc_data);
-
-#endif /* ICC_USE_POLLING */
 
 #endif /* ICC_POLLING_H */

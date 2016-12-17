@@ -37,11 +37,32 @@
 #ifndef ICC_NOTIFICATION_H
 #define ICC_NOTIFICATION_H
 
+#include "ICC_Sw_Platform.h"
+
 #ifdef ICC_USE_POLLING
 #include "ICC_Polling.h"
 #else
 #include "ICC_Interrupts.h"
 #endif
+
+#include "ICC_Pcie.h"
+
+const uint64_t get_shmem_base_address(void);
+const uint32_t get_shmem_size(void);
+
+void init_shmem(struct ICC_platform_data *icc_data)
+{
+#ifdef ICC_LINUX2LINUX
+    pcie_init_shmem(icc_data);
+#endif
+}
+
+void cleanup_shmem(struct ICC_platform_data *icc_data)
+{
+#ifdef ICC_LINUX2LINUX
+    pcie_cleanup_shmem(icc_data);
+#endif
+}
 
 void init_notifications(struct ICC_platform_data *icc_data)
 {
