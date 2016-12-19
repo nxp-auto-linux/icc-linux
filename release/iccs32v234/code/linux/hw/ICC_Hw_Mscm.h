@@ -41,14 +41,6 @@
 #ifndef ICC_HW_MSCM_H_
 #define ICC_HW_MSCM_H_
 
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/kernel.h>
-#include <linux/fs.h>
-#include <linux/cdev.h>
-#include <linux/ioport.h>
-#include <linux/io.h>
-#include <linux/mm.h>
 #include <asm/io.h>
 
 #include "ICC_Hw_Platform.h"

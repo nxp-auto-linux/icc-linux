@@ -46,11 +46,12 @@ extern "C"
 {
 #endif
 
+#include "ICC_Base_Types.h"
 
 /*
  * ICC error codes
  */
-typedef enum  {
+ICC_ENUM  {
 
     ICC_SUCCESS = 0,                /**< Indicates a successful operation */
 

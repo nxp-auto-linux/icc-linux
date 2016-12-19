@@ -56,13 +56,6 @@ MODULE_DESCRIPTION("ICC device");
 MODULE_AUTHOR("Freescale Semiconductor");
 MODULE_LICENSE("GPL");
 
-#ifdef ICC_LINUX2LINUX
-/* first words are for the hand shake */
-#define ICC_CONFIG_OFFSET_FROM_BASE (sizeof(struct handshake))
-#else
-#define ICC_CONFIG_OFFSET_FROM_BASE (0)
-#endif
-
 struct ICC_device_data {
     struct cdev cdev;
 };
@@ -156,16 +149,14 @@ void ICC_Clear_Notify_Local(void)
 
 static void local_cleanup(struct ICC_platform_data *icc_data)
 {
-    if (ICC_Shared_Virt_Base_Addr) {
-        ICC_Shared_Virt_Base_Addr = NULL;
+    cleanup_shmem(icc_data);
+
+    ICC_Shared_Virt_Base_Addr = NULL;
 
 #ifndef ICC_BUILD_FOR_M4
-        ICC_Config_Ptr_M4 = NULL;
-        ICC_Config_Ptr_M4_Remote = NULL;
+    ICC_Config_Ptr_M4 = NULL;
+    ICC_Config_Ptr_M4_Remote = NULL;
 #endif
-    }
-
-    cleanup_shmem(icc_data);
 }
 
 union local_magic {
@@ -179,32 +170,15 @@ static int local_init(struct ICC_platform_data * icc_data)
 {
     if (icc_data) {
 
-        int err;
 #ifndef ICC_BUILD_FOR_M4
         int i;
         uint64_t * shared_start = NULL;
 #endif
-        struct device *dev = &icc_data->pdev->dev;
-
-        /* Reserve shared memory */
-        if (!devm_request_mem_region(dev, get_shmem_base_address(), get_shmem_size(), "ICC_shmem")) {
-            ICC_ERR("Failed to request mem region!");
-            err = -ENOMEM;
-            goto cleanup;
-        }
-
-        /* ICC Shared mem is mapped differently on RC and EP, but in both cases it physically
-         * resides on EP side.
-         */
-        ICC_Shared_Virt_Base_Addr = devm_ioremap_nocache(dev, get_shmem_base_address(), get_shmem_size()) + ICC_CONFIG_OFFSET_FROM_BASE;
-        ICC_INFO("reserved ICC_Shared_Virt_Base_Addr=%#llx size is %d", ICC_Shared_Virt_Base_Addr, get_shmem_size() - ICC_CONFIG_OFFSET_FROM_BASE);
-        if( !ICC_Shared_Virt_Base_Addr ){
-            ICC_ERR("ICC_Shared_Virt_Base_Addr virtual mapping has failed for %#x", get_shmem_base_address());
-            err = -ENOMEM;
-            goto cleanup;
-        }
 
         init_shmem(icc_data);
+        if (!ICC_Shared_Virt_Base_Addr) {
+            return -ENOMEM;
+        }
 
 #ifndef ICC_BUILD_FOR_M4
 
@@ -229,11 +203,6 @@ static int local_init(struct ICC_platform_data * icc_data)
 #endif
 
         return 0;
-
-cleanup:
-        local_cleanup(icc_data);
-
-        return err;
     }
 
     return -EINVAL;
@@ -264,6 +233,8 @@ static int ICC_probe(struct platform_device *pdev)
 
 static int ICC_remove(struct platform_device *pdev)
 {
+    local_cleanup(icc_plat_data);
+
     if (icc_plat_data) {
         platform_set_drvdata(pdev, NULL);
         devm_kfree(&(pdev->dev), icc_plat_data);

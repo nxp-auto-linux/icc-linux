@@ -1,5 +1,5 @@
 /**
-*   @file    ICC_Notification.h
+*   @file    ICC_Notification.c
 *   @version 0.0.1
 *
 *   @brief   ICC - Inter Core Communication device driver notification support
@@ -34,48 +34,101 @@
 *
 ==================================================================================================*/
 
-#ifndef ICC_NOTIFICATION_H
-#define ICC_NOTIFICATION_H
+#include "ICC_Notification.h"
 
-#include <linux/types.h>
+const uint32_t get_shmem_size(void)
+{
+    return ICC_CONFIG_MAX_SIZE;
+}
 
-#include "ICC_Sw_Platform.h"
-
+void init_shmem(struct ICC_platform_data *icc_data)
+{
 #ifdef ICC_LINUX2LINUX
-    #ifdef ICC_USE_POLLING
-    #include "ICC_Polling.h"
-    #endif
+    pcie_init_shmem(icc_data);
 #else
-#include "ICC_Interrupts.h"
+    intr_init_shmem(icc_data);
 #endif
+}
 
-#include "ICC_Pcie.h"
+void cleanup_shmem(struct ICC_platform_data *icc_data)
+{
+#ifdef ICC_LINUX2LINUX
+    pcie_cleanup_shmem(icc_data);
+#else
+    intr_cleanup_shmem(icc_data);
+#endif
+}
 
-const uint32_t get_shmem_size(void);
+void init_notifications(struct ICC_platform_data *icc_data)
+{
+#ifndef ICC_USE_POLLING
+    init_interrupt_data(icc_data);
+#endif
+}
 
-void init_shmem(struct ICC_platform_data *icc_data);
-void cleanup_shmem(struct ICC_platform_data *icc_data);
+int notify_peer(struct ICC_platform_data *icc_data)
+{
+#ifdef ICC_USE_POLLING
+    return poll_notify_peer(icc_data);
+#else
+    return intr_notify_peer();
+#endif
+}
 
-void init_notifications(struct ICC_platform_data *icc_data);
-
-int notify_peer(struct ICC_platform_data *icc_data);
-void clear_notify_from_peer(struct ICC_platform_data *icc_data);
+void clear_notify_from_peer(struct ICC_platform_data *icc_data)
+{
+#ifdef ICC_USE_POLLING
+    poll_clear_notify_from_peer(icc_data);
+#else
+    intr_clear_notify_from_peer();
+#endif
+}
 
 #ifndef ICC_BUILD_FOR_M4
 
-    int notify_peer_alive(struct ICC_platform_data *icc_data);
+int notify_peer_alive(struct ICC_platform_data *icc_data)
+{
+#ifdef ICC_USE_POLLING
+    return poll_notify_peer_alive(icc_data);
+#else
+    /* nothing required when using interrupts */
+    return 0;
+#endif
+}
 
 #else
 
-    int wait_for_peer(struct ICC_platform_data *icc_data);
+int wait_for_peer(struct ICC_platform_data *icc_data)
+{
+#ifdef ICC_USE_POLLING
+    return poll_wait_for_peer(icc_data);
+#else
+    /* nothing required when using interrupts */
+    return 0;
+#endif
+}
 
 #endif  /* ICC_BUILD_FOR_M4 */
 
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
 
-    void notify_local(void);
-    void clear_notify_local(void);
+void notify_local(void)
+{
+    /* not supported for polling */
+
+#ifndef ICC_USE_POLLING
+    intr_notify_local();
+#endif
+}
+
+void clear_notify_local(void)
+{
+    /* not supported for polling */
+
+#ifndef ICC_USE_POLLING
+    intr_clear_notify_local();
+#endif
+}
 
 #endif
 
-#endif /* ICC_NOTIFICATION_H */

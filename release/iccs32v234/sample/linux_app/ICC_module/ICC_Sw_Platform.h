@@ -42,6 +42,8 @@
 #include "ICC_Polling.h"
 #endif
 
+#define ICC_CONFIG_MAX_SIZE    1024 * 1024 * 1 /* 1 MB */
+
 struct ICC_platform_data {
     struct platform_device *pdev;
 #ifndef ICC_USE_POLLING

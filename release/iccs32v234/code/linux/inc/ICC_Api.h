@@ -51,7 +51,6 @@ extern "C"
 #endif
 
 
-
 #include "ICC_Config.h"
 #include "ICC_Types.h"
 
@@ -72,7 +71,7 @@ extern "C"
 
 
 
-typedef enum {
+ICC_ENUM {
 
     ICC_RX_NORMAL,                    /**< normal RX operation, message removed from queue        */
     ICC_RX_PEEK_MSG                   /**< only copy the message from the queue but do not remove */

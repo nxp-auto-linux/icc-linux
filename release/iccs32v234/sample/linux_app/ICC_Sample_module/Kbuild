@@ -7,7 +7,7 @@ endif
 SRC_ROOT := $(PWD)/../../..
 
 CONFIG_USED := $(SRC_ROOT)/sample/config/include
-EXTRA_CFLAGS += -O0 -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums -DICC_MIX_32_64_SUPPORT #-DICC_TST_HWSYNCH
+EXTRA_CFLAGS += -O0 -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -DICC_MIX_32_64_SUPPORT #-DICC_TST_HWSYNCH
 
 ifeq ($(findstring $(CONFIG),EP RC BB_RC),$(CONFIG))
     EXTRA_CFLAGS += -DICC_LINUX2LINUX -DICC_USE_POLLING

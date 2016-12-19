@@ -7,7 +7,7 @@ endif
 SRC_ROOT := $(PWD)/../../..
 CONFIG_USED := $(SRC_ROOT)/sample/config/include
 
-EXTRA_CFLAGS += -O0 -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums -DICC_MIX_32_64_SUPPORT
+EXTRA_CFLAGS += -O0 -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -DICC_MIX_32_64_SUPPORT
 
 ifeq ($(findstring $(CONFIG),EP RC BB_RC),$(CONFIG))
     EXTRA_CFLAGS += -DICC_LINUX2LINUX -DICC_USE_POLLING
@@ -35,7 +35,7 @@ ifneq ($(CC),$(LD))
 endif
 
 ## Objects to build ##
-COMMON_OBJS := ./ICC_lib.o
+COMMON_OBJS := ./ICC_lib.o ICC_Notification.o
 COMMON_OBJS += ../../../code/linux/src/ICC_Api.o
 COMMON_OBJS += ../../../code/linux/src/ICC_Sig_Fifo.o
 COMMON_OBJS += ../../../code/linux/src/ICC_Fifo.o

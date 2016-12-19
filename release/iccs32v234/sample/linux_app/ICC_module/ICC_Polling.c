@@ -91,9 +91,9 @@ int shmem_poll_init(struct ICC_platform_data *icc_data)
 
         dev = &icc_data->pdev->dev;
 
-        icc_polling->poll_addr = devm_ioremap_nocache(dev, get_shmem_poll_addr(), SZ_4K);
+        icc_polling->poll_addr = devm_ioremap_nocache(dev, get_shmem_poll_phys_addr(), SZ_4K);
         if (!icc_polling->poll_addr) {
-            ICC_ERR("Could not ioremap %#llx", get_shmem_poll_addr());
+            ICC_ERR("Could not ioremap %#llx", get_shmem_poll_phys_addr());
             return -EIO;
         }
         /* Initialize it before we poll for changes */
@@ -153,9 +153,9 @@ int shmem_ping_init(struct ICC_platform_data *icc_data)
 
         dev = &icc_data->pdev->dev;
 
-        icc_polling->ping_addr = devm_ioremap_nocache(dev, get_shmem_ping_addr(), SZ_4K);
+        icc_polling->ping_addr = devm_ioremap_nocache(dev, get_shmem_ping_phys_addr(), SZ_4K);
         if (!icc_polling->ping_addr) {
-            ICC_ERR("Could not ioremap %#x", get_shmem_ping_addr());
+            ICC_ERR("Could not ioremap %#x", get_shmem_ping_phys_addr());
             return -EIO;
         }
 
@@ -211,7 +211,7 @@ int poll_notify_peer_alive(struct ICC_platform_data *icc_data)
             pcie_init_bar(&icc_bar);
 
             phshake->rc_bar = icc_bar;
-            phshake->rc_ddr_addr = get_shmem_poll_addr();
+            phshake->rc_ddr_addr = get_shmem_poll_phys_addr();
 
             return 0;
         }
