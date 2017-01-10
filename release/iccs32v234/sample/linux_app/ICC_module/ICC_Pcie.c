@@ -37,6 +37,7 @@
 #include <linux/mm.h>
 
 #include <linux/of_reserved_mem.h>
+#include <linux/pci.h>
 #include <uapi/linux/pci_regs.h>
 
 #include "ICC_Api.h"
@@ -49,54 +50,15 @@
 #define ICC_USE_BAR 	2
 #endif
 
-#define DO_TEST_EXPAND(VAL)  VAL ## 0
-#define TEST_EXPAND(VAL)     DO_TEST_EXPAND(VAL)
-
-#define DO_GET_BAR_ADDRESS(BAR, SUFFIX) EP_BAR ## BAR ## _ ## SUFFIX
-#define GET_BAR_ADDRESS(BAR) 	DO_GET_BAR_ADDRESS(BAR, ADDR)
-#define GET_BAR_END(BAR) 		DO_GET_BAR_ADDRESS(BAR, END)
-
-
 #ifdef ICC_BUILD_FOR_M4
 static uint64_t ICC_EP_PCIE_Phys_Base_Addr;
+#else
+static uint64_t ICC_EP_BAR_Phys_Base_Addr;
+static uint32_t ICC_EP_BAR_Size;
 #endif
 
 static uint64_t ICC_Shm_Phys_Base_Addr;
 static uint32_t ICC_Shm_Size;
-
-#ifndef ICC_BUILD_FOR_M4
-
-    /* define BARs for communication from the RC side
-     * TODO: enumerate PCI devices using take them from device tree */
-    #ifndef ICC_PCIE_SHMEM_BLUEBOX
-    #define EP_BAR0_ADDR	0x72100000
-    #define EP_BAR0_END 	0x721fffff  /* 1MB */
-    #define EP_BAR2_ADDR	0x72200000
-    #define EP_BAR2_END		0x722fffff  /* 1MB */
-    #define EP_BAR4_ADDR	0x72310000
-    #define EP_BAR4_END		0x72310fff  /* 4KB */
-    #define EP_BAR5_ADDR	0x72300000
-    #define EP_BAR5_END		0x7230ffff  /* 64Kb */
-    #else
-    #define EP_BAR0_ADDR	0x1446000000
-    #define EP_BAR0_END 	0x14460fffff  /* 1MB */
-    #define EP_BAR2_ADDR	0x1446100000
-    #define EP_BAR2_END		0x14461fffff  /* 1MB */
-    #define EP_BAR4_ADDR	0x1446210000
-    #define EP_BAR4_END		0x1446210fff  /* 4KB */
-    #define EP_BAR5_ADDR	0x1446200000
-    #define EP_BAR5_END		0x144620ffff  /* 64Kb */
-    #endif
-
-    #define EP_BAR_ADDR	GET_BAR_ADDRESS(ICC_USE_BAR)
-
-    #if (TEST_EXPAND(EP_BAR_ADDR) == 0)
-    #error Invalid BAR selected
-    #else
-    #define EP_BAR_SIZE	(GET_BAR_END(ICC_USE_BAR) - EP_BAR_ADDR + 1)
-    #endif
-
-#endif
 
 #ifdef ICC_BUILD_FOR_M4
 
@@ -112,8 +74,8 @@ static uint32_t ICC_Shm_Size;
 
 #else
 
-    #define SHM_BASE_ADDR EP_BAR_ADDR
-    #define SHM_PING_ADDR EP_BAR_ADDR
+    #define SHM_BASE_ADDR ICC_EP_BAR_Phys_Base_Addr
+    #define SHM_PING_ADDR ICC_EP_BAR_Phys_Base_Addr
     #define SHM_POLL_ADDR ICC_Shm_Phys_Base_Addr
 
 #endif
@@ -210,8 +172,8 @@ int pcie_init_outbound(struct handshake *phshake)
 int pcie_init_bar(struct s32v_bar *bar)
 {
     if (bar) {
-        bar->bar_addr = EP_BAR_ADDR;
-        bar->bar_size = EP_BAR_SIZE;
+        bar->bar_addr = ICC_EP_BAR_Phys_Base_Addr;
+        bar->bar_size = ICC_EP_BAR_Size;
         bar->bar_nr = ICC_USE_BAR;
 
         return 0;
@@ -293,6 +255,71 @@ static void setup_pcie_from_device_tree(struct ICC_platform_data *icc_data)
         }
     }
 }
+#else
+
+#define VENDOR_FSL 0x1957
+#define DEVICE_S32V 0x4001
+
+static void pbus_browse_resources(const struct pci_bus *bus, int resno)
+{
+    struct pci_dev *dev;
+    struct list_head *pos;
+
+    ICC_INFO("Browsing PCI bus %04x:%02x", pci_domain_nr(bus), bus->number);
+
+    list_for_each(pos, &bus->devices) {
+        int i;
+        dev = (struct pci_dev *)pos;
+
+        ICC_INFO("    Browsing device %s", dev->dev.kobj.name);
+
+        for (i = 0; i < PCI_NUM_RESOURCES; i++) {
+            struct resource *r = &dev->resource[i];
+
+            if (r->end == r->start)
+                continue;
+
+            ICC_INFO("    BAR %d: %pR", i, r);
+
+            if (!ICC_EP_BAR_Phys_Base_Addr && (i == resno) && (dev->vendor == VENDOR_FSL) && (dev->device == DEVICE_S32V)) {
+                ICC_EP_BAR_Phys_Base_Addr = r->start;
+                ICC_EP_BAR_Size = resource_size(r);
+                ICC_INFO("    Found EP on BAR %d", i);
+            }
+        }
+    }
+}
+
+void pci_bus_browse_resources(struct pci_bus *bus, int resno)
+{
+    struct pci_bus *b;
+    struct pci_dev *dev;
+    struct list_head *pos;
+
+    pbus_browse_resources(bus, resno);
+
+    list_for_each(pos, &bus->devices) {
+
+        dev = (struct pci_dev *)pos;
+
+        b = dev->subordinate;
+        if (!b)
+            continue;
+
+        pci_bus_browse_resources(b, resno);
+    }
+}
+
+static void setup_bar_address(struct ICC_platform_data *icc_data)
+{
+    struct pci_bus *bus = pci_find_next_bus(NULL);
+
+    while (bus) {
+
+        pci_bus_browse_resources(bus, ICC_USE_BAR);
+        bus = pci_find_next_bus(bus);
+    }
+}
 #endif
 
 void pcie_init_shmem(struct ICC_platform_data *icc_data)
@@ -302,6 +329,8 @@ void pcie_init_shmem(struct ICC_platform_data *icc_data)
 
 #ifdef ICC_BUILD_FOR_M4
         setup_pcie_from_device_tree(icc_data);
+#else
+        setup_bar_address(icc_data);
 #endif
 
         if (get_pcie_shmem_base_phys_address()) {
