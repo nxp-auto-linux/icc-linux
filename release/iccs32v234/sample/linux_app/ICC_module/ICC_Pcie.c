@@ -55,6 +55,11 @@ static uint64_t ICC_EP_PCIE_Phys_Base_Addr;
 #else
 static uint64_t ICC_EP_BAR_Phys_Base_Addr;
 static uint32_t ICC_EP_BAR_Size;
+
+/* Set this arg to true if you want to check the shared memory */
+ICC_CMD_LINE_ARG(icc_list_pci, bool, false, \
+        "List all PCI devices");
+
 #endif
 
 static uint64_t ICC_Shm_Phys_Base_Addr;
@@ -265,13 +270,17 @@ static void pbus_browse_resources(const struct pci_bus *bus, int resno)
     struct pci_dev *dev;
     struct list_head *pos;
 
-    ICC_INFO("Browsing PCI bus %04x:%02x", pci_domain_nr(bus), bus->number);
+    if (icc_list_pci) {
+        ICC_INFO("Browsing PCI bus %04x:%02x", pci_domain_nr(bus), bus->number);
+    }
 
     list_for_each(pos, &bus->devices) {
         int i;
         dev = (struct pci_dev *)pos;
 
-        ICC_INFO("    Browsing device %s", dev->dev.kobj.name);
+        if (icc_list_pci) {
+            ICC_INFO("    Browsing device %s", dev->dev.kobj.name);
+        }
 
         for (i = 0; i < PCI_NUM_RESOURCES; i++) {
             struct resource *r = &dev->resource[i];
@@ -279,12 +288,17 @@ static void pbus_browse_resources(const struct pci_bus *bus, int resno)
             if (r->end == r->start)
                 continue;
 
-            ICC_INFO("    BAR %d: %pR", i, r);
+            if (icc_list_pci) {
+                ICC_INFO("    BAR %d: %pR", i, r);
+            }
 
             if (!ICC_EP_BAR_Phys_Base_Addr && (i == resno) && (dev->vendor == VENDOR_FSL) && (dev->device == DEVICE_S32V)) {
                 ICC_EP_BAR_Phys_Base_Addr = r->start;
                 ICC_EP_BAR_Size = resource_size(r);
-                ICC_INFO("    Found EP on BAR %d", i);
+                ICC_INFO("    Found EP on BAR %d base addr=%#llx device=%s", i, ICC_EP_BAR_Phys_Base_Addr, dev->dev.kobj.name);
+                if (!icc_list_pci) {
+                    return;
+                }
             }
         }
     }
@@ -330,6 +344,9 @@ void pcie_init_shmem(struct ICC_platform_data *icc_data)
 #ifdef ICC_BUILD_FOR_M4
         setup_pcie_from_device_tree(icc_data);
 #else
+        if (!icc_list_pci) {
+            ICC_INFO("Scanning PCI buses for the EP");
+        }
         setup_bar_address(icc_data);
 #endif
 
