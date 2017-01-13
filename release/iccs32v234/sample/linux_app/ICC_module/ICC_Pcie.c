@@ -44,6 +44,7 @@
 #include "ICC_Notification.h"
 #include "ICC_Pcie.h"
 #include "ICC_Log.h"
+#include "ICC_Args.h"
 #include "ICC_Of.h"
 
 #ifndef ICC_USE_BAR
@@ -86,9 +87,6 @@ static uint32_t ICC_Shm_Size;
 #endif
 
 extern char * ICC_Shared_Virt_Base_Addr;
-
-/* first words are for the hand shake */
-#define ICC_CONFIG_OFFSET_FROM_BASE (sizeof(struct handshake))
 
 static const uint64_t get_pcie_shmem_base_phys_address(void)
 {
@@ -378,6 +376,9 @@ void pcie_init_shmem(struct ICC_platform_data *icc_data)
             shmem_poll_init(icc_data);
             shmem_ping_init(icc_data);
 #endif
+        }
+        else {
+            ICC_ERR("Failed to get EP BAR address");
         }
     }
 }
