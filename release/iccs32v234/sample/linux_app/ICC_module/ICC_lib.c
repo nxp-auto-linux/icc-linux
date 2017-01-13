@@ -184,6 +184,7 @@ static int local_init(struct ICC_platform_data * icc_data)
 #endif
 
         init_shmem(icc_data);
+
         if (!ICC_Shared_Virt_Base_Addr) {
             return -ENOMEM;
         }
@@ -192,22 +193,26 @@ static int local_init(struct ICC_platform_data * icc_data)
 
         /* Discover location of the configuration
          */
-        ICC_Config_Ptr_M4 = (ICC_Config_t *)(ICC_Shared_Virt_Base_Addr);
-        shared_start = (uint64_t *)ICC_Config_Ptr_M4;
+        shared_start = (uint64_t *)ICC_Shared_Virt_Base_Addr;
         for (i = 0; i < get_shmem_size() / sizeof(uint64_t); i++, shared_start++) {
             union local_magic * crt_start = (union local_magic *)shared_start;
             if ((ICC_Local_Magic.raw.m0 == crt_start->raw.m0) &&
             (ICC_Local_Magic.raw.m1 == crt_start->raw.m1)){
                 ICC_Config_Ptr_M4 = (ICC_Config_t *)crt_start;
+                ICC_Config_Ptr_M4_Remote = (ICC_Config_t *)(ICC_Config_Ptr_M4->This_Ptr);
                 ICC_INFO("ICC Shared Config found at address %#llx", ICC_Config_Ptr_M4);
                 break;
             }
         }
 
-        ICC_Config_Ptr_M4_Remote = (ICC_Config_t *)(ICC_Config_Ptr_M4->This_Ptr);
-
-        ICC_INFO("ICC Shared Config local virtual address: %#llx", ICC_Config_Ptr_M4);
-        ICC_INFO("ICC Shared Config remote virtual address: %#llx", ICC_Config_Ptr_M4_Remote);
+        if (ICC_Config_Ptr_M4) {
+            ICC_INFO("ICC Shared Config local virtual address: %#llx", ICC_Config_Ptr_M4);
+            ICC_INFO("ICC Shared Config remote virtual address: %#llx", ICC_Config_Ptr_M4_Remote);
+        }
+        else {
+            ICC_ERR("ICC Shared Config not found");
+            return -ENOMEM;
+        }
 #endif
 
         return 0;

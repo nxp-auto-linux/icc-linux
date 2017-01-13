@@ -38,7 +38,7 @@
 
 const uint32_t get_shmem_size(void)
 {
-    return ICC_CONFIG_MAX_SIZE;
+    return ICC_CONFIG_MAX_SIZE - ICC_CONFIG_OFFSET_FROM_BASE;
 }
 
 void init_shmem(struct ICC_platform_data *icc_data)

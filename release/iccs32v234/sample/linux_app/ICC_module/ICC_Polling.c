@@ -136,7 +136,6 @@ void shmem_poll_exit(struct ICC_platform_data *icc_data)
             msleep_interruptible(DEFAULT_TIMEOUT_MS * 10);
         } while (icc_polling->poll_thread);
 
-        iounmap(icc_polling->poll_addr);
         icc_polling->poll_addr = NULL;
     }
 }

@@ -51,9 +51,6 @@ static uint64_t ICC_SRAM_Phys_Base_Addr;
 
 extern char *ICC_Shared_Virt_Base_Addr;
 
-/* first words reserved for other purposes (e.g. a handshake) */
-#define ICC_CONFIG_OFFSET_FROM_BASE (0)
-
 /* ICC shared config is not at the beginning of the SRAM,
  * it can be located starting with an offset (1Mb) from SRAM base.
  */
@@ -82,14 +79,14 @@ void intr_init_shmem(struct ICC_platform_data *icc_data)
             of_node_put(sram);
 
             /* Reserve shared memory */
-            if (!devm_request_mem_region(dev, get_intr_shmem_base_phys_address(), get_shmem_size(), "ICC_shmem")) {
+            if (!devm_request_mem_region(dev, get_intr_shmem_base_phys_address(), get_shmem_size() + ICC_CONFIG_OFFSET_FROM_BASE, "ICC_shmem")) {
                 ICC_ERR("Failed to request mem region!");
                 return;
             }
 
             /* Map shared memory in local address space */
-            ICC_Shared_Virt_Base_Addr = devm_ioremap_nocache(dev, get_intr_shmem_base_phys_address(), get_shmem_size()) + ICC_CONFIG_OFFSET_FROM_BASE;
-            ICC_INFO("Reserved ICC_Shared_Virt_Base_Addr=%#llx size=%d", ICC_Shared_Virt_Base_Addr, get_shmem_size() - ICC_CONFIG_OFFSET_FROM_BASE);
+            ICC_Shared_Virt_Base_Addr = devm_ioremap_nocache(dev, get_intr_shmem_base_phys_address(), get_shmem_size() + ICC_CONFIG_OFFSET_FROM_BASE) + ICC_CONFIG_OFFSET_FROM_BASE;
+            ICC_INFO("Reserved ICC_Shared_Virt_Base_Addr=%#llx size=%d", ICC_Shared_Virt_Base_Addr, get_shmem_size());
             if( !ICC_Shared_Virt_Base_Addr ){
                 ICC_ERR("ICC_Shared_Virt_Base_Addr virtual mapping has failed for %#x", get_intr_shmem_base_phys_address());
                 return;
