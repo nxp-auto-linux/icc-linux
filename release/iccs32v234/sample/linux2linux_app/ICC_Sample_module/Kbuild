@@ -1,21 +1,24 @@
 
+# CONFIG must be one of RTOS, EP, RC, or BB_RC
+ifeq ($(findstring $(CONFIG),RTOS EP RC BB_RC),)
+    $(error CONFIG not defined or invalid)
+endif
+
 SRC_ROOT := $(PWD)/../../..
 
 CONFIG_USED = $(SRC_ROOT)/sample/config/include
 EXTRA_CFLAGS += -O0 -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums -DICC_MIX_32_64_SUPPORT #-DICC_TST_HWSYNCH
 
-CFLAGS_PCIE := -DICC_LINUX2LINUX -DICC_USE_POLLING
-
-ifeq ($(CONFIG),EP)
-    EXTRA_CFLAGS += $(CFLAGS_PCIE) -DICC_BUILD_FOR_M4
+ifeq ($(findstring $(CONFIG),EP RC BB_RC),$(CONFIG))
+    EXTRA_CFLAGS += -DICC_LINUX2LINUX -DICC_USE_POLLING
 endif
 
-ifeq ($(CONFIG),RC)
-    EXTRA_CFLAGS += $(CFLAGS_PCIE)
+ifeq ($(CONFIG),EP)
+    EXTRA_CFLAGS += -DICC_BUILD_FOR_M4
 endif
 
 ifeq ($(CONFIG),BB_RC)
-    EXTRA_CFLAGS += $(CFLAGS_PCIE) -DICC_PCIE_SHMEM_BLUEBOX
+    EXTRA_CFLAGS += -DICC_PCIE_SHMEM_BLUEBOX
 endif
 
 INCLUDE_DEPENDENCIES := -I$(SRC_ROOT)/code/linux/inc \
