@@ -1,9 +1,9 @@
 /**
-*   @file    inttypes.h
+*   @file    ICC_Polling.h
 *   @version 0.0.1
 *
-*   @brief   Container for all types used inside the test application.
-*   @details       Container for all types used inside the test application.
+*   @brief   ICC - Inter Core Communication device driver polling support
+*   @details       Inter Core Communication device driver polling support
 */
 /*==================================================================================================
 *   Project              : ICC
@@ -31,17 +31,35 @@
 *
 ==================================================================================================*/
 
-#ifndef INTTYPES_H
-#define INTTYPES_H
+#ifndef ICC_POLLING_H
+#define ICC_POLLING_H
 
-/* stdint.h types */
-typedef signed char     int8_t;
-typedef unsigned char   uint8_t;
-typedef signed int  int16_t;
-typedef unsigned int    uint16_t;
-typedef signed long int     int32_t;
-typedef unsigned long int   uint32_t;
-typedef signed long long int    int64_t;
-typedef unsigned long long int  uint64_t;
+struct ping_poll {
+    uint32_t *poll_addr;
+    uint32_t *ping_addr;
+    struct task_struct *poll_thread;
+    bool terminate_communication;
+};
 
-#endif /* INTTYPES_H */
+struct ICC_platform_data;
+
+const uint64_t get_shmem_poll_addr(void);
+const uint64_t get_shmem_ping_addr(void);
+
+int shmem_poll_init(struct ICC_platform_data *icc_data);
+void shmem_poll_exit(struct ICC_platform_data *icc_data);
+
+int shmem_ping_init(struct ICC_platform_data *icc_data);
+void shmem_ping_exit(struct ICC_platform_data *icc_data);
+
+int poll_notify_peer(struct ICC_platform_data *icc_data);
+
+#ifndef ICC_BUILD_FOR_M4
+int poll_notify_peer_alive(struct ICC_platform_data *icc_data);
+#else
+int poll_wait_for_peer(struct ICC_platform_data *icc_data);
+#endif
+
+void poll_clear_notify_from_peer(struct ICC_platform_data *icc_data);
+
+#endif /* ICC_POLLING_H */

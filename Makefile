@@ -1,5 +1,6 @@
 #
-# Copyright (C) 2016 Freescale Semiconductor, Inc.
+# (c) Copyright 2016 Freescale Semiconductor, Inc.
+# (c) Copyright 2016 NXP
 # All rights reserved.
 #
 # This software may be distributed under the terms of the
@@ -26,12 +27,7 @@
 # BB_RC for RootComplex (ls208xx rdb), in a BlueBox setup setup for Linux over PCIE
 CONFIG ?= RTOS
 
-ifeq ($(CONFIG),RTOS)
-SRC := $(shell pwd)/release/iccs32v234/sample/linux_app
-else
 SRC := $(shell pwd)/release/iccs32v234/sample/linux2linux_app
-endif
-
 
 MODULE_SRC := $(SRC)/ICC_module
 SAMPLE_MODULE_SRC := $(SRC)/ICC_Sample_module

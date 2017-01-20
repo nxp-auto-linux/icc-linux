@@ -18,6 +18,7 @@
 *   Build Version        : S32V234_ICC_0.8.0
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP
 *   
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -48,9 +49,8 @@
 
 
 /* Treerunner */
-#define ICC_HW_SEMA4_V2
-#define ICC_HW_SEMA4_BASE       (0x40082000UL)
 #define ICC_HW_MSCM_BASE        (0x40081000UL)
+#define ICC_HW_MSCM_SIZE        (1000U)
 #define ICC_HW_LMEM_BASE        (0xE0082000UL)
 #define ICC_HW_CACHE_LINE_SIZE  (32U)
 

@@ -17,6 +17,7 @@
 *   Build Version        :
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP
 *   
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -67,8 +68,6 @@ static int ICC_Sample_dev_open(struct inode *inode, struct file *file)
     struct ICC_Sample_device_data *data = container_of(inode->i_cdev,
                                                 struct ICC_Sample_device_data,
                                                 cdev);
-    if (NULL == data)
-        return -ENOMEM;
 
     file->private_data = data;
 
@@ -88,7 +87,7 @@ static const struct file_operations ICC_Sample_fops = {
     .release = ICC_Sample_dev_release,
 };
 
-static int ICC_Sample_dev_exit(void);
+static void ICC_Sample_dev_exit(void);
 
 static int ICC_Sample_dev_init(void)
 {
@@ -125,11 +124,12 @@ static int ICC_Sample_dev_init(void)
     return err;
 }
 
-static int ICC_Sample_dev_exit(void)
+static void ICC_Sample_dev_exit(void)
 {
-    int i, err = 0;
+    int i;
 
-    if ( Stop_ICC_Sample() != 0 ) err=-1;
+    if ( Stop_ICC_Sample() != 0 )
+        return;
 
     for (i = 0; i < NUM_MINORS; i++)
         cdev_del(&devs[i].cdev);
@@ -137,10 +137,8 @@ static int ICC_Sample_dev_exit(void)
     unregister_chrdev_region(dev_no, NUM_MINORS);
     printk(LOG_LEVEL "Finishing unregister the ICC_Sample_dev \n");
 
-    // wait for any thread activity to finish
+    /* wait for any thread activity to finish */
     msleep(100);
-
-    return err;
 }
 
 

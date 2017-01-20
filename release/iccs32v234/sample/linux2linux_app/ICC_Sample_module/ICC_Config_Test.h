@@ -32,10 +32,13 @@
 *
 ==================================================================================================*/
 
-#include "ICC_Config.h"
-
 #ifndef ICC_CONFIG_TEST_H
 #define ICC_CONFIG_TEST_H
+
+#ifdef ICC_LINUX2LINUX
+
+#include "ICC_Config.h"
+#include "ICC_Os.h"
 
 #define PRINT(...) count += printk(KERN_ALERT __VA_ARGS__)
 
@@ -108,15 +111,15 @@ int print_ICC_Fifo_Config_t(ICC_Fifo_Config_t * obj)
     return count;
 }
 
-int print_ICC_Channel_Config_t_Array(char * obj, int size)
+int print_ICC_Channel_Config_Array_t(char * obj, int chan_count)
 {
     int count = 0;
-    int i, chan_count;
+    int i;
+
     if (!obj) {
         return count;
     }
 
-    chan_count = size / sizeof(ICC_Channel_Config_t);
     for (i = 0; i < chan_count; i++) {
         ICC_Channel_Config_t * config = (ICC_Channel_Config_t *)obj + i;
         count += print_ICC_Fifo_Config_t(&(config->fifos_cfg[0]));
@@ -147,7 +150,7 @@ int print_ICC_Config_t(ICC_Config_t * obj)
 #ifndef ICC_BUILD_FOR_M4
         PRINT ("%p relocated to %p\n", obj->Channels_Ptr, chan_config);
 #endif
-        count += print_ICC_Channel_Config_t_Array(chan_config, sizeof(ICC_Cfg0_ChannelsConfig));
+        count += print_ICC_Channel_Config_Array_t(chan_config, ICC_CROSS_VALUE_OF(obj->Channels_Count));
     }
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
@@ -177,10 +180,10 @@ int print_ICC_Config_t(ICC_Config_t * obj)
 #endif
 
 
-        PR_ARRAYX("ICC_Initialized_Shared", initialized, member_size(struct ICC_Runtime_Shared_t, ICC_Initialized_Shared));
-        PR_ARRAYX("ICC_Channels_Ram_Shared", channels_ram, member_size(struct ICC_Runtime_Shared_t, ICC_Channels_Ram_Shared));
-        PR_ARRAYX("ICC_Fifo_Ram_Shared", fifo_ram, member_size(struct ICC_Runtime_Shared_t, ICC_Fifo_Ram_Shared));
-        PR_ARRAYX("ICC_Node_Sig_Fifo_Ram_Shared", sig_fifo_ram, member_size(struct ICC_Runtime_Shared_t, ICC_Node_Sig_Fifo_Ram_Shared));
+        PR_ARRAYX("ICC_Initialized_Shared", initialized, member_size(ICC_Runtime_Shared_t, ICC_Initialized_Shared));
+        PR_ARRAYX("ICC_Channels_Ram_Shared", channels_ram, member_size(ICC_Runtime_Shared_t, ICC_Channels_Ram_Shared));
+        PR_ARRAYX("ICC_Fifo_Ram_Shared", fifo_ram, member_size(ICC_Runtime_Shared_t, ICC_Fifo_Ram_Shared));
+        PR_ARRAYX("ICC_Node_Sig_Fifo_Ram_Shared", sig_fifo_ram, member_size(ICC_Runtime_Shared_t, ICC_Node_Sig_Fifo_Ram_Shared));
     }
 
     return count;
@@ -216,5 +219,6 @@ int print_ICC_Config_t(ICC_Config_t * obj)
             dump_count += count; \
         }
 
+#endif  /* ICC_LINUX2LINUX */
 
 #endif /* ICC_CONFIG_TEST_H */

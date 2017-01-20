@@ -1,9 +1,9 @@
 /**
-*   @file    inttypes.h
+*   @file    ICC_Pcie.h
 *   @version 0.0.1
 *
-*   @brief   Container for all types used inside the test application.
-*   @details       Container for all types used inside the test application.
+*   @brief   ICC - Inter Core Communication generic platform definitions
+*   @details       Inter Core Communication generic platform definitions
 */
 /*==================================================================================================
 *   Project              : ICC
@@ -31,17 +31,53 @@
 *
 ==================================================================================================*/
 
-#ifndef INTTYPES_H
-#define INTTYPES_H
+#ifndef ICC_PCIE_H
+#define ICC_PCIE_H
 
-/* stdint.h types */
-typedef signed char     int8_t;
-typedef unsigned char   uint8_t;
-typedef signed int  int16_t;
-typedef unsigned int    uint16_t;
-typedef signed long int     int32_t;
-typedef unsigned long int   uint32_t;
-typedef signed long long int    int64_t;
-typedef unsigned long long int  uint64_t;
+#ifdef ICC_LINUX2LINUX
 
-#endif /* INTTYPES_H */
+struct s32v_bar {
+    uint64_t bar_addr;
+    uint32_t bar_size;
+    uint32_t bar_nr;
+};
+
+struct handshake {
+    struct s32v_bar rc_bar;
+    uint64_t rc_ddr_addr;
+};
+
+struct ICC_platform_data;
+
+void pcie_init_shmem(struct ICC_platform_data *icc_data);
+void pcie_cleanup_shmem(struct ICC_platform_data *icc_data);
+
+#ifdef ICC_BUILD_FOR_M4
+
+struct s32v_inbound_region {
+    uint32_t  bar_nr;
+    uint32_t  target_addr;
+    uint32_t  region;
+};
+
+struct s32v_outbound_region {
+    uint64_t target_addr;
+    uint64_t base_addr;
+    uint32_t size;
+    uint32_t region;
+    uint32_t region_type;
+};
+
+int pcie_init_inbound(void);
+int pcie_init_outbound(struct handshake *phshake);
+
+#else
+
+/* BAR attributes are initialized on the RC side only with EP defaults */
+int pcie_init_bar(struct s32v_bar *bar);
+
+#endif
+#endif
+
+
+#endif /* ICC_PCIE_H */

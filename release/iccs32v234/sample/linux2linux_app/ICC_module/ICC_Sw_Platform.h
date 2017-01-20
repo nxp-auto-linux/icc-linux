@@ -1,9 +1,9 @@
 /**
-*   @file    inttypes.h
+*   @file    ICC_Sw_Platform.h
 *   @version 0.0.1
 *
-*   @brief   Container for all types used inside the test application.
-*   @details       Container for all types used inside the test application.
+*   @brief   ICC - Inter Core Communication generic platform definitions
+*   @details       Inter Core Communication generic platform definitions
 */
 /*==================================================================================================
 *   Project              : ICC
@@ -31,17 +31,25 @@
 *
 ==================================================================================================*/
 
-#ifndef INTTYPES_H
-#define INTTYPES_H
+#ifndef ICC_PLATFORM_H
+#define ICC_PLATFORM_H
 
-/* stdint.h types */
-typedef signed char     int8_t;
-typedef unsigned char   uint8_t;
-typedef signed int  int16_t;
-typedef unsigned int    uint16_t;
-typedef signed long int     int32_t;
-typedef unsigned long int   uint32_t;
-typedef signed long long int    int64_t;
-typedef unsigned long long int  uint64_t;
+#define MODULE_NAME     "ICC"
+#define BASEMINOR       0
+#define NUM_MINORS      1
 
-#endif /* INTTYPES_H */
+#ifdef ICC_USE_POLLING
+#include "ICC_Polling.h"
+#endif
+
+struct ICC_platform_data {
+    struct platform_device *pdev;
+#ifndef ICC_USE_POLLING
+    uint32_t shared_irq;
+    uint32_t local_irq;
+#else
+    struct ping_poll icc_polling;
+#endif
+};
+
+#endif /* ICC_PLATFORM_H */

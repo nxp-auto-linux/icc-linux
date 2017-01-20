@@ -18,6 +18,7 @@
 *   Build Version        : S32V234_ICC_0.8.0
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP
 *   
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -105,13 +106,13 @@ extern "C"
         ICC_Config_t * ICC_Config_Ptr_M4;          /**< pointer to M4 current configuration */
 #endif
 
-        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_PTR_VECTOR(u32)      ICC_Initialized  = NULL_PTR;                            /**< shows if ICC is initialized */
+        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_PTR_VECTOR(uint32_t)      ICC_Initialized  = NULL_PTR;                            /**< shows if ICC is initialized */
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_Channel_Ram_t      * ICC_Channels_Ram = NULL_PTR;                            /**< runtime structure for each channel */
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_PTR_MATRIX(ICC_Fifo_Ram_t)        ICC_Fifo_Ram = NULL_PTR;    /**< fifos_ram ordered priority wise for each node */
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_PTR_VECTOR(ICC_Signal_Fifo_Ram_t) ICC_Node_Sig_Fifo_Ram = NULL_PTR;        /**< signal fifo for each node */
         #ifdef ICC_CFG_HEARTBEAT_ENABLED
         ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile ICC_Heartbeat_State_t    ICC_Heartbeat_State  = ICC_HEARTBEAT_STATE_UNINIT;          /**< shows ICC_Heartbeat mechanism state */
-        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile u32                      ICC_Heartbeat_RunId  = 0;                                   /**< the current RunId for the HB mechanism */
+        ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA volatile uint32_t                      ICC_Heartbeat_RunId  = 0;                                   /**< the current RunId for the HB mechanism */
         #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
         ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS ICC_Fifo_Os_Ram_t ICC_Fifo_Os_Ram_APP[ ICC_CFG_MAX_CHANNELS ][ 2 /* tx/rx */ ];   /**< Fifo OS specific Ram structure */
@@ -176,19 +177,13 @@ ICC_Compare_Fifo_Conf( const ICC_Fifo_Config_t * fifo_config_APP,
  *                                       GLOBAL FUNCTIONS                                        *
  *===============================================================================================*/
 
-#ifdef ICC_USE_POLLING
-
-/* Declare notify functions here as 'extern'.
- * Implementation must be provided elsewhere.
- */
+ICC_ATTR_SEC_TEXT_CODE
+extern
+ICC_Err_t ICC_Notify_Peer( void );
 
 ICC_ATTR_SEC_TEXT_CODE
 extern
-ICC_Err_t ICC_Notify_Remote( void );
-
-ICC_ATTR_SEC_TEXT_CODE
-extern
-void ICC_Clear_Notify_From_Remote( void );
+void ICC_Clear_Notify_From_Peer( void );
 
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
 ICC_ATTR_SEC_TEXT_CODE
@@ -200,35 +195,51 @@ extern
 void ICC_Clear_Notify_Local( void );
 #endif
 
-#else
+
+#if (defined(ICC_LINUX2LINUX) && defined(ICC_BUILD_FOR_M4))
+
+extern char * ICC_Shared_Virt_Base_Addr;
+
+#include "ICC_Relocate.h"
+
+/**
+ *
+ * Called by the master node (which initializes the shared memory) when required
+ * to relocate a static config object and its dependencies to a shared memory
+ * buffer received as argument.
+ *
+ * If base_addr is NULL, by default the start of the shared memory is used as
+ * base address for the relocation.
+ * In case of multiple configuration, it is recommended to use:
+ * - for config 0: base_addr = NULL,
+ * - for config 1: base_addr = address of relocated config 0 + sizeof(ICC_Config_t),
+ * - etc.
+ *
+ * Returns the address of the relocated config object.
+ */
 
 ICC_ATTR_SEC_TEXT_CODE
-ICC_Err_t ICC_Notify_Remote(void)
+extern
+void *
+ICC_Relocate_Config(
+                ICC_IN ICC_Config_t * config,
+                ICC_IN void         * base_addr
+              )
 {
-    ICC_HW_Trigger_Cpu2Cpu_Interrupt( ICC_CFG_HW_CPU2CPU_IRQ ); /**< trigger remote interrupt */
+    void * relocated_config = NULL;
+
+    if (config) {
+        char *dest = base_addr;
+        if (!dest) {
+            dest = ICC_Shared_Virt_Base_Addr;
+        }
+        relocated_config = RELOCATE_ICC_Config_t(&dest, config);
+    }
+
+    return relocated_config;
 }
 
-ICC_ATTR_SEC_TEXT_CODE
-void ICC_Clear_Notify_From_Remote(void)
-{
-    ICC_HW_Clear_Cpu2Cpu_Interrupt(ICC_CFG_HW_CPU2CPU_IRQ);
-}
-
-#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-ICC_ATTR_SEC_TEXT_CODE
-void ICC_Notify_Local(void)
-{
-    ICC_HW_Trigger_Local_Interrupt( ICC_CFG_HW_LOCAL_IRQ ); /**< trigger local interrupt */
-}
-
-ICC_ATTR_SEC_TEXT_CODE
-void ICC_Clear_Notify_Local(void)
-{
-    ICC_HW_Clear_Local_Interrupt( ICC_CFG_HW_LOCAL_IRQ ); /**< trigger local interrupt */
-}
-#endif
-
-#endif
+#endif  /* ICC_BUILD_FOR_M4 && ICC_LINUX2LINUX */
 
 /**
  *
@@ -301,7 +312,7 @@ ICC_Initialize(
          * update configuration structure on APP side
          */
 
-        ICC_CROSS_ASSIGN(ICC_Config_Ptr->ICC_Initialized_Shared, (ICC_PTR_VECTOR(u32)) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->ICC_Initialized_Shared)));
+        ICC_CROSS_ASSIGN(ICC_Config_Ptr->ICC_Initialized_Shared, (ICC_PTR_VECTOR(uint32_t)) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->ICC_Initialized_Shared)));
         ICC_CROSS_ASSIGN(ICC_Config_Ptr->ICC_Channels_Ram_Shared, (ICC_Channel_Ram_t *) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->ICC_Channels_Ram_Shared)));
         ICC_CROSS_ASSIGN(ICC_Config_Ptr->ICC_Fifo_Ram_Shared, (ICC_PTR_MATRIX(ICC_Fifo_Ram_t)) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->ICC_Fifo_Ram_Shared)));
         ICC_CROSS_ASSIGN(ICC_Config_Ptr->ICC_Node_Sig_Fifo_Ram_Shared, (ICC_PTR_VECTOR(ICC_Signal_Fifo_Ram_t)) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->ICC_Node_Sig_Fifo_Ram_Shared)));
@@ -313,8 +324,8 @@ ICC_Initialize(
             channel_conf_M4 = (ICC_Channel_Config_t *) ICC_OS_Phys_To_Virt(&(ICC_CROSS_VALUE_OF(ICC_Config_Ptr_M4->Channels_Ptr)[i]));
 
             for (j=0; j<2; j++) {
-                fifo_config_APP = &channel_conf->fifos_cfg[ j ];
-                fifo_config_M4  = &channel_conf_M4->fifos_cfg[ j ];
+                fifo_config_APP = (ICC_Fifo_Config_t *)&channel_conf->fifos_cfg[ j ];
+                fifo_config_M4  = (ICC_Fifo_Config_t *)&channel_conf_M4->fifos_cfg[ j ];
 
                 ICC_CHECK_ERR_CODE( ICC_Compare_Fifo_Conf(fifo_config_APP, fifo_config_M4) );
 
@@ -324,7 +335,7 @@ ICC_Initialize(
                 /*
                  * TBD: if address re-mapping is needed then it must be done here
                  */
-                ICC_CROSS_ASSIGN(fifo_config_APP->fifo_buffer_ptr, (u8 *) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(fifo_config_M4->fifo_buffer_ptr)));
+                ICC_CROSS_ASSIGN(fifo_config_APP->fifo_buffer_ptr, (uint8_t *) ICC_OS_Phys_To_Virt(ICC_CROSS_VALUE_OF(fifo_config_M4->fifo_buffer_ptr)));
             }
         }
 
@@ -415,11 +426,12 @@ ICC_Initialize(
     ICC_CHECK_ERR_CODE( ICC_OS_Init_Interrupts() );
 
     /* when using interrupts, it's ok to assert an interrupt line and wait for the peer to see it.
-     * this does not work on 'pings' (one shot signals) which may block or worse give bus errors
-     * when the peer is not initialized.
+     * this does not work on 'pings' (one shot signals) over PCI Express which may block or
+     * worse give bus errors when the peer is not initialized.
      */
-#ifndef ICC_USE_POLLING
-    ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
+#ifndef ICC_LINUX2LINUX
+
+    ICC_CHECK_ERR_CODE(ICC_Notify_Peer());
 #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
     ICC_Notify_Local();
 #endif
@@ -509,7 +521,7 @@ ICC_Finalize( void )
     }
 
     ICC_CHECK_ERR_CODE_NO_RETURN( ICC_Sig_Fifo_Signal( (ICC_Signal_Fifo_Ram_t *)&((*ICC_Node_Sig_Fifo_Ram)[ ICC_TX_FIFO ]), ICC_NODE_STATE_UNINIT ) );
-    ICC_CHECK_ERR_CODE_NO_RETURN(ICC_Notify_Remote());
+    ICC_CHECK_ERR_CODE_NO_RETURN(ICC_Notify_Peer());
 
     #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
     ICC_CHECK_ERR_CODE_NO_RETURN( ICC_Sig_Fifo_Signal( (ICC_Signal_Fifo_Ram_t *)&ICC_Signal_Fifo_Node_Ram_Local , ICC_NODE_STATE_UNINIT ) );
@@ -612,7 +624,7 @@ ICC_Open_Channel(
     #endif
 
     ICC_CHECK_ERR_CODE_NO_RETURN( ICC_Sig_Fifo_Signal( (ICC_Signal_Fifo_Ram_t *)&channel_ram->sig_fifo_remote[ ICC_TX_FIFO ], channel_new_state ) );
-    ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
+    ICC_CHECK_ERR_CODE(ICC_Notify_Peer());
 
     return return_code;
 }
@@ -673,7 +685,7 @@ ICC_Close_Channel(
     #endif
 
     ICC_CHECK_ERR_CODE_NO_RETURN( ICC_Sig_Fifo_Signal( (ICC_Signal_Fifo_Ram_t *)&channel_ram->sig_fifo_remote[ ICC_TX_FIFO ], channel_new_state ) );
-    ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
+    ICC_CHECK_ERR_CODE(ICC_Notify_Peer());
 
     return return_code;
 }
@@ -1047,7 +1059,7 @@ ICC_Msg_Send (
        ICC_FIFO_Msg_Wr_Sig(fifo_ram); /**< signal new message */
 
 
-    ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
+    ICC_CHECK_ERR_CODE(ICC_Notify_Peer());
     ICC_CHECK_ERR_CODE( ICC_OS_Release_Semaphore( channel_id, ICC_TX_FIFO  ) );
 
 
@@ -1260,7 +1272,7 @@ ICC_Msg_Recv(
         if ( ICC_RX_NORMAL == rx_operation ) {
 
             ICC_FIFO_Msg_Rd_Sig(fifo_ram); /**< signal only if message extracted from fifo */
-            ICC_CHECK_ERR_CODE(ICC_Notify_Remote());
+            ICC_CHECK_ERR_CODE(ICC_Notify_Peer());
         }
 
 
@@ -1293,7 +1305,7 @@ ICC_Remote_Event_Handler(void)
     unsigned int hb_channel_id;
     #endif
     
-    ICC_Clear_Notify_From_Remote();
+    ICC_Clear_Notify_From_Peer();
 
 
     /*

@@ -1,9 +1,9 @@
 /**
-*   @file    inttypes.h
+*   @file    ICC_Interrupts.h
 *   @version 0.0.1
 *
-*   @brief   Container for all types used inside the test application.
-*   @details       Container for all types used inside the test application.
+*   @brief   ICC - Inter Core Communication device driver interrupt support
+*   @details       Inter Core Communication device driver interrupt support
 */
 /*==================================================================================================
 *   Project              : ICC
@@ -31,17 +31,19 @@
 *
 ==================================================================================================*/
 
-#ifndef INTTYPES_H
-#define INTTYPES_H
+#ifndef ICC_INTERRUPTS_H
+#define ICC_INTERRUPTS_H
 
-/* stdint.h types */
-typedef signed char     int8_t;
-typedef unsigned char   uint8_t;
-typedef signed int  int16_t;
-typedef unsigned int    uint16_t;
-typedef signed long int     int32_t;
-typedef unsigned long int   uint32_t;
-typedef signed long long int    int64_t;
-typedef unsigned long long int  uint64_t;
+struct ICC_platform_data;
 
-#endif /* INTTYPES_H */
+int intr_notify_peer(void);
+void intr_clear_notify_from_peer(void);
+
+#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
+void intr_notify_local(void);
+void intr_clear_notify_local(void);
+#endif
+
+int init_interrupt_data(struct ICC_platform_data * icc_data);
+
+#endif /* ICC_INTERRUPTS_H */

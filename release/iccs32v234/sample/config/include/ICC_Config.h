@@ -20,7 +20,9 @@
 *   Build Version        : S32V234_ICC_0.8.0
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP
 *   All Rights Reserved.
+*
 ==================================================================================================*/
 /*==================================================================================================
 ==================================================================================================*/
@@ -96,16 +98,28 @@
 /*
  * ***************************************************** ICC configuration specific parameters
  */
-#define ICC_CFG_NO_CHANNELS_CONF0     (2)  /**< channels in this configuration */
 #define ICC_CFG0_HEARTBEAT_CHANNEL_ID     (IccChannel_0)  /**< channel on which the heartbeat mechanism will function */
 
 /*==================================================================================================
                                  STRUCTURES AND OTHER TYPEDEFS
 ==================================================================================================*/
 
+#ifdef ICC_FSL_AUTOSAR_OS
+typedef ICC_Fifo_Os_Config_t (ICC_Fifo_Os_Config_Array_t)[][2];
+#endif
 
+typedef ICC_Channel_Config_t (ICC_ChannelsConfig_Array_t)[];
 
+#ifdef ICC_LINUX2LINUX
 
+    typedef struct {
+        uint32_t              ICC_Initialized_Shared[ 2 ];                       /**< ICC state on each node */
+        ICC_Channel_Ram_t     ICC_Channels_Ram_Shared[ ICC_CFG_MAX_CHANNELS ]; /**< runtime structure for each channel */
+        ICC_Fifo_Ram_t        ICC_Fifo_Ram_Shared[ ICC_CFG_MAX_CHANNELS ][ 2 ];  /**< fifos ordered priority wise for each node */
+        ICC_Signal_Fifo_Ram_t ICC_Node_Sig_Fifo_Ram_Shared[ 2 ];              /**< signal fifo for each node */
+    } ICC_Runtime_Shared_t;
+
+#endif
 
 /*==================================================================================================
                                  GLOBAL VARIABLES DECLARATION
@@ -123,38 +137,17 @@
 #endif
 
     /*
-     * declaration of ICC top level configuration structure
+     * declaration of ICC top level configuration structures
      */
 
-#ifndef ICC_LINUX2LINUX
 
-    #ifdef ICC_BUILD_FOR_M4
-    extern const ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
-    #else
-    extern ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
-    #endif
-    ICC_Config_t ICC_Config0;
-
+#ifdef ICC_BUILD_FOR_M4
+extern const ICC_ATTR_SEC_SHARED_VAR_UNSPECIFIED_DATA
 #else
-
-    #ifdef ICC_BUILD_FOR_M4
-
-        #include "ICC_Relocate.h"
-
-        extern ICC_Config_t * RELOCATED_PTR(ICC_Config0);
-
-        #define ICC_Default_Config_Ptr (RELOCATED_PTR(ICC_Config0))
-
-    #else
-
-        extern ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
-        ICC_Config_t ICC_Config0;
-
-        #define ICC_Default_Config_Ptr (&ICC_Config0)
-
-    #endif
-
+extern ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA
 #endif
+ICC_Config_t ICC_Config0;
+
 
 #ifdef ICC_BUILD_FOR_M4
     #define ICC_STOP_SEC_SHARED_VAR_UNSPECIFIED
@@ -222,29 +215,7 @@
         
 #endif
 
-#ifdef ICC_LINUX2LINUX
 
-    struct ICC_Runtime_Shared_t {
-        unsigned int          ICC_Initialized_Shared[ 2 ];                       /**< ICC state on each node */
-        ICC_Channel_Ram_t     ICC_Channels_Ram_Shared[ ICC_CFG_MAX_CHANNELS ]; /**< runtime structure for each channel */
-        ICC_Fifo_Ram_t        ICC_Fifo_Ram_Shared[ ICC_CFG_MAX_CHANNELS ][ 2 ];  /**< fifos ordered priority wise for each node */
-        ICC_Signal_Fifo_Ram_t ICC_Node_Sig_Fifo_Ram_Shared[ 2 ];              /**< signal fifo for each node */
-    };
-
-#ifdef ICC_BUILD_FOR_M4
-
-    /*
-     * This function relocates the main ICC config object and its dependencies
-     * to a destination buffer received as argument.
-     * The function returns the pointer where data was relocated.
-     */
-    extern
-    char * ICC_Relocate_Config(void);
-#endif
-
-extern int ICC_Dump_Shared_Config(void);
-
-#endif
 
 #endif /* ICC_CONFIG_H */
 

@@ -1,17 +1,40 @@
 /**
- * ICC_Test_Types.c - main source file for the test application.
- *
- * This application performs a parity check between the old dirty implementation
- * (with zero paddings) and the new one based on 64 bit unions.
- *
- * The result will be a message ending in PASSED or FAILED.
- *
- *  SW Version           : 0.8.0
- *  Build Version        : S32V234_ICC_0.8.0
- *
- *  Copyright (c) 2016 NXP Semiconductor
- *  All Rights Reserved.
- */
+*   @file    ICC_Test_Types.c
+*   @version 0.0.1
+*
+*   @brief   Main source file for the test application.
+*   @details       Main source file for the test application.
+*
+*   This application performs relocation of an ICC configuration into a custom
+*   buffer, and does a parity check between the two objects.
+*
+*   The result will be a message ending in PASSED or FAILED.
+*/
+/*==================================================================================================
+*   Project              : ICC
+*   Platform             : ARM
+*   Peripheral           :
+*   Dependencies         : none
+*
+*   Build Version        :
+*
+*   (c) Copyright 2016 NXP
+*
+*   This program is free software; you can redistribute it and/or
+*   modify it under the terms of the GNU General Public License
+*   as published by the Free Software Foundation; either version 2
+*   of the License, or (at your option) any later version
+*
+*   This program is distributed in the hope that it will be useful,
+*   but WITHOUT ANY WARRANTY; without even the implied warranty of
+*   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+*   GNU General Public License for more details.
+*
+*   You should have received a copy of the GNU General Public License
+*   along with this program; if not, write to the Free Software
+*   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+*
+==================================================================================================*/
 
 #include <string.h>
 #include <stdio.h>
@@ -349,13 +372,13 @@ void ICC_Sig_Fifo_Signal(
 /* dest is an integer representing the destination address
    obj is an object (NOT pointer to an object!)
 */
-#define RELOCATE_OBJ(dest, obj) \
+#define COPY_OBJ(dest, obj) \
     { \
       memcpy((char*)dest, (char*)(&obj), sizeof(obj)); \
       dest = (typeof(dest))((uint64_t)dest + (uint64_t)sizeof(obj)); \
     }
 
-#define RELOCATE_RAW(dest, src_ptr, sz) \
+#define RELOCATE_OBJ_PTR(dest, src_ptr, sz) \
     { \
       memcpy((char*)dest, (char*)(*src_ptr), sz); \
       *src_ptr = (typeof(*src_ptr))dest; \
@@ -365,8 +388,8 @@ void ICC_Sig_Fifo_Signal(
 #define RELOCATE_ICC_Fifo_Config_t(dest, obj) \
     if (!RELOCATED_PTR(obj)) { \
       RELOCATED_PTR(obj) = (typeof(obj)*)dest; \
-      RELOCATE_OBJ(dest, obj); \
-      RELOCATE_RAW(dest, &ICC_CROSS_VALUE_OF(RELOCATED_PTR(obj)->fifo_buffer_ptr), obj.fifo_size); \
+      COPY_OBJ(dest, obj); \
+      RELOCATE_OBJ_PTR(dest, &ICC_CROSS_VALUE_OF(RELOCATED_PTR(obj)->fifo_buffer_ptr), obj.fifo_size); \
     }
 
 #define RELOCATE_ICC_Channel_Config_t_Array(dest, obj) \
@@ -379,9 +402,9 @@ void ICC_Sig_Fifo_Signal(
       dest = (typeof(dest))((uint64_t)RELOCATED_PTR(obj) + (uint64_t)sizeof(obj)); \
       for (i = 0; i < chan_count; i++) { \
           ICC_Fifo_Config_t * relocated_cfg = &((*RELOCATED_PTR(obj))[i].fifos_cfg[0]); \
-          RELOCATE_RAW(dest, &ICC_CROSS_VALUE_OF(relocated_cfg->fifo_buffer_ptr), relocated_cfg->fifo_size); \
+          RELOCATE_OBJ_PTR(dest, &ICC_CROSS_VALUE_OF(relocated_cfg->fifo_buffer_ptr), relocated_cfg->fifo_size); \
           relocated_cfg = &((*RELOCATED_PTR(obj))[i].fifos_cfg[1]); \
-          RELOCATE_RAW(dest, &ICC_CROSS_VALUE_OF(relocated_cfg->fifo_buffer_ptr), relocated_cfg->fifo_size); \
+          RELOCATE_OBJ_PTR(dest, &ICC_CROSS_VALUE_OF(relocated_cfg->fifo_buffer_ptr), relocated_cfg->fifo_size); \
       } \
     }
 

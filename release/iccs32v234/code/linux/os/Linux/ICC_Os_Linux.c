@@ -18,6 +18,7 @@
 *   Build Version        : S32V234_ICC_0.8.0
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP
 *   
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -42,14 +43,6 @@ extern "C"
 {
 #endif
 
-#include "ICC_Config.h"
-
-#include "ICC_Os.h"
-#include "ICC_Types.h"
-#include "ICC_Fifo.h"
-#include "ICC_Private.h"
-#include "ICC_Hw.h"
-
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -60,8 +53,14 @@ extern "C"
 #include <linux/mm.h>
 #include <asm/io.h>
 #include <asm/atomic.h>
-
 #include <linux/interrupt.h>
+
+#include "ICC_Config.h"
+
+#include "ICC_Os.h"
+#include "ICC_Types.h"
+#include "ICC_Fifo.h"
+#include "ICC_Private.h"
 
 /*
  * Implement Os API using Linux specifics
@@ -73,14 +72,10 @@ extern "C"
     ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS extern ICC_Fifo_Ram_t (* ICC_Fifo_Ram)[ ICC_CFG_MAX_CHANNELS ][ 2 ];
     ICC_ATTR_SEC_VAR_UNSPECIFIED_DATA extern volatile unsigned int          (* ICC_Initialized)[2];
 
-#ifndef ICC_USE_POLLING
-    ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS char * ICC_HW_MSCM_VIRT_BASE;
-#endif
+    ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS extern ICC_Config_t * ICC_Config_Ptr;
 
 #ifndef ICC_CFG_NO_TIMEOUT
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
-
-    ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS extern ICC_Config_t * ICC_Config_Ptr;
 
     ICC_ATTR_SEC_VAR_UNSPECIFIED_BSS wait_queue_head_t * rate_wait_queue;
 
@@ -109,44 +104,6 @@ extern "C"
 #define ICC_START_SEC_TEXT_CODE
 #include "ICC_MemMap.h"
 
-
-ICC_ATTR_SEC_TEXT_CODE
-extern
-void
-ICC_Remote_Event_Handler(void);
-
-#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-
-ICC_ATTR_SEC_TEXT_CODE
-extern
-void
-ICC_Local_Event_Handler(void);
-
-#endif
-
-#ifndef ICC_USE_POLLING
-ICC_ATTR_SEC_TEXT_CODE
-static
-irqreturn_t
-ICC_Cpu2Cpu_ISR_Handler(int irq, void *dev_id)
-{
-    ICC_Remote_Event_Handler();
-
-    return IRQ_HANDLED;
-}
-#endif
-
-#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-static
-irqreturn_t
-ICC_Local_ISR_Handler(int irq, void *dev_id)
-{
-    ICC_Local_Event_Handler();
-
-    return IRQ_HANDLED;
-}
-
-#endif
 
 #ifndef ICC_CFG_NO_TIMEOUT
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
@@ -198,7 +155,7 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
 #endif /* no ICC_CFG_NO_TIMEOUT */
 
     /* assign waitqueue for each fifo and semaphore */
-    for (i = 0; i < ICC_CFG_NO_CHANNELS_CONF0; i++)
+    for (i = 0; i < ICC_Config_Ptr->Channels_Count; i++)
     {
         for (j = 0; j < 2; j++)
         {
@@ -217,78 +174,8 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
         }
     }
 
-#ifndef ICC_USE_POLLING
-
-    ICC_HW_MSCM_VIRT_BASE = ioremap_nocache(ICC_HW_MSCM_BASE, 0x1000);
-
-    if (NULL == ICC_HW_MSCM_VIRT_BASE)
-    {
-        printk (KERN_ALERT "MSCM ioremap failed\n");
-
-        return ICC_ERR_GENERAL;
-    }
-
-#endif
-
     return ICC_SUCCESS;
 }
-
-#ifndef ICC_USE_POLLING
-
-extern struct device * ICC_get_device(void);
-extern char * ICC_get_device_name(void);
-extern unsigned int ICC_get_shared_irq(void);
-#if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-extern unsigned int ICC_get_local_irq(void);
-#endif
-
-extern
-void ICC_Clear_Notify_From_Remote(void);
-
-#endif
-
-/*
- * OS specific initialization of interrupts
- */
-ICC_ATTR_SEC_TEXT_CODE
-extern
-ICC_Err_t ICC_OS_Init_Interrupts( void )
-{
-#ifndef ICC_USE_POLLING
-    char * device_name = ICC_get_device_name();
-    struct device * dev = ICC_get_device();
-    unsigned int shared_irq = ICC_get_shared_irq();
-
-    if ( ICC_NODE_STATE_UNINIT == (*ICC_Initialized)[ ICC_GET_REMOTE_CORE_ID ] )
-    {
-       ICC_Clear_Notify_From_Remote();
-    }
-
-    /* request interrupt line for inter-core notifications */
-    if (devm_request_irq(dev, shared_irq, ICC_Cpu2Cpu_ISR_Handler, 0, device_name, NULL) != 0)
-    {
-        printk (KERN_ALERT "Failed to register interrupt\n");
-        return ICC_ERR_OS_LINUX_REGISTER_IRQ;
-    }
-
-    #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-        unsigned int local_irq = ICC_get_local_irq();
-        ICC_Clear_Notify_Local();
-
-    #ifndef ICC_USE_POLLING
-        /* request interrupt line for local core notifications */
-        if (devm_request_irq(dev, local_irq, ICC_Local_ISR_Handler, 0, device_name, NULL) != 0) {
-            printk (KERN_ALERT "Failed to register local interrupt\n");
-            return ICC_ERR_OS_LINUX_REGISTER_IRQ;
-        }
-    #endif
-    #endif
-
-#endif
-
-    return ICC_SUCCESS;
-}
-
 
 ICC_ATTR_SEC_TEXT_CODE
 ICC_Err_t
@@ -299,25 +186,6 @@ ICC_OS_Finalize(void)
     ICC_Fifo_Ram_t           * fifo_ram = NULL;
     ICC_Fifo_Os_Ram_t        * fifo_os_ram = NULL;
 #endif /* no ICC_CFG_NO_TIMEOUT */
-
-#ifndef ICC_USE_POLLING
-
-    struct device * dev = ICC_get_device();
-
-    /* unregister interrupt line used for inter-core notifications */
-    unsigned int shared_irq = ICC_get_shared_irq();
-    devm_free_irq(dev, shared_irq, NULL);
-
-    /* unregister interrupt line used for notifications on the local node */
-    #if defined(ICC_CFG_LOCAL_NOTIFICATIONS)
-        unsigned int local_irq = ICC_get_local_irq();
-        devm_free_irq(dev, local_irq, NULL);
-        free_irq(INT_CPU_INT0 + ICC_CFG_HW_LOCAL_IRQ, NULL);
-    #endif
-
-    iounmap(ICC_HW_MSCM_VIRT_BASE);
-
-#endif
 
 #ifndef ICC_CFG_NO_TIMEOUT
     /* free the waitqueue */

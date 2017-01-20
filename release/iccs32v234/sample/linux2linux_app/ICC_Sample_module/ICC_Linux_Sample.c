@@ -17,6 +17,7 @@
 *   Build Version        :
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP
 *
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -34,12 +35,13 @@
 *
 ==================================================================================================*/
 
-#include "ICC_Api.h"
 #include <linux/kthread.h>
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
     #include <asm/atomic.h>
 #endif
+
+#include "ICC_Api.h"
 
 /* Un-comment this if you want to debug the virtual memory */
 //#define DUMP_SHARED_MEM
@@ -83,6 +85,7 @@ unsigned char rcv_buffer[RCV_BUF_SIZE];
 
 volatile atomic_t thread_on = { 1 };
 
+
 #ifdef ICC_STATISTICS
 
 #define ICC_PRINT_STATS_DELAY_SEC 2
@@ -101,15 +104,15 @@ static uint64_t icc_last_func_sec;
 
 static inline uint64_t get_ns(struct timespec *ts1, struct timespec *ts2)
 {
-	uint64_t val = 0;
-	if (ts1) {
-		val = ts1->tv_sec * NSEC_PER_SEC + ts1->tv_nsec;
-		if (ts2) {
-			val -= (ts2->tv_sec * NSEC_PER_SEC + ts2->tv_nsec);
-		}
-	}
+    uint64_t val = 0;
+    if (ts1) {
+        val = ts1->tv_sec * NSEC_PER_SEC + ts1->tv_nsec;
+        if (ts2) {
+            val -= (ts2->tv_sec * NSEC_PER_SEC + ts2->tv_nsec);
+        }
+    }
 
-	return val;
+    return val;
 }
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
@@ -207,6 +210,10 @@ inline ICC_Err_t ICC_Data_Receive(ICC_Timeout_t timeout)
     return icc_status;
 }
 
+#ifdef ICC_USE_POLLING
+extern void ICC_Timer_Update_ns(uint64_t new_time_ns);
+#endif
+
 int ICC_Data_kthread(void *data)
 {
     ICC_Err_t      icc_status = ICC_SUCCESS;
@@ -220,8 +227,8 @@ int ICC_Data_kthread(void *data)
     }*/
 
     while ((icc_status == ICC_SUCCESS) && atomic_read(&thread_on)) {
-    	struct timespec ts1 = {0};
-    	getnstimeofday(&ts1);
+        struct timespec ts1 = {0};
+        getnstimeofday(&ts1);
 
 #ifdef ICC_BUILD_FOR_M4
 
@@ -236,12 +243,12 @@ int ICC_Data_kthread(void *data)
         icc_status = ICC_Data_Send(timeout);
 #endif
 
-#ifdef ICC_STATISTICS
         if (icc_status == ICC_SUCCESS) {
             struct timespec ts2 = {0};
             uint64_t exec_time_ns;
             getnstimeofday(&ts2);
 
+#ifdef ICC_STATISTICS
             icc_data_thread_stat.func_calls++;
             /* in the following assignments we don't care for nanoseconds overflow */
             icc_data_thread_stat.func_time_ns.tv_sec += ts2.tv_sec;
@@ -251,12 +258,17 @@ int ICC_Data_kthread(void *data)
             exec_time_ns = get_ns(&ts2, NULL);
             if ((exec_time_ns / NSEC_PER_SEC - icc_last_func_sec) > ICC_PRINT_STATS_DELAY_SEC) {
                 ICC_SAMPLE_LOG("icc data kthread: exec %d times; %llu ns in average\n",
-                                icc_data_thread_stat.func_calls,
-                                get_ns(&icc_data_thread_stat.func_time_ns, NULL) / icc_data_thread_stat.func_calls);
+                        icc_data_thread_stat.func_calls,
+                        get_ns(&icc_data_thread_stat.func_time_ns, NULL) / icc_data_thread_stat.func_calls);
                 icc_last_func_sec = exec_time_ns / NSEC_PER_SEC;
             }
-        }
 #endif
+
+#ifdef ICC_USE_POLLING
+            exec_time_ns = get_ns(&ts2, &ts1);
+            ICC_Timer_Update_ns(exec_time_ns);
+#endif
+        }
     }; /* end while(1) */
 
     ICC_SAMPLE_LOG("ICC_Data_kthread stopped\n");
@@ -306,7 +318,7 @@ void USER_ICC_Callback_Channel_State_Update_CB_M4( ICC_IN const ICC_Channel_t   
 void USER_ICC_Node_State_Update_CB_M4( ICC_IN const ICC_Node_t       node_id, /** The id of the node that transitioned to a new state. */
                                        ICC_IN const ICC_Node_State_t node_state ) /** The new state the node transitioned to. */
 {
-	watch_CB_Node++;
+    watch_CB_Node++;
 
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
         if( node_state == ICC_NODE_STATE_INIT )
@@ -364,11 +376,34 @@ void USER_ICC_Node_State_Update_CB_App(
 
 #endif  /* ICC_BUILD_FOR_M4 */
 
+#if (defined(ICC_LINUX2LINUX) && defined(DUMP_SHARED_MEM))
+
+#include "ICC_Config_Test.h"
+
+#ifndef ICC_BUILD_FOR_M4
+extern
+ICC_Config_t * ICC_Config_Ptr_M4;          /**< pointer to M4 current configuration */
+#endif
+
+int ICC_Dump_Config(ICC_Config_t *config)
+{
+    int dump_count = 0;
+
+    if (config) {
+        ICC_DUMP_PTR(dump_count, ICC_Config_t, config);
+    }
+
+    return dump_count;
+}
+
+#endif
+
 /* Start_ICC_Sample - starts the sample code */
 int Start_ICC_Sample(void)
 {
     int i;
     ICC_Err_t return_code;
+    ICC_Config_t *config = (ICC_Config_t *)&ICC_Config0;
 
     struct task_struct *task_data;
 
@@ -393,14 +428,17 @@ int Start_ICC_Sample(void)
 
     watch_CB_Node=0;
 
-#ifdef ICC_BUILD_FOR_M4
-    /* Re-locate the objects in ICC_Config.c, at address IRAM_BASE_ADDR + 4 (first u32 is used for polling/synchronization) */
-    ICC_Relocate_Config();
+#if (defined(ICC_BUILD_FOR_M4) && defined(ICC_LINUX2LINUX))
+    /* Re-locate the objects in ICC_Config.c, at address IRAM_BASE_ADDR + 4 (first uint32 is used for polling/synchronization) */
+    config = ICC_Relocate_Config(config, NULL);
+    if (!config) {
+        ICC_SAMPLE_LOG("Start_ICC_Sample: Failed to relocate config\n");
+    }
     /* TODO: use incoming icc_bar.bar_size to validate that the RC can access all shared mem */
 #endif
 
     /* initialize ICC */
-    if ((return_code = ICC_Initialize( ICC_Default_Config_Ptr )) != ICC_SUCCESS) {
+    if ((return_code = ICC_Initialize( config )) != ICC_SUCCESS) {
 
         ICC_SAMPLE_LOG("Start_ICC_Sample: ICC_Initialize failed with error code: %d\n", return_code);
 
@@ -409,21 +447,25 @@ int Start_ICC_Sample(void)
 
     ICC_SAMPLE_LOG("ICC_Initialize ... done\n");
 
-#ifdef DUMP_SHARED_MEM
-    ICC_Dump_Shared_Config();
+#if (defined(ICC_LINUX2LINUX) && defined(DUMP_SHARED_MEM))
+#ifdef ICC_BUILD_FOR_M4
+    ICC_Dump_Config(config);
+#else
+    ICC_Dump_Config(ICC_Config_Ptr_M4);
+#endif
 #endif
 
-#ifdef ICC_USE_POLLING
+#ifdef ICC_LINUX2LINUX
 
 #ifdef ICC_BUILD_FOR_M4
     ICC_SAMPLE_LOG("Waiting for peer ...\n");
     if ((return_code = ICC_Wait_For_Peer() != ICC_SUCCESS)) {
-    	ICC_SAMPLE_LOG("failed\n");
-    	return return_code;
+        ICC_SAMPLE_LOG("failed\n");
+        return return_code;
     }
 #else
     ICC_SAMPLE_LOG("Notifying peer ...\n");
-    ICC_Notify_Remote_Alive();
+    ICC_Notify_Peer_Alive();
 #endif
 
     ICC_SAMPLE_LOG("Peers connected\n");
@@ -431,11 +473,11 @@ int Start_ICC_Sample(void)
 #endif
 
     /* open communication channels */
-    for (i = 0; i < ICC_CROSS_VALUE_OF(ICC_Default_Config_Ptr->Channels_Count); i++)
+    for (i = 0; i < ICC_CROSS_VALUE_OF(config->Channels_Count); i++)
     {
 
         #ifdef ICC_CFG_HEARTBEAT_ENABLED
-            if( i != ICC_CROSS_VALUE_OF(ICC_Default_Config_Ptr->ICC_Heartbeat_Os_Config)->channel_id )
+            if( i != ICC_CROSS_VALUE_OF(config->ICC_Heartbeat_Os_Config)->channel_id )
         #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
         ICC_CHECK_ERR_CODE(ICC_Open_Channel(i));

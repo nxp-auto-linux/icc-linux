@@ -18,6 +18,7 @@
 *   Build Version        : S32V234_ICC_0.8.0
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP
 *   
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -76,20 +77,20 @@ extern "C"
  * The Linux modules are locating the main configuration object by searching
  * the SRAM shared memory block for this magic string.
  */
-#define ICC_CONFIG_MAGIC         "1CC_C0NF1G_BL0CK"
-#define ICC_CONFIG_MAGIC_SIZE    16
+#define ICC_CONFIG_MAGIC        "1CC_C0NF1G_BL0CK"
+#define ICC_CONFIG_MAGIC_SIZE   16
 
 /*==================================================================================================
                                  STRUCTURES AND OTHER TYPEDEFS
 ==================================================================================================*/
 
-typedef u32 ICC_Prio_t;           /**< priority type       */
-typedef u32 ICC_Msg_Size_t;       /**< message size        */
-typedef u32 ICC_Channel_t;        /**< the channel type    */
-typedef u32 ICC_Timeout_t;        /**< timeout in uS       */
-typedef u32 ICC_Header_t;         /**< message header type */
-typedef u32 ICC_Signal_t;         /**< signal type         */
-typedef u32 ICC_Endpoint_State_t; /**< endpoint state type */
+typedef uint32_t ICC_Prio_t;           /**< priority type       */
+typedef uint32_t ICC_Msg_Size_t;       /**< message size        */
+typedef uint32_t ICC_Channel_t;        /**< the channel type    */
+typedef uint32_t ICC_Timeout_t;        /**< timeout in uS       */
+typedef uint32_t ICC_Header_t;         /**< message header type */
+typedef uint32_t ICC_Signal_t;         /**< signal type         */
+typedef uint32_t ICC_Endpoint_State_t; /**< endpoint state type */
 
 /*
  * ICC endpoint state
@@ -168,14 +169,13 @@ typedef enum  {
 
     } ICC_Heartbeat_State_t;
 
-
     /*
      * The HearBeat message
      */
     typedef struct {
 
-        u32 run;                      /**< the id of the current running sequence this message belongs */
-        u32 val;                      /**< the actual message value */
+        uint32_t run;                      /**< the id of the current running sequence this message belongs */
+        uint32_t val;                      /**< the actual message value */
 
     } ICC_Heartbeat_Msg_t;
 
@@ -221,28 +221,29 @@ typedef struct {
 
     ICC_Signal_t signals_received[ ICC_CFG_MAX_SIGNALS ]; /**< queue for received signals */
 
-    u32 signal_queue_head;                        /**< queue head */
-    u32 signal_queue_tail;                        /**< queue tail */
+    uint32_t signal_queue_head;                        /**< queue head */
+    uint32_t signal_queue_tail;                        /**< queue tail */
 
 } ICC_ALIGN(8) ICC_Signal_Fifo_Ram_t;
 
-ICC_CROSS_PTR_DEFINE(u8);
+
+ICC_CROSS_PTR_DEFINE(uint8_t);
 
 /*
  * ICC basic FIFO configuration structure
  */
 typedef struct {
 
-    ICC_CROSS_PTR_DECLARE(u8)   fifo_buffer_ptr;    /**< pointer to the Fifo buffer (statically allocated on M4 side) */
+    ICC_CROSS_PTR_DECLARE(uint8_t)    fifo_buffer_ptr;    /**< pointer to the Fifo buffer (statically allocated on M4 side) */
 
-    const ICC_Prio_t            fifo_prio;          /**< FIFO priority relative to all FIFOs in the same direction */
-    const u32                   fifo_size;          /**< FIFO buffer size  */
+    const ICC_Prio_t                  fifo_prio;          /**< FIFO priority relative to all FIFOs in the same direction */
+    const uint32_t                    fifo_size;          /**< FIFO buffer size  */
 
-    const ICC_Msg_Size_t        max_msg_size;       /**< maximum message size to be transmitted using this fifo */
+    const ICC_Msg_Size_t              max_msg_size;       /**< maximum message size to be transmitted using this fifo */
 
-    const u32                   alignment;          /**< message alignment in FIFO buffer : [1,2,4,8, ...] in bytes */
+    const uint32_t                    alignment;          /**< message alignment in FIFO buffer : [1,2,4,8, ...] in bytes */
 
-    const u32                   fifo_flags;         /**< store fifo configuration flags */
+    const uint32_t                    fifo_flags;         /**< store fifo configuration flags */
 
 } ICC_ALIGN(8) ICC_Fifo_Config_t;
 
@@ -259,16 +260,15 @@ typedef struct {
 
     ICC_CROSS_PTR_DECLARE(ICC_Fifo_Os_Ram_t) fifo_os_ram[2 /* coreId */];     /**< pointer to Fifo OS ram structure, [ core_id ] */
 
-    u32                                      head;     /**< consumer/reader index position */
-    u32                                      tail;     /**< producer/writer index position */
+    uint32_t                                 head;     /**< consumer/reader index position */
+    uint32_t                                 tail;     /**< producer/writer index position */
 
-    u32                                      wr[ 2 /* coreId */ ];     /**< WR Sig and Ack */
-    u32                                      rd[ 2 /* coreId */ ];     /**< RD Sig and Ack */
+    uint32_t                                 wr[ 2 /* coreId */ ];     /**< WR Sig and Ack */
+    uint32_t                                 rd[ 2 /* coreId */ ];     /**< RD Sig and Ack */
 
-    u32                                      pending_send_msg_size;     /**< the size of the pending message */
+    uint32_t                                 pending_send_msg_size;     /**< the size of the pending message */
 
 } ICC_ALIGN(8) ICC_Fifo_Ram_t;
-
 
 
 ICC_CROSS_PTR_DEFINE(ICC_Fifo_Ram_t);
@@ -319,18 +319,27 @@ typedef struct {
 
 } ICC_ALIGN(8) ICC_Channel_Config_t;
 
-ICC_DEFINE_PTR_VECTOR(u32, 2);
+#ifdef ICC_FSL_AUTOSAR_OS
+/* this is equivalent to: typedef ICC_Fifo_Os_Config_t (*PMatrix_ICC_Fifo_Os_Config_t)[][2]; */
+ICC_DEFINE_PTR_MATRIX(ICC_Fifo_Os_Config_t, 2);
+#endif
+/* Array definitions */
+ICC_DEFINE_PTR_VECTOR(uint32_t, 2);
 ICC_DEFINE_PTR_MATRIX(ICC_Fifo_Ram_t, 2);
 ICC_DEFINE_PTR_VECTOR(ICC_Signal_Fifo_Ram_t, 2);
 
-ICC_CROSS_DEFINE(u32);
-ICC_CROSS_PTR_DEFINE(void);
+ICC_CROSS_DEFINE(uint32_t);
 ICC_CROSS_PTR_DEFINE(ICC_Channel_Config_t);
+#ifdef ICC_FSL_AUTOSAR_OS
+ICC_CROSS_PTR_MATRIX_DEFINE(ICC_Fifo_Os_Config_t);
+#else
+ICC_CROSS_PTR_DEFINE(void);
+#endif
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
-    ICC_CROSS_PTR_DEFINE(ICC_Heartbeat_Os_Config_t);
+ICC_CROSS_PTR_DEFINE(ICC_Heartbeat_Os_Config_t);
 #endif
 ICC_CROSS_DEFINE(ICC_Callback_Node_State_Update_t);
-ICC_CROSS_PTR_VECTOR_DEFINE(u32);
+ICC_CROSS_PTR_VECTOR_DEFINE(uint32_t);
 ICC_CROSS_PTR_DEFINE(ICC_Channel_Ram_t);
 ICC_CROSS_PTR_MATRIX_DEFINE(ICC_Fifo_Ram_t);
 ICC_CROSS_PTR_VECTOR_DEFINE(ICC_Signal_Fifo_Ram_t);
@@ -341,50 +350,30 @@ ICC_CROSS_PTR_VECTOR_DEFINE(ICC_Signal_Fifo_Ram_t);
 typedef struct {
 
     const char                                          Config_Magic[ICC_CONFIG_MAGIC_SIZE];
-    u64                                                 This_Ptr;
+    uint64_t                                            This_Ptr;
 
-    const ICC_CROSS_DECLARE(u32)                        Channels_Count;                    /**< number  of configured channels */
+    const ICC_CROSS_DECLARE(uint32_t)                   Channels_Count;                    /**< number  of configured channels */
     const ICC_CROSS_PTR_DECLARE(ICC_Channel_Config_t)   Channels_Ptr;                      /**< pointer to configured channels */
 
-    const ICC_CROSS_PTR_DECLARE(void)                   ICC_Fifo_Os_Config_Not_Used_On_Linux;
+#ifdef ICC_FSL_AUTOSAR_OS
+    const ICC_CROSS_PTR_MATRIX_DECLARE(ICC_Fifo_Os_Config_t)    ICC_Fifo_Os_Config;
+#else
+    const ICC_CROSS_PTR_DECLARE(void)                           ICC_Fifo_Os_Config_Not_Used_On_Linux;
+#endif
 
-    #ifdef ICC_CFG_HEARTBEAT_ENABLED
-        const ICC_CROSS_PTR_DECLARE(ICC_Heartbeat_Os_Config_t)     ICC_Heartbeat_Os_Config;             /**< pointer to Heartbeat OS configuration */
-    #endif /* ICC_CFG_HEARTBEAT_ENABLED */
+#ifdef ICC_CFG_HEARTBEAT_ENABLED
+    const ICC_CROSS_PTR_DECLARE(ICC_Heartbeat_Os_Config_t)      ICC_Heartbeat_Os_Config;             /**< pointer to Heartbeat OS configuration */
+#endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
-    ICC_CROSS_DECLARE(ICC_Callback_Node_State_Update_t)     Node_Update_Cb;                    /**< node update call back function, different symbol for each side */
+    ICC_CROSS_DECLARE(ICC_Callback_Node_State_Update_t)         Node_Update_Cb;                    /**< node update call back function, different symbol for each side */
 
-    volatile ICC_CROSS_PTR_VECTOR_DECLARE(u32)              ICC_Initialized_Shared;        /**< pointer to shared variable */
-    volatile ICC_CROSS_PTR_DECLARE(ICC_Channel_Ram_t)       ICC_Channels_Ram_Shared;           /**< pointer to shared variable */
-    volatile ICC_CROSS_PTR_MATRIX_DECLARE(ICC_Fifo_Ram_t)   ICC_Fifo_Ram_Shared;        /**< pointer to shared variable */
+    volatile ICC_CROSS_PTR_VECTOR_DECLARE(uint32_t)             ICC_Initialized_Shared;        /**< pointer to shared variable */
+    volatile ICC_CROSS_PTR_DECLARE(ICC_Channel_Ram_t)           ICC_Channels_Ram_Shared;           /**< pointer to shared variable */
+    volatile ICC_CROSS_PTR_MATRIX_DECLARE(ICC_Fifo_Ram_t)       ICC_Fifo_Ram_Shared;        /**< pointer to shared variable */
     volatile ICC_CROSS_PTR_VECTOR_DECLARE(ICC_Signal_Fifo_Ram_t)    ICC_Node_Sig_Fifo_Ram_Shared; /**< pointer to shared variable */
 
 } ICC_ALIGN(16) ICC_Config_t;
 
-/*
- * APP side OS alternatives
- */
-#ifdef ICC_LINUX2LINUX
-#ifdef ICC_BUILD_FOR_M4
-
-#define ICC_OS_Phys_To_Virt(phys_addr) phys_addr /* no translation */
-
-#else
-
-extern ICC_Config_t * ICC_Config_Ptr_M4;
-extern ICC_Config_t * ICC_Config_Ptr_M4_Remote;
-/* Synchronize virtual addresses between the two sides of the PCIe
-   We're not working with physical addresses, but the name of the macro
-     is kept for backwards compatibility */
-#define ICC_OS_Phys_To_Virt(phys_addr) \
-    ((char*)((u64)(phys_addr) - (u64)ICC_Config_Ptr_M4_Remote + (u64)ICC_Config_Ptr_M4))
-
-#endif
-#else
-extern char * ICC_Shared_Virt_Base_Addr;
-#define ICC_OS_Phys_To_Virt(phys_addr) \
-        (((char*)(((unsigned int)phys_addr) & 0xFFFFFFFF) - (char*)ICC_SHARED_PHYS_BASE_ADDR) + ICC_Shared_Virt_Base_Addr)
-#endif
 
 #ifdef __cplusplus
 }

@@ -34,88 +34,146 @@
 #ifndef ICC_RELOCATE_H
 #define ICC_RELOCATE_H
 
-#define RELOCATABLE(obj) typeof(obj) *obj##_Rel
+#include "ICC_Types.h"
+#include "ICC_Config.h"
 
-#define RELOCATED_PTR(obj) obj##_Rel
-
-/* dest is an integer representing the destination address
-   obj is an object (NOT pointer to an object!)
+/* dest is the destination address
+ * obj is the source object (NOT pointer to an object!)
 */
-#define RELOCATE_OBJ(dest, obj) \
+#define COPY_OBJ(dest, obj) \
     { \
       memcpy(dest, (&obj), sizeof(obj)); \
       dest = (typeof(dest))((typeof(&obj))dest + 1); \
     }
 
-#define RELOCATE_RAW(dest, src_ptr, sz) \
+/* dest is the destination address
+ * src_ptr is the pointer to the address of the data to be relocated; the address
+ *      will be updated with the destination address (which is the new address)
+ * sz is the size of the data
+ *
+ * The data can be either an object (equivalent to **src_ptr), an array etc.
+ */
+#define RELOCATE_OBJ_PTR(dest, src_ptr, sz) \
     { \
       memcpy(dest, (*src_ptr), sz); \
       *src_ptr = (typeof(*src_ptr))dest; \
       dest = (typeof(dest))((uint64_t)dest + (uint64_t)sz); \
     }
 
-#define RELOCATE_ICC_Fifo_Config_t(dest, obj) \
-    if (!RELOCATED_PTR(obj)) { \
-      RELOCATED_PTR(obj) = (typeof(obj)*)dest; \
-      RELOCATE_OBJ(dest, obj); \
-      RELOCATE_RAW(dest, &ICC_CROSS_VALUE_OF(RELOCATED_PTR(obj)->fifo_buffer_ptr), obj.fifo_size); \
+ICC_Fifo_Config_t * RELOCATE_ICC_Fifo_Config_t(char **dest_ptr, ICC_Fifo_Config_t *obj)
+{
+    ICC_Fifo_Config_t * relocated_obj = NULL;
+
+    if (obj && dest_ptr && *dest_ptr) {
+        char *dest = *dest_ptr;
+
+        relocated_obj = (ICC_Fifo_Config_t *)dest;
+        COPY_OBJ(dest, *obj);
+        RELOCATE_OBJ_PTR(dest, &ICC_CROSS_VALUE_OF(relocated_obj->fifo_buffer_ptr), obj->fifo_size);
+
+        *dest_ptr = dest;
     }
 
-#define RELOCATE_ICC_Fifo_Os_Config_t_Array(dest, obj) \
-    if (!RELOCATED_PTR(obj)) { \
-      *((uint64_t*)dest) = (uint64_t)((uint64_t*)dest + 1); \
-      RELOCATED_PTR(obj) = (typeof(obj)*)dest; \
-      ((uint64_t*)dest) ++; \
-      memcpy((char*)dest, (char*)obj, sizeof(obj)); \
-      dest = (typeof(dest))((uint64_t)dest + (uint64_t)sizeof(obj)); \
+    return relocated_obj;
+}
+
+#ifdef ICC_FSL_AUTOSAR_OS
+
+ICC_Fifo_Os_Config_Array_t * RELOCATE_ICC_Fifo_Os_Config_Array_t(char **dest_ptr, const ICC_Fifo_Os_Config_Array_t obj, int size)
+{
+    ICC_Fifo_Os_Config_Array_t *relocated_obj = NULL;
+
+    if (obj && dest_ptr && *dest_ptr) {
+        char *dest = *dest_ptr;
+
+        relocated_obj = (ICC_Fifo_Os_Config_Array_t *)dest;
+        memcpy(dest, obj, size);
+        dest = (char *)((int)dest + size);
+
+        *dest_ptr = dest;
     }
 
-#define RELOCATE_ICC_Channel_Config_t_Array(dest, obj) \
-    if (!RELOCATED_PTR(obj)) { \
-      int i, chan_count; \
-      RELOCATED_PTR(obj) = (typeof(obj)*)dest; \
-      memcpy((char*)dest, (char*)obj, sizeof(obj)); \
-      chan_count = (sizeof(obj)) / sizeof(ICC_Channel_Config_t); \
-      dest = (typeof(dest))((uint64_t)RELOCATED_PTR(obj) + (uint64_t)sizeof(obj)); \
-      for (i = 0; i < chan_count; i++) { \
-          ICC_Fifo_Config_t * relocated_cfg = (ICC_Fifo_Config_t *)&((*RELOCATED_PTR(obj))[i].fifos_cfg[0]); \
-          RELOCATE_RAW(dest, &ICC_CROSS_VALUE_OF(relocated_cfg->fifo_buffer_ptr), relocated_cfg->fifo_size); \
-          relocated_cfg = (ICC_Fifo_Config_t *)&((*RELOCATED_PTR(obj))[i].fifos_cfg[1]); \
-          RELOCATE_RAW(dest, &ICC_CROSS_VALUE_OF(relocated_cfg->fifo_buffer_ptr), relocated_cfg->fifo_size); \
-      } \
-    }
-
-/* TODO: relocate transparently the dependencies such as ICC_Cfg0_ChannelsConfig, ICC_Runtime_Shared etc., without
- *
- */
-#define RELOCATE_ICC_Config_t(dest, obj) \
-    if (!RELOCATED_PTR(obj)) { \
-      RELOCATED_PTR(obj) = (typeof(obj)*)dest; \
-      memcpy((char*)dest, (char*)&obj, sizeof(obj)); \
-      dest = (typeof(dest))((uint64_t)RELOCATED_PTR(obj) + (uint64_t)sizeof(obj)); \
-      RELOCATED_PTR(obj)->This_Ptr = (uint64_t)RELOCATED_PTR(obj); \
-      ICC_CROSS_ASSIGN_CAST(RELOCATED_PTR(obj)->Channels_Ptr, RELOCATED_PTR(ICC_Cfg0_ChannelsConfig)); \
-      ICC_CROSS_ASSIGN_CAST(RELOCATED_PTR(obj)->ICC_Initialized_Shared, &(RELOCATED_PTR(ICC_Runtime_Shared)->ICC_Initialized_Shared)); \
-      ICC_CROSS_ASSIGN_CAST(RELOCATED_PTR(obj)->ICC_Channels_Ram_Shared, (RELOCATED_PTR(ICC_Runtime_Shared)->ICC_Channels_Ram_Shared)); \
-      ICC_CROSS_ASSIGN_CAST(RELOCATED_PTR(obj)->ICC_Fifo_Ram_Shared, &(RELOCATED_PTR(ICC_Runtime_Shared)->ICC_Fifo_Ram_Shared)); \
-      ICC_CROSS_ASSIGN_CAST(RELOCATED_PTR(obj)->ICC_Node_Sig_Fifo_Ram_Shared, &(RELOCATED_PTR(ICC_Runtime_Shared)->ICC_Node_Sig_Fifo_Ram_Shared)); \
-    }
-
-
-#ifdef ICC_CFG_HEARTBEAT_ENABLED
-#define RELOCATE_ICC_Config_t_Heartbeat(dest, obj) \
-    if (!RELOCATED_PTR(obj)) { \
-      ICC_CROSS_VALUE_OF(RELOCATED_PTR(obj)->ICC_Heartbeat_Os_Config) = RELOCATED_PTR(ICC_Heartbeat_Os_Config0); \
-    }
+    return relocated_obj;
+}
 #endif
 
-#define RELOCATE_ICC_Runtime_Shared_t(dest, obj) \
-    if (!RELOCATED_PTR(obj)) { \
-      RELOCATED_PTR(obj) = (typeof(obj)*)dest; \
-      memcpy((char*)dest, (char*)&obj, sizeof(obj)); \
-      dest = (typeof(dest))((uint64_t)dest + (uint64_t)sizeof(obj)); \
+ICC_Channel_Config_t *RELOCATE_ICC_ChannelsConfig_Array_t(char **dest_ptr, const ICC_ChannelsConfig_Array_t obj, int channels_count)
+{
+    ICC_Channel_Config_t *relocated_obj = NULL;
+
+     if (obj && dest_ptr && *dest_ptr) {
+        char *dest = *dest_ptr;
+        int i, size;
+        ICC_Fifo_Config_t * relocated_cfg;
+
+        relocated_obj = (ICC_Channel_Config_t*)dest;
+        size = channels_count * sizeof(ICC_Channel_Config_t);
+        memcpy(dest, obj, size);
+        dest = dest + size;
+
+        for (i = 0; i < channels_count; i++) {
+            relocated_cfg = (ICC_Fifo_Config_t *)&(relocated_obj[i].fifos_cfg[0]);
+            RELOCATE_OBJ_PTR(dest, &ICC_CROSS_VALUE_OF(relocated_cfg->fifo_buffer_ptr), relocated_cfg->fifo_size);
+            relocated_cfg = (ICC_Fifo_Config_t *)&(relocated_obj[i].fifos_cfg[1]);
+            RELOCATE_OBJ_PTR(dest, &ICC_CROSS_VALUE_OF(relocated_cfg->fifo_buffer_ptr), relocated_cfg->fifo_size);
+        }
+
+        *dest_ptr = dest;
     }
 
+    return relocated_obj;
+}
 
+ICC_Config_t * RELOCATE_ICC_Config_t(char **dest_ptr, const ICC_Config_t *obj)
+{
+    ICC_Config_t *relocated_obj = NULL;
+
+    if (obj && dest_ptr && *dest_ptr) {
+        char *dest = *dest_ptr;
+        ICC_Channel_Config_t *relocated_channels_config = NULL;
+        ICC_Runtime_Shared_t * relocated_runtime = NULL;
+#ifdef ICC_CFG_HEARTBEAT_ENABLED
+        ICC_Heartbeat_Os_Config_t *heartbeat = NULL, *relocated_heartbeat = NULL;
+#endif
+
+        ICC_Channel_Config_t *channels_config = (ICC_Channel_Config_t *)ICC_CROSS_VALUE_OF(obj->Channels_Ptr);
+        ICC_Runtime_Shared_t *runtime = (ICC_Runtime_Shared_t *)ICC_CROSS_VALUE_OF(obj->ICC_Initialized_Shared);
+
+        relocated_obj = (ICC_Config_t *)dest;
+        COPY_OBJ(dest, *obj);
+
+        relocated_obj->This_Ptr = (uint64_t)relocated_obj;
+
+        if (channels_config) {
+            relocated_channels_config = RELOCATE_ICC_ChannelsConfig_Array_t(
+                &dest, channels_config, ICC_CROSS_VALUE_OF(obj->Channels_Count));
+
+            ICC_CROSS_ASSIGN(relocated_obj->Channels_Ptr, relocated_channels_config);
+        }
+        if (runtime) {
+            relocated_runtime = (ICC_Runtime_Shared_t *)dest;
+            COPY_OBJ(dest, *runtime);
+
+            ICC_CROSS_ASSIGN(relocated_obj->ICC_Initialized_Shared, &(relocated_runtime->ICC_Initialized_Shared));
+            ICC_CROSS_ASSIGN(relocated_obj->ICC_Channels_Ram_Shared, (relocated_runtime->ICC_Channels_Ram_Shared));
+            ICC_CROSS_ASSIGN(relocated_obj->ICC_Fifo_Ram_Shared, &(relocated_runtime->ICC_Fifo_Ram_Shared));
+            ICC_CROSS_ASSIGN(relocated_obj->ICC_Node_Sig_Fifo_Ram_Shared, &(relocated_runtime->ICC_Node_Sig_Fifo_Ram_Shared));
+        }
+
+#ifdef ICC_CFG_HEARTBEAT_ENABLED
+        heartbeat = ICC_CROSS_VALUE_OF(obj->ICC_Heartbeat_Os_Config);
+        if (heartbeat) {
+            relocated_heartbeat = dest;
+            COPY_OBJ(dest, *heartbeat);
+
+            ICC_CROSS_ASSIGN(relocated_obj->ICC_Heartbeat_Os_Config, relocated_heartbeat);
+        }
+#endif
+
+        *dest_ptr = dest;
+    }
+
+    return relocated_obj;
+}
 
 #endif /* ICC_RELOCATE_H */

@@ -130,26 +130,13 @@ static int ICC_remove(struct platform_device *pdev)
     return 0;
 }
 
-static int ICC_suspend(struct device *dev)
-{
-    return 0;
-}
-
-static int ICC_resume(struct device *dev)
-{
-    return 0;
-}
-
-static SIMPLE_DEV_PM_OPS(ICC_pm_ops, ICC_suspend, ICC_resume);
-
 static struct platform_driver ICC_driver = {
 	.probe		= ICC_probe,
 	.remove		= ICC_remove,
 	.driver		= {
 		.name	= MODULE_NAME,
 		.owner	= THIS_MODULE,
-		.of_match_table	= ICC_dt_ids,
-		.pm	= &ICC_pm_ops,
+		.of_match_table	= ICC_dt_ids
 	},
 };
 
