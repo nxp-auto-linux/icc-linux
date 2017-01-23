@@ -17,7 +17,6 @@
 *   SW Version           : 0.8.0
 *   Build Version        : S32V234_ICC_0.8.0
 *
-*   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
 *   (c) Copyright 2016 NXP
 *   
 *   This program is free software; you can redistribute it and/or
