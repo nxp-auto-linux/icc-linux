@@ -56,7 +56,7 @@ struct device_node * icc_of_find_mscm_node(void)
         { /* sentinel */ }
     };
 
-    struct device_node *mscm = of_find_matching_node_and_match(NULL, mscm_dt_ids, NULL);
+    struct device_node *mscm = of_find_matching_node(NULL, mscm_dt_ids);
 
     return mscm;
 }
@@ -76,7 +76,7 @@ struct device_node * icc_of_find_sram_node(void)
 
     struct device_node *sram = of_find_node_by_type(NULL, DT_SRAM_TYPE_STR);
     if (!sram) {
-        sram = of_find_matching_node_and_match(NULL, sram_dt_ids, NULL);
+        sram = of_find_matching_node(NULL, sram_dt_ids);
     }
 
     return sram;

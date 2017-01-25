@@ -50,7 +50,7 @@ extern "C"
 
 #ifdef __GNUC__
 
-/** Macro for unified stuct alignment, to be used for all supported compilers */
+/** Macro for unified struct alignment, to be used for all supported compilers */
 #define ICC_ALIGN(n) __attribute__ ((aligned (n)))
 
 /** Macro for defining minimum sized enums, equivalent to compile option -fshort-enums

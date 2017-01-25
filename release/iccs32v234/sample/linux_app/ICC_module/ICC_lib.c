@@ -214,30 +214,35 @@ static int ICC_probe(struct platform_device *pdev)
 {
     int err = 0;
 
-    icc_plat_data = devm_kzalloc(&pdev->dev, sizeof(struct ICC_platform_data), GFP_KERNEL);
-    if (!icc_plat_data)
-        return -ENOMEM;
+    ICC_DEBUG("Probing ICC device");
 
-    icc_plat_data->pdev = pdev;
+    if (!icc_plat_data) {
+        icc_plat_data = devm_kzalloc(&pdev->dev, sizeof(struct ICC_platform_data), GFP_KERNEL);
+        if (!icc_plat_data)
+            return -ENOMEM;
 
-    init_notifications(icc_plat_data);
+        icc_plat_data->pdev = pdev;
 
-    platform_set_drvdata(pdev, icc_plat_data);
+        init_notifications(icc_plat_data);
 
-    err = local_init(icc_plat_data);
-    if (err)
-        ICC_remove(pdev);
+        platform_set_drvdata(pdev, icc_plat_data);
+
+        err = local_init(icc_plat_data);
+        if (err)
+            ICC_remove(pdev);
+    }
 
     return err;
 }
 
 static int ICC_remove(struct platform_device *pdev)
 {
+    ICC_DEBUG("Removing ICC device");
+
     local_cleanup(icc_plat_data);
 
     if (icc_plat_data) {
         platform_set_drvdata(pdev, NULL);
-        devm_kfree(&(pdev->dev), icc_plat_data);
         icc_plat_data = NULL;
     }
     return 0;
@@ -269,13 +274,35 @@ static int __init ICC_dev_init(void)
 
     ICC_DEBUG("ICC linux driver");
 
-    err = platform_driver_register(&ICC_driver);
-    if (err) {
-        return err;
+    if (of_find_matching_node(NULL, ICC_dt_ids)) {
+        err = platform_driver_register(&ICC_driver);
+        if (err) {
+            ICC_ERR("Failed to register ICC driver");
+            return err;
+        }
+    }
+    else {
+ 
+        /* We don't need the dts node 'icc-linux' for ICC on M4-A53, since all required information
+         * already is in the default dts for the platform (nodes mscm1, sram).
+         * For ICC over PCIe, we do need that node, to get the shared memory reference.
+         */
+
+#ifdef ICC_LINUX2LINUX
+        ICC_ERR("Failed to access the shared memory. icc-linux node is missing from dtb.");
+        return -ENODEV;
+#else
+         /* If we have icc-linux node, we're fine. But if not, we'll never get probed by the kernel,
+          * using the so we do it manually here.
+          */
+        if (!platform_create_bundle(&ICC_driver, ICC_probe, NULL, 0, NULL, 0)) {
+            ICC_ERR("Failed to probe ICC driver");
+            return -ENODEV;
+        }
+#endif
     }
 
     err = alloc_chrdev_region(&dev_no, BASEMINOR, NUM_MINORS, MODULE_NAME);
-
     if (err) {
         ICC_ERR("Major number allocation has failed");
         return err;
