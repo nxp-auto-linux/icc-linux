@@ -17,7 +17,7 @@
 *   Build Version        :
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
-*   (c) Copyright 2016 NXP
+*   (c) Copyright 2016,2017 NXP
 *
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -52,7 +52,6 @@
 #include "ICC_Api.h"
 #include "ICC_Notification.h"
 
-#define ICC_LOG_SRC
 #include "ICC_Log.h"
 
 MODULE_DESCRIPTION("ICC device");

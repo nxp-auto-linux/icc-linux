@@ -37,6 +37,9 @@
 #include <linux/moduleparam.h>
 #include <linux/stat.h>
 
+#define xstr(s) str(s)
+#define str(s) #s
+
 /** Define a command line argument.
  * Use for types: short, int, long, bool (other types require workarounds).
  */
