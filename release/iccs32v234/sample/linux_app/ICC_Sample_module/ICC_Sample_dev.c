@@ -17,6 +17,7 @@
 *   Build Version        :
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP
 *   
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -41,6 +42,7 @@
 #include <linux/cdev.h>
 #include <linux/delay.h>
 
+#include "ICC_Config.h"
 #include "ICC_Linux_Sample.h"
 
 MODULE_DESCRIPTION("ICC Sample application");
@@ -54,7 +56,6 @@ MODULE_LICENSE("GPL");
 #define MODULE_NAME     "ICC_Sample"
 #define NUM_MINORS      1
 
-
 struct ICC_Sample_device_data {
     struct cdev cdev;
 };
@@ -67,8 +68,6 @@ static int ICC_Sample_dev_open(struct inode *inode, struct file *file)
     struct ICC_Sample_device_data *data = container_of(inode->i_cdev,
                                                 struct ICC_Sample_device_data,
                                                 cdev);
-    if (NULL == data)
-        return -ENOMEM;
 
     file->private_data = data;
 
@@ -82,13 +81,13 @@ static int ICC_Sample_dev_release(struct inode *inode, struct file *file)
     return 0;
 }
 
-
-
 static const struct file_operations ICC_Sample_fops = {
     .owner  = THIS_MODULE,
     .open   = ICC_Sample_dev_open,
     .release = ICC_Sample_dev_release,
 };
+
+static void ICC_Sample_dev_exit(void);
 
 static int ICC_Sample_dev_init(void)
 {
@@ -115,16 +114,22 @@ static int ICC_Sample_dev_init(void)
     /* Start the ICC Linux Sample */
     if ( Start_ICC_Sample() != 0 ) err=-1;
 
-    printk(LOG_LEVEL "Finishing the initialization of the ICC_Sample_dev \n");
+    if (!err) {
+    	printk(LOG_LEVEL "Finishing the initialization of the ICC_Sample_dev \n");
+    }
+    else {
+    	ICC_Sample_dev_exit();
+    }
 
     return err;
 }
 
-static int ICC_Sample_dev_exit(void)
+static void ICC_Sample_dev_exit(void)
 {
-    int i, err = 0;
+    int i;
 
-    if ( Stop_ICC_Sample() != 0 ) err=-1;
+    if ( Stop_ICC_Sample() != 0 )
+        return;
 
     for (i = 0; i < NUM_MINORS; i++)
         cdev_del(&devs[i].cdev);
@@ -132,10 +137,8 @@ static int ICC_Sample_dev_exit(void)
     unregister_chrdev_region(dev_no, NUM_MINORS);
     printk(LOG_LEVEL "Finishing unregister the ICC_Sample_dev \n");
 
-    // wait for any thread activity to Finishing
+    /* wait for any thread activity to finish */
     msleep(100);
-
-    return err;
 }
 
 

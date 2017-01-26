@@ -10,6 +10,13 @@ kbuild:
 modules_install: kbuild
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules_install INSTALL_MOD_PATH=$(DESTDIR)
 
+headers_install:
+	@echo Copying ICC headers to toolchain
+	mkdir -p "$(DESTDIR)/usr/include/linux"
+	cp -f "$(PWD)/../../../code/linux/inc/ICC_Api.h" "$(DESTDIR)/usr/include/linux/"
+
 clean:
 	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE)  -C $(KERNELDIR) M=$(PWD) clean
-	find $(PWD)/../../../code -name "*.cmd" -o -name "*.o" | xargs rm -f
+	find $(PWD)/../../../code -name "*.cmd" -o -name "*.o" -o -name "*.mod.c" | xargs rm -f
+	find . -name "*.cmd" -o -name "*.o" -o -name "*.mod.c" | xargs rm -f
+	#rm -rf ./.tmp_versions

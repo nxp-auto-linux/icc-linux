@@ -1,26 +1,51 @@
 
+# CONFIG must be one of RTOS, EP, RC, or BB_RC
+ifeq ($(findstring $(CONFIG),RTOS EP RC BB_RC),)
+    $(error CONFIG not defined or invalid)
+endif
+
 SRC_ROOT := $(PWD)/../../..
 
-CONFIG_USED = $(SRC_ROOT)/sample/config/include
-EXTRA_CFLAGS += -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums -DICC_MIX_32_64_SUPPORT #-DICC_TST_HWSYNCH
+CONFIG_USED := $(SRC_ROOT)/sample/config/include
+EXTRA_CFLAGS += -O0 -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -fshort-enums -DICC_MIX_32_64_SUPPORT #-DICC_TST_HWSYNCH
+
+ifeq ($(findstring $(CONFIG),EP RC BB_RC),$(CONFIG))
+    EXTRA_CFLAGS += -DICC_LINUX2LINUX -DICC_USE_POLLING
+endif
+
+ifeq ($(CONFIG),EP)
+    EXTRA_CFLAGS += -DICC_BUILD_FOR_M4
+endif
+
+ifeq ($(CONFIG),BB_RC)
+    EXTRA_CFLAGS += -DICC_PCIE_SHMEM_BLUEBOX
+endif
 
 INCLUDE_DEPENDENCIES := -I$(SRC_ROOT)/code/linux/inc \
                         -I$(SRC_ROOT)/code/linux/os \
                         -I$(SRC_ROOT)/code/linux/os/Linux \
                         -I$(SRC_ROOT)/code/linux/hw \
                         -I$(CONFIG_USED)\
-                        -I$(PWD)
+                        -I$(PWD)\
+                        -I$(PWD)/../ICC_module
 
 ifneq ($(CC),$(LD))
 	# bitbake calls $(CROSS_COMPILE)LD for linking instead of $(CROSS_COMPILE)GCC
 	# and we need to update LDFLAGS for this case
-	LDFLAGS := -O1 --hash-style=gnu --as-needed
+	LDFLAGS := -O0 --hash-style=gnu --as-needed
 endif
 
 ## Objects to build ##
-obj-m := ICC_Sample.o
-ccflags-y += $(INCLUDE_DEPENDENCIES)
+COMMON_OBJS := ./ICC_Sample_dev.o
+COMMON_OBJS += ./ICC_Linux_Sample.o
+COMMON_OBJS += ../../config/src/ICC_Config.o
 
-ICC_Sample-objs := ICC_Sample_dev.o
-ICC_Sample-objs += ICC_Linux_Sample.o
-ICC_Sample-objs += ./../../config/src/ICC_Config.o
+ifeq ($(CONFIG),RTOS)
+obj-m := ICC_Sample.o
+ICC_Sample-objs := $(COMMON_OBJS)
+else
+obj-m := ICC_Sample_$(CONFIG).o
+ICC_Sample_$(CONFIG)-objs := $(COMMON_OBJS)
+endif
+
+ccflags-y += $(INCLUDE_DEPENDENCIES)
