@@ -41,6 +41,7 @@
 #include "ICC_Log.h"
 
 #define DT_SRAM_TYPE_STR "sram"
+#define DT_PCIE_TYPE_STR "pci"
 
 
 /**
@@ -80,6 +81,27 @@ struct device_node * icc_of_find_sram_node(void)
     }
 
     return sram;
+}
+
+/**
+ * Find the (first) PCIe node in the device tree and @return a pointer to it.
+ * User must call 'of_node_put()' on the returned pointer when done with it.
+ */
+struct device_node * icc_of_find_pcie_node(void)
+{
+    static struct of_device_id pcie_dt_ids[] = {
+        {
+            .compatible = "fsl,s32v234-pcie",
+        },
+        { /* sentinel */ }
+    };
+
+    struct device_node *pcie = of_find_node_by_type(NULL, DT_PCIE_TYPE_STR);
+    if (!pcie) {
+        pcie = of_find_matching_node_and_match(NULL, pcie_dt_ids, NULL);
+    }
+
+    return pcie;
 }
 
 #endif /* ICC_ARGS_H */

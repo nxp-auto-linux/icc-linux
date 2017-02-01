@@ -56,6 +56,8 @@ MODULE_DESCRIPTION("ICC device");
 MODULE_AUTHOR("Freescale Semiconductor");
 MODULE_LICENSE("GPL");
 
+#ifdef ICC_USE_CHR_DEVICE
+
 struct ICC_device_data {
     struct cdev cdev;
 };
@@ -63,7 +65,11 @@ struct ICC_device_data {
 static struct ICC_device_data devs[NUM_MINORS];
 static dev_t dev_no;
 
+#endif
+
 static struct ICC_platform_data * icc_plat_data;
+
+#ifdef ICC_USE_CHR_DEVICE
 
 static int ICC_dev_open(struct inode *inode, struct file *file)
 {
@@ -90,6 +96,8 @@ static const struct file_operations ICC_fops = {
     .open   = ICC_dev_open,
     .release = ICC_dev_release,
 };
+
+#endif
 
 char * ICC_Shared_Virt_Base_Addr;
 #ifndef ICC_BUILD_FOR_M4
@@ -176,6 +184,7 @@ static int local_init(struct ICC_platform_data * icc_data)
 #endif
 
         init_shmem(icc_data);
+
         if (!ICC_Shared_Virt_Base_Addr) {
             return -ENOMEM;
         }
@@ -184,22 +193,26 @@ static int local_init(struct ICC_platform_data * icc_data)
 
         /* Discover location of the configuration
          */
-        ICC_Config_Ptr_M4 = (ICC_Config_t *)(ICC_Shared_Virt_Base_Addr);
-        shared_start = (uint64_t *)ICC_Config_Ptr_M4;
+        shared_start = (uint64_t *)ICC_Shared_Virt_Base_Addr;
         for (i = 0; i < get_shmem_size() / sizeof(uint64_t); i++, shared_start++) {
             union local_magic * crt_start = (union local_magic *)shared_start;
             if ((ICC_Local_Magic.raw.m0 == crt_start->raw.m0) &&
             (ICC_Local_Magic.raw.m1 == crt_start->raw.m1)){
                 ICC_Config_Ptr_M4 = (ICC_Config_t *)crt_start;
+                ICC_Config_Ptr_M4_Remote = (ICC_Config_t *)(ICC_Config_Ptr_M4->This_Ptr);
                 ICC_INFO("ICC Shared Config found at address %#llx", ICC_Config_Ptr_M4);
                 break;
             }
         }
 
-        ICC_Config_Ptr_M4_Remote = (ICC_Config_t *)(ICC_Config_Ptr_M4->This_Ptr);
-
-        ICC_INFO("ICC Shared Config local virtual address: %#llx", ICC_Config_Ptr_M4);
-        ICC_INFO("ICC Shared Config remote virtual address: %#llx", ICC_Config_Ptr_M4_Remote);
+        if (ICC_Config_Ptr_M4) {
+            ICC_INFO("ICC Shared Config local virtual address: %#llx", ICC_Config_Ptr_M4);
+            ICC_INFO("ICC Shared Config remote virtual address: %#llx", ICC_Config_Ptr_M4_Remote);
+        }
+        else {
+            ICC_ERR("ICC Shared Config not found");
+            return -ENOMEM;
+        }
 #endif
 
         return 0;
@@ -270,7 +283,10 @@ static void __exit ICC_dev_exit(void);
 
 static int __init ICC_dev_init(void)
 {
-    int i, err = 0;
+#ifdef ICC_USE_CHR_DEVICE
+    int i;
+#endif
+    int err = 0;
 
     ICC_DEBUG("ICC linux driver");
 
@@ -302,6 +318,7 @@ static int __init ICC_dev_init(void)
 #endif
     }
 
+#ifdef ICC_USE_CHR_DEVICE
     err = alloc_chrdev_region(&dev_no, BASEMINOR, NUM_MINORS, MODULE_NAME);
     if (err) {
         ICC_ERR("Major number allocation has failed");
@@ -315,18 +332,21 @@ static int __init ICC_dev_init(void)
         cdev_init(&devs[i].cdev, &ICC_fops);
         cdev_add(&devs[i].cdev, MKDEV(MAJOR(dev_no), i),1);
     }
+#endif
 
     return 0;
 }
 
 static void __exit ICC_dev_exit(void)
 {
+#ifdef ICC_USE_CHR_DEVICE
     int i;
 
     for (i = 0; i < NUM_MINORS; i++)
         cdev_del(&devs[i].cdev);
 
     unregister_chrdev_region(dev_no, NUM_MINORS);
+#endif
 
     platform_driver_unregister(&ICC_driver);
 

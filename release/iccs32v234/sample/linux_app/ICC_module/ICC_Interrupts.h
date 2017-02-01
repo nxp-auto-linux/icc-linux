@@ -36,6 +36,9 @@
 
 struct ICC_platform_data;
 
+/* first words in the shared memory is reserved for other purposes (e.g. a handshake) */
+#define ICC_CONFIG_OFFSET_FROM_BASE (0)
+
 void intr_init_shmem(struct ICC_platform_data *icc_data);
 void intr_cleanup_shmem(struct ICC_platform_data *icc_data);
 

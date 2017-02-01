@@ -49,6 +49,9 @@ struct handshake {
 
 struct ICC_platform_data;
 
+/* first words in shared memory are reserved for the handshake */
+#define ICC_CONFIG_OFFSET_FROM_BASE (sizeof(struct handshake))
+
 void pcie_init_shmem(struct ICC_platform_data *icc_data);
 void pcie_cleanup_shmem(struct ICC_platform_data *icc_data);
 

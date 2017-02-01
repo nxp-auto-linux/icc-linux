@@ -58,6 +58,8 @@ MODULE_LICENSE("GPL");
 #define MODULE_NAME     "ICC_Sample"
 #define NUM_MINORS      1
 
+#ifdef ICC_USE_CHR_DEVICE
+
 struct ICC_Sample_device_data {
     struct cdev cdev;
 };
@@ -89,11 +91,15 @@ static const struct file_operations ICC_Sample_fops = {
     .release = ICC_Sample_dev_release,
 };
 
+#endif
+
 static void ICC_Sample_dev_exit(void);
 
 static int ICC_Sample_dev_init(void)
 {
     int err=0;
+
+#ifdef ICC_USE_CHR_DEVICE
     int i;
 
     /* register device */
@@ -112,9 +118,10 @@ static int ICC_Sample_dev_init(void)
         cdev_init(&devs[i].cdev, &ICC_Sample_fops);
         cdev_add(&devs[i].cdev, MKDEV(MAJOR(dev_no), i),1);
     }
+#endif
 
     /* Start the ICC Linux Sample */
-    if ( Start_ICC_Sample() != 0 ) err=-1;
+    if ( Start_ICC_Sample() != 0 ) err = -1;
 
     if (!err) {
     	ICC_DEBUG("Finished initialization");
@@ -128,15 +135,20 @@ static int ICC_Sample_dev_init(void)
 
 static void ICC_Sample_dev_exit(void)
 {
+#ifdef ICC_USE_CHR_DEVICE
     int i;
+#endif
 
     if ( Stop_ICC_Sample() != 0 )
         return;
 
+#ifdef ICC_USE_CHR_DEVICE
     for (i = 0; i < NUM_MINORS; i++)
         cdev_del(&devs[i].cdev);
 
     unregister_chrdev_region(dev_no, NUM_MINORS);
+#endif
+
     ICC_DEBUG("Finished execution");
 
     /* wait for any thread activity to finish */
