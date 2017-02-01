@@ -45,16 +45,4 @@
 #define HWREG16( address ) /*lint -save -e923 -e960 */ ( *(volatile unsigned short int *)(address) ) /*lint -restore */ /* 16-bit register */
 #define HWREG8( address )  /*lint -save -e923 -e960 */ ( *(volatile unsigned      char *)(address) ) /*lint -restore */ /*  8-bit register */
 
-
-
-
-/* Treerunner */
-#define ICC_HW_MSCM_BASE        (0x40081000UL)
-#define ICC_HW_MSCM_SIZE        (1000U)
-#define ICC_HW_LMEM_BASE        (0xE0082000UL)
-#define ICC_HW_CACHE_LINE_SIZE  (32U)
-
-#define ICC_SHARED_PHYS_BASE_ADDR  (0X3E900000UL)
-
-
 #endif /* ICC_HW_PLATFORM_H_ */

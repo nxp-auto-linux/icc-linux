@@ -47,12 +47,7 @@ extern "C"
 {
 #endif
 
-#ifdef __GNUC__
-#define ICC_ALIGN(n) __attribute__ ((aligned (n)))
-#else
-#warning "Struct alignment not suported - ICC may not work."
-#define ICC_ALIGN(n)
-#endif
+#include "ICC_Base_Types.h"
 
 #include "ICC_Err.h"  /**< the Error codes */
 #include "ICC_Os_Types.h"
@@ -60,11 +55,6 @@ extern "C"
 /*==================================================================================================
                                        DEFINES AND MACROS
 ==================================================================================================*/
-
-#define NULL_PTR ((void *)0)
-
-#define ICC_IN  /**< input  parameter */
-#define ICC_OUT /**< output parameter */
 
 #include "ICC_Cross_Types.h"
 
@@ -84,14 +74,6 @@ extern "C"
                                  STRUCTURES AND OTHER TYPEDEFS
 ==================================================================================================*/
 
-typedef uint32_t ICC_Prio_t;           /**< priority type       */
-typedef uint32_t ICC_Msg_Size_t;       /**< message size        */
-typedef uint32_t ICC_Channel_t;        /**< the channel type    */
-typedef uint32_t ICC_Timeout_t;        /**< timeout in uS       */
-typedef uint32_t ICC_Header_t;         /**< message header type */
-typedef uint32_t ICC_Signal_t;         /**< signal type         */
-typedef uint32_t ICC_Endpoint_State_t; /**< endpoint state type */
-
 /*
  * ICC endpoint state
  */
@@ -102,7 +84,7 @@ typedef uint32_t ICC_Endpoint_State_t; /**< endpoint state type */
 /*
  * Events
  */
-typedef enum {
+ICC_ENUM {
 
     ICC_EVENT_ACTIVITY_ISR,  /**< activity event on fifo */
     ICC_EVENT_TIMEOUT_ALM    /**< the timeout alarm has expired */
@@ -115,7 +97,7 @@ typedef enum {
 /*
  * ICC Node identifiers
  */
-typedef enum  {
+ICC_ENUM  {
 
     ICC_NODE_LOCAL = 0, /**< local  node */
     ICC_NODE_REMOTE,    /**< remote node */
@@ -128,7 +110,7 @@ typedef enum  {
 /*
  * ICC node state
  */
-typedef enum  {
+ICC_ENUM  {
 
     ICC_NODE_STATE_UNINIT = 16,     /**< ICC node in uninitialized state  */
     ICC_NODE_STATE_INIT,            /**< ICC node in initialized state    */
@@ -141,7 +123,7 @@ typedef enum  {
 /*
  * ICC channel states
  */
-typedef enum  {
+ICC_ENUM  {
 
     ICC_CHANNEL_STATE_CLOSED = 0,        /**< channel closed : 16 in order to avoid signal confusion between channel and node */
     ICC_CHANNEL_STATE_OPEN_LOCAL,        /**< channel open on local  side  */
@@ -160,7 +142,7 @@ typedef enum  {
     /*
      * ICC Heartbeat mechanism state
      */
-    typedef enum {
+    ICC_ENUM {
 
         ICC_HEARTBEAT_STATE_UNINIT=0,           /**< ICC HEARTBEAT's structure in uninitialized state*/
         ICC_HEARTBEAT_STATE_INIT,               /**< ICC HEARTBEAT's structure in initialized state*/

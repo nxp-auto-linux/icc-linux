@@ -18,6 +18,7 @@
 *   Build Version        : S32V234_ICC_0.8.0
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
+*   (c) Copyright 2016 NXP
 *   
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -46,11 +47,12 @@ extern "C"
 {
 #endif
 
+#include "ICC_Base_Types.h"
 
 /*
  * ICC error codes
  */
-typedef enum  {
+ICC_ENUM  {
 
     ICC_SUCCESS = 0,                /**< Indicates a successful operation */
 

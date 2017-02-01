@@ -41,9 +41,10 @@
 #include <linux/interrupt.h>
 
 #include "ICC_Api.h"
-#include "ICC_Sw_Platform.h"
+#include "ICC_Notification.h"
 #include "ICC_Pcie.h"
 #include "ICC_Log.h"
+#include "ICC_Of.h"
 
 #ifndef ICC_USE_BAR
 #define ICC_USE_BAR 	2
@@ -126,25 +127,24 @@
 
 #endif
 
-#define MAP_DDR_SIZE    1024 * 1024 * 1 /* 1 MB */
+extern char * ICC_Shared_Virt_Base_Addr;
 
-const uint64_t get_shmem_base_address(void)
+/* first words are for the hand shake */
+#define ICC_CONFIG_OFFSET_FROM_BASE (sizeof(struct handshake))
+
+static const uint64_t get_pcie_shmem_base_phys_address(void)
 {
     return IRAM_BASE_ADDR;
 }
 
-const uint32_t get_shmem_size(void)
-{
-    return MAP_DDR_SIZE;
-}
-
 #ifdef ICC_USE_POLLING
 
-const uint64_t get_shmem_poll_addr(void)
+const uint64_t get_shmem_poll_phys_addr(void)
 {
     return IRAM_POLL_ADDR;
 }
-const uint64_t get_shmem_ping_addr(void)
+
+const uint64_t get_shmem_ping_phys_addr(void)
 {
     return IRAM_PING_ADDR;
 }
@@ -189,7 +189,7 @@ int pcie_init_outbound(struct handshake *phshake)
         struct s32v_outbound_region icc_outb = {
             0,      /* target_addr */
             EP_PCIE_BASE_ADDR,    /* base_addr */
-            MAP_DDR_SIZE,   /* size >= 64K(min for PCIE on S32V) */
+            ICC_CONFIG_MAX_SIZE,   /* size >= 64K(min for PCIE on S32V) */
             0,      /* region number */
             0       /* region type = mem */
         };
@@ -230,6 +230,25 @@ int pcie_init_bar(struct s32v_bar *bar)
 
 void pcie_init_shmem(struct ICC_platform_data *icc_data)
 {
+    if (icc_data) {
+        struct device *dev = &icc_data->pdev->dev;
+
+        /* Reserve shared memory */
+        if (!devm_request_mem_region(dev, get_pcie_shmem_base_phys_address(), get_shmem_size(), "ICC_shmem")) {
+            ICC_ERR("Failed to request mem region!");
+            return;
+        }
+
+        /* ICC Shared mem is mapped differently on RC and EP, but in both cases it physically
+         * resides on EP side.
+         */
+        ICC_Shared_Virt_Base_Addr = devm_ioremap_nocache(dev, get_pcie_shmem_base_phys_address(), get_shmem_size()) + ICC_CONFIG_OFFSET_FROM_BASE;
+        ICC_INFO("reserved ICC_Shared_Virt_Base_Addr=%#llx size is %d", ICC_Shared_Virt_Base_Addr, get_shmem_size() - ICC_CONFIG_OFFSET_FROM_BASE);
+        if( !ICC_Shared_Virt_Base_Addr ){
+            ICC_ERR("ICC_Shared_Virt_Base_Addr virtual mapping has failed for %#x", get_pcie_shmem_base_phys_address());
+            return;
+        }
+
 #ifdef ICC_BUILD_FOR_M4
         /* setup PCIE */
         pcie_init_inbound();
@@ -239,6 +258,7 @@ void pcie_init_shmem(struct ICC_platform_data *icc_data)
         shmem_poll_init(icc_data);
         shmem_ping_init(icc_data);
 #endif
+    }
 }
 
 void pcie_cleanup_shmem(struct ICC_platform_data *icc_data)
@@ -248,5 +268,26 @@ void pcie_cleanup_shmem(struct ICC_platform_data *icc_data)
     shmem_ping_exit(icc_data);
 #endif
 }
+
+#ifndef ICC_BUILD_FOR_M4
+
+extern ICC_Config_t * ICC_Config_Ptr_M4;
+extern ICC_Config_t * ICC_Config_Ptr_M4_Remote;
+
+#endif
+
+char *ICC_Phys_To_Virt(char *phys_addr)
+{
+#ifdef ICC_BUILD_FOR_M4
+    /* no translation, same virtual address space */
+    return phys_addr;
+#else
+    /* Synchronize virtual addresses between the two sides of the PCIe
+       We're not working with physical addresses, but the name of the macro
+         is kept for backwards compatibility */
+    return ((char*)((uint64_t)(phys_addr) - (uint64_t)ICC_Config_Ptr_M4_Remote + (uint64_t)ICC_Config_Ptr_M4));
+#endif
+}
+EXPORT_SYMBOL(ICC_Phys_To_Virt);
 
 #endif  /* ICC_LINUX2LINUX */

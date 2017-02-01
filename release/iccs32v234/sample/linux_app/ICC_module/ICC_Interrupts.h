@@ -36,6 +36,9 @@
 
 struct ICC_platform_data;
 
+void intr_init_shmem(struct ICC_platform_data *icc_data);
+void intr_cleanup_shmem(struct ICC_platform_data *icc_data);
+
 int intr_notify_peer(void);
 void intr_clear_notify_from_peer(void);
 

@@ -42,11 +42,13 @@
 #include "ICC_Polling.h"
 #endif
 
+#define ICC_CONFIG_MAX_SIZE    1024 * 1024 * 1 /* 1 MB */
+
 struct ICC_platform_data {
     struct platform_device *pdev;
 #ifndef ICC_USE_POLLING
-    uint32_t shared_irq;
-    uint32_t local_irq;
+    int shared_irq;
+    int local_irq;
 #else
     struct ping_poll icc_polling;
 #endif

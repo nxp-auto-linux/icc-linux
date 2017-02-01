@@ -44,10 +44,8 @@
 #include <linux/io.h>
 #include <linux/mm.h>
 
-#include <linux/of_address.h>
 #include <linux/interrupt.h>
 #include <linux/of_platform.h>
-#include <linux/of_irq.h>
 
 #include "ICC_Api.h"
 #include "ICC_Notification.h"
@@ -57,13 +55,6 @@
 MODULE_DESCRIPTION("ICC device");
 MODULE_AUTHOR("Freescale Semiconductor");
 MODULE_LICENSE("GPL");
-
-#ifdef ICC_LINUX2LINUX
-/* first words are for the hand shake */
-#define ICC_CONFIG_OFFSET_FROM_BASE (sizeof(struct handshake))
-#else
-#define ICC_CONFIG_OFFSET_FROM_BASE (0)
-#endif
 
 struct ICC_device_data {
     struct cdev cdev;
@@ -158,16 +149,14 @@ void ICC_Clear_Notify_Local(void)
 
 static void local_cleanup(struct ICC_platform_data *icc_data)
 {
-    if (ICC_Shared_Virt_Base_Addr) {
-        ICC_Shared_Virt_Base_Addr = NULL;
+    cleanup_shmem(icc_data);
+
+    ICC_Shared_Virt_Base_Addr = NULL;
 
 #ifndef ICC_BUILD_FOR_M4
-        ICC_Config_Ptr_M4 = NULL;
-        ICC_Config_Ptr_M4_Remote = NULL;
+    ICC_Config_Ptr_M4 = NULL;
+    ICC_Config_Ptr_M4_Remote = NULL;
 #endif
-    }
-
-    cleanup_shmem(icc_data);
 }
 
 union local_magic {
@@ -181,32 +170,15 @@ static int local_init(struct ICC_platform_data * icc_data)
 {
     if (icc_data) {
 
-        int err;
 #ifndef ICC_BUILD_FOR_M4
         int i;
         uint64_t * shared_start = NULL;
 #endif
-        struct device *dev = &icc_data->pdev->dev;
-
-        /* Reserve shared memory */
-        if (!devm_request_mem_region(dev, get_shmem_base_address(), get_shmem_size(), "ICC_shmem")) {
-            ICC_ERR("Failed to request mem region!");
-            err = -ENOMEM;
-            goto cleanup;
-        }
-
-        /* ICC Shared mem is mapped differently on RC and EP, but in both cases it physically
-         * resides on EP side.
-         */
-        ICC_Shared_Virt_Base_Addr = devm_ioremap_nocache(dev, get_shmem_base_address(), get_shmem_size()) + ICC_CONFIG_OFFSET_FROM_BASE;
-        ICC_INFO("reserved ICC_Shared_Virt_Base_Addr=%#llx size is %d", ICC_Shared_Virt_Base_Addr, get_shmem_size() - ICC_CONFIG_OFFSET_FROM_BASE);
-        if( !ICC_Shared_Virt_Base_Addr ){
-            ICC_ERR("ICC_Shared_Virt_Base_Addr virtual mapping has failed for %#x", get_shmem_base_address());
-            err = -ENOMEM;
-            goto cleanup;
-        }
 
         init_shmem(icc_data);
+        if (!ICC_Shared_Virt_Base_Addr) {
+            return -ENOMEM;
+        }
 
 #ifndef ICC_BUILD_FOR_M4
 
@@ -231,11 +203,6 @@ static int local_init(struct ICC_platform_data * icc_data)
 #endif
 
         return 0;
-
-cleanup:
-        local_cleanup(icc_data);
-
-        return err;
     }
 
     return -EINVAL;
@@ -247,28 +214,35 @@ static int ICC_probe(struct platform_device *pdev)
 {
     int err = 0;
 
-    icc_plat_data = devm_kzalloc(&pdev->dev, sizeof(struct ICC_platform_data), GFP_KERNEL);
-    if (!icc_plat_data)
-        return -ENOMEM;
+    ICC_DEBUG("Probing ICC device");
 
-    icc_plat_data->pdev = pdev;
+    if (!icc_plat_data) {
+        icc_plat_data = devm_kzalloc(&pdev->dev, sizeof(struct ICC_platform_data), GFP_KERNEL);
+        if (!icc_plat_data)
+            return -ENOMEM;
 
-    init_notifications(icc_plat_data);
+        icc_plat_data->pdev = pdev;
 
-    platform_set_drvdata(pdev, icc_plat_data);
+        init_notifications(icc_plat_data);
 
-    err = local_init(icc_plat_data);
-    if (err)
-        ICC_remove(pdev);
+        platform_set_drvdata(pdev, icc_plat_data);
+
+        err = local_init(icc_plat_data);
+        if (err)
+            ICC_remove(pdev);
+    }
 
     return err;
 }
 
 static int ICC_remove(struct platform_device *pdev)
 {
+    ICC_DEBUG("Removing ICC device");
+
+    local_cleanup(icc_plat_data);
+
     if (icc_plat_data) {
         platform_set_drvdata(pdev, NULL);
-        devm_kfree(&(pdev->dev), icc_plat_data);
         icc_plat_data = NULL;
     }
     return 0;
@@ -300,13 +274,35 @@ static int __init ICC_dev_init(void)
 
     ICC_DEBUG("ICC linux driver");
 
-    err = platform_driver_register(&ICC_driver);
-    if (err) {
-        return err;
+    if (of_find_matching_node(NULL, ICC_dt_ids)) {
+        err = platform_driver_register(&ICC_driver);
+        if (err) {
+            ICC_ERR("Failed to register ICC driver");
+            return err;
+        }
+    }
+    else {
+ 
+        /* We don't need the dts node 'icc-linux' for ICC on M4-A53, since all required information
+         * already is in the default dts for the platform (nodes mscm1, sram).
+         * For ICC over PCIe, we do need that node, to get the shared memory reference.
+         */
+
+#ifdef ICC_LINUX2LINUX
+        ICC_ERR("Failed to access the shared memory. icc-linux node is missing from dtb.");
+        return -ENODEV;
+#else
+         /* If we have icc-linux node, we're fine. But if not, we'll never get probed by the kernel,
+          * using the so we do it manually here.
+          */
+        if (!platform_create_bundle(&ICC_driver, ICC_probe, NULL, 0, NULL, 0)) {
+            ICC_ERR("Failed to probe ICC driver");
+            return -ENODEV;
+        }
+#endif
     }
 
     err = alloc_chrdev_region(&dev_no, BASEMINOR, NUM_MINORS, MODULE_NAME);
-
     if (err) {
         ICC_ERR("Major number allocation has failed");
         return err;

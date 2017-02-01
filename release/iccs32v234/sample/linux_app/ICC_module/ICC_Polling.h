@@ -43,8 +43,8 @@ struct ping_poll {
 
 struct ICC_platform_data;
 
-const uint64_t get_shmem_poll_addr(void);
-const uint64_t get_shmem_ping_addr(void);
+const uint64_t get_shmem_poll_phys_addr(void);
+const uint64_t get_shmem_ping_phys_addr(void);
 
 int shmem_poll_init(struct ICC_platform_data *icc_data);
 void shmem_poll_exit(struct ICC_platform_data *icc_data);

@@ -64,25 +64,9 @@ The result of the build consists in two modules:
 This setup enables communication between applications running AutoSAR OS on M4, and 
 applications running Linux on A53. Supported platforms are S32V234 PCIe and EVB.
 
-Update the device tree
-----------------------
-In order to have the ICC demo functional, we need to configure the interrupts
-to be used by ICC in the Linux kernel device tree. For this, add the following
-block to s32v234.dtsi under the 'soc' node:
-    icc-linux {
-        compatible = "fsl,s32v234-icc";
-        interrupts = < 0 0 4 >,
-                     < 0 1 4 >;
-    };
-This .dtsi file is usually located in folder
-'/path/to/kernel/sources/arch/arm64/boot/dts/freescale/s32v234.dtsi'.
-The .dtb can be (re)built with the command 'make dtbs' in directory
-'/path/to/kernel/sources'
-
 Running the AUTOSAR image on M4
 -------------------------------
-This can be achieved using the latest u-boot build, which has support for this
-task.
+This can be achieved using the latest u-boot build, which has support for this task.
 The AUTOSAR sample binary image (icc_sample_asr.bin) must be copied to a FAT
 partition on your SD card (e.g. the one containing the kernel image and the dtb,
 assumed to be the first partition on the SD card).
@@ -102,20 +86,25 @@ After starting the M4 image, booting the kernel and inserting the ICC modules,
 one could monitor the following:
 
 - output from the modules module:
-root@s32v234evb:~# insmod /icc/ICC_dev.ko                                 
-[  283.440650] ICC_dev: reserved ICC_HW_MSCM_VIRT_BASE=0xffffff8001288000 size is 1000
-[  283.449987] ICC_dev: reserved ICC_Shared_Virt_Base_Addr=0xffffff8001300000 size is 262144
-[  283.458051] ICC_dev: ICC Shared Config found at address 0xffffff8001301ca0
-[  283.464817] ICC_dev: ICC Shared Config local virtual address: 0xffffff8001301ca0
-[  283.472736] ICC_dev: ICC Shared Config remote virtual address: 0x0
+root@s32v234evb:~# insmod /icc/ICC_dev.ko
+[   30.174276] ICC_dev: found MSCM block: addr=0x40081000 size=4096
+[   30.183489] ICC_dev: reserved ICC_HW_MSCM_VIRT_BASE=0xffffff8001292000 size=4096
+[   30.190726] ICC_dev: reserved irq=30 from MSCM node
+[   30.196003] ICC_dev: Found SRAM block: addr=0x3e800000 size=4194304
+[   30.201996] ICC_dev: Reserved ICC_Shared_Virt_Base_Addr=0xffffff8001300000 size=1048576
+[   30.210479] ICC_dev: ICC Shared Config found at address 0xffffff8001301ca0
+[   30.217127] ICC_dev: ICC Shared Config local virtual address: 0xffffff8001301ca0
+[   30.224513] ICC_dev: ICC Shared Config remote virtual address: 0x0 
+root@s32v234evb:~#
 root@s32v234evb:~# insmod /icc/ICC_Sample.ko 
-[  498.111155] ICC_Sample: ICC Initialize ... done
-[  498.115372] ICC_Sample: Opening all channels ... done
-[  498.121022] ICC_Sample: ICC data kthread ICC_Data_kthrea: started
-[  498.126932] ICC_Sample: exec 1 times; 19000 ns in average
-root@s32v234evb:~# [  500.498634] ICC_Sample: exec 11561 times; 204509 ns in average
-[  503.498791] ICC_Sample: exec 26190 times; 204519 ns in average
-[  506.498663] ICC_Sample: exec 40807 times; 204575 ns in average
+[   38.060338] ICC_Sample: ICC_Initialize ... done
+[   38.064580] ICC_Sample: Opening all channels ... done
+[   38.070128] ICC_Sample: ICC data kthread ICC_Data_kthrea: started
+[   38.076045] ICC_Sample: exec 1 times; 20000 ns in average
+root@s32v234evb:~# [   40.673187] ICC_Sample: exec 12627 times; 205046 ns in average
+[   43.673362] ICC_Sample: exec 27251 times; 204784 ns in average
+[   43.673362] ICC_Sample: exec 27251 times; 204784 ns in average
+[   46.673177] ICC_Sample: exec 41861 times; 204765 ns in average
 ..........
 
 - contents of the file '/proc/interrupts', which outputs how many times the 
