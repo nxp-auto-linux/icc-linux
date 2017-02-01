@@ -37,70 +37,51 @@
 
 #include <linux/kthread.h>
 
+#include <linux/moduleparam.h>
+#include <linux/stat.h>
+#include <linux/stddef.h>
+#include <linux/time.h>
+
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
     #include <asm/atomic.h>
 #endif
 
 #include "ICC_Api.h"
+#include "ICC_Log.h"
+#include "ICC_Args.h"
 
-/* Un-comment this if you want to debug the virtual memory */
-//#define DUMP_SHARED_MEM
+#ifdef ICC_LINUX2LINUX
 
-/* The following 2 macros define what is displayed by the applications:
- * - statistics - a statistic with ICC_Data_kthread execution count and average time - every n seconds
+#include "ICC_Config_Test.h"
+
+/* Set this arg to true if you want to check the shared memory */
+ICC_CMD_LINE_ARG(icc_mem_dump, bool, false, \
+        "Print ICC shared data");
+
+#endif
+
+/* The following 2 args define what is displayed by the applications:
+ * - statistics - a statistic with ICC_Data_kthread execution count and average time
+ *                  every n seconds (enabled by default)
  * - verbose - a message for every data sent/received by ICC_Data_kthread
+ *                  (disabled by default)
  */
-#define ICC_STATISTICS
-//#define VERBOSE_LOG
 
-#define RCV_BUF_SIZE 128
-#define SND_BUF_SIZE 128
+/* Set this arg to true if you want to see data kthread statistics */
+ICC_CMD_LINE_ARG(icc_exec_stats, bool, true, \
+        "Print data thread statistics");
 
-#define ICC_TX_FIFO  ICC_GET_CORE_ID
-#define ICC_RX_FIFO  ICC_GET_REMOTE_CORE_ID
+ICC_CMD_LINE_ARG(icc_verbose_comm_log, bool, false, \
+        "Print verbose communication information");
 
-#define ICC_CHECK_ERR_CODE(icc_function_to_call)                \
-             return_code = icc_function_to_call;                \
-             if (ICC_SUCCESS != return_code) return return_code
-
-/* see all traffic in kernel log */
-#define ICC_SAMPLE_LOG(...) printk(KERN_ALERT __VA_ARGS__)
-
-#define ICC_NUM_CORES 2
-
-volatile unsigned int watch_CB_Rx[ICC_NUM_CORES];
-volatile unsigned int watch_CB_Tx[ICC_NUM_CORES];
-volatile unsigned int watch_CB_Ch[ICC_NUM_CORES];
-
-volatile unsigned int watch_Ch_Rx_ok[ICC_NUM_CORES];
-volatile unsigned int watch_Ch_Tx_ok[ICC_NUM_CORES];
-
-volatile unsigned int watch_Ch_Rx_ko[ICC_NUM_CORES];
-volatile unsigned int watch_Ch_Tx_ko[ICC_NUM_CORES];
-
-volatile unsigned int watch_CB_Node;
-
-unsigned char snd_buffer[SND_BUF_SIZE];
-unsigned char rcv_buffer[RCV_BUF_SIZE];
-
-volatile atomic_t thread_on = { 1 };
-
-
-#ifdef ICC_STATISTICS
+/** statistics data and helpers */
 
 #define ICC_PRINT_STATS_DELAY_SEC 2
-
-#include <linux/time.h>
 
 struct icc_func_stat_t {
     uint32_t func_calls;
     struct timespec func_time_ns;
 };
-
-static struct icc_func_stat_t icc_data_thread_stat = {0};
-static uint64_t icc_last_func_sec;
-
-#endif
 
 static inline uint64_t get_ns(struct timespec *ts1, struct timespec *ts2)
 {
@@ -114,6 +95,42 @@ static inline uint64_t get_ns(struct timespec *ts1, struct timespec *ts2)
 
     return val;
 }
+
+/** sample data */
+
+#define RCV_BUF_SIZE 128
+#define SND_BUF_SIZE 128
+
+#define ICC_TX_FIFO  ICC_GET_CORE_ID
+#define ICC_RX_FIFO  ICC_GET_REMOTE_CORE_ID
+
+#define ICC_CHECK_ERR_CODE(icc_function_to_call)                \
+             return_code = icc_function_to_call;                \
+             if (ICC_SUCCESS != return_code) return return_code
+
+
+#define ICC_NUM_CORES 2
+
+struct icc_watch_cb_flags_t {
+    uint32_t watch_CB_Rx[ICC_NUM_CORES];
+    uint32_t watch_CB_Tx[ICC_NUM_CORES];
+    uint32_t watch_CB_Ch[ICC_NUM_CORES];
+
+    uint32_t watch_Ch_Rx_ok[ICC_NUM_CORES];
+    uint32_t watch_Ch_Tx_ok[ICC_NUM_CORES];
+
+    uint32_t watch_Ch_Rx_ko[ICC_NUM_CORES];
+    uint32_t watch_Ch_Tx_ko[ICC_NUM_CORES];
+
+    uint32_t watch_CB_Node;
+};
+
+/** we must define this global because it is used by the callbacks,
+ *  which cannot receive it as additional argument.
+ */
+static struct icc_watch_cb_flags_t cbs = {{0},};
+
+volatile atomic_t thread_on = { 1 };
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
     /* heartbeat flag which determine if the node is prepared for the heartbeat mechanism */
@@ -132,19 +149,19 @@ int ICC_HeartBeat_kthread(void *data)
     while (atomic_read(&thread_on)) {
 
        err = ICC_Heartbeat_Initialize(runID);
-       ICC_SAMPLE_LOG("ICC_Heartbeat_Initialize return: %d\n", err);
+       ICC_DEBUG("ICC_Heartbeat_Initialize return: %d", err);
 
        err = ICC_Heartbeat_Runnable();
-       ICC_SAMPLE_LOG("ICC_Heartbeat_Runnable return  : %d\n", err);
+       ICC_DEBUG("ICC_Heartbeat_Runnable return  : %d\n", err);
 
        err = ICC_Heartbeat_Finalize();
-       ICC_SAMPLE_LOG("ICC_Heartbeat_Finalize return  : %d\n", err);
+       ICC_DEBUG("ICC_Heartbeat_Finalize return  : %d\n", err);
 
        runID++;
 
     };
 
-    ICC_SAMPLE_LOG("ICC_HeartBeat_kthread stopped\n");
+    ICC_INFO("ICC_HeartBeat_kthread stopped");
 
     return 0;
 }
@@ -153,58 +170,78 @@ int ICC_HeartBeat_kthread(void *data)
 #ifdef ICC_BUILD_FOR_M4
 #define SEND_TEXT "Hello_RootComplex"
 #else
-#define SEND_TEXT "Hello_EndPoint"
+    #ifdef ICC_LINUX2LINUX
+    #define SEND_TEXT "Hello_EndPoint"
+    #else
+    #define SEND_TEXT "Hello_RTOS"
+    #endif
 #endif
 #define SEND_TEXT_SIZE sizeof(SEND_TEXT) + 1
 
-const unsigned int channel_id = 1; /**< the data channel */
-
-inline ICC_Err_t ICC_Data_Send(ICC_Timeout_t timeout)
+inline ICC_Err_t ICC_Data_Send(struct icc_watch_cb_flags_t *cbs,
+                               const ICC_Channel_t channel_id,
+                               unsigned char *snd_buffer,
+                               ICC_Timeout_t timeout)
 {
     ICC_Err_t      icc_status = ICC_SUCCESS;
 
-    /* TX */
-    memcpy( snd_buffer, SEND_TEXT, SEND_TEXT_SIZE );
+    if (!cbs || !snd_buffer) {
+        ICC_ERR("Invalid arguments");
+        icc_status = ICC_ERR_PARAM_INVAL;
+        return icc_status;
+    }
 
-    icc_status = ICC_Msg_Send( channel_id, snd_buffer, SEND_TEXT_SIZE, timeout);
-    if( icc_status != ICC_SUCCESS )
+    /* TX */
+    memcpy(snd_buffer, SEND_TEXT, SEND_TEXT_SIZE);
+
+    icc_status = ICC_Msg_Send(channel_id, snd_buffer, SEND_TEXT_SIZE, timeout);
+    if (icc_status != ICC_SUCCESS)
     {
-        ICC_SAMPLE_LOG("SEND failed: err code:%d\n", icc_status);
+        ICC_ERR("Send failed with err %d", icc_status);
         /* return; */
-        watch_Ch_Tx_ko[channel_id]++;
+        cbs->watch_Ch_Tx_ko[channel_id]++;
     } else {
-        watch_Ch_Tx_ok[channel_id]++;
-#ifdef VERBOSE_LOG
-        ICC_SAMPLE_LOG("Push: Tx message [%d] to [%u] via ch [%u]: %s \n",
-                watch_Ch_Tx_ok[channel_id], ICC_GET_REMOTE_CORE_ID,
-                channel_id, snd_buffer );
-#endif
+        cbs->watch_Ch_Tx_ok[channel_id]++;
+        if (icc_verbose_comm_log) {
+            ICC_INFO("Send: Tx message [%u] to [%u] via ch [%u]: %s",
+                    cbs->watch_Ch_Tx_ok[channel_id], ICC_GET_REMOTE_CORE_ID,
+                    channel_id, snd_buffer);
+        }
     }
 
     return icc_status;
 }
 
-inline ICC_Err_t ICC_Data_Receive(ICC_Timeout_t timeout)
+inline ICC_Err_t ICC_Data_Receive(struct icc_watch_cb_flags_t *cbs,
+                                  const ICC_Channel_t channel_id,
+                                  unsigned char *rcv_buffer,
+                                  ICC_Timeout_t timeout)
 {
     ICC_Err_t      icc_status = ICC_SUCCESS;
     ICC_Msg_Size_t rx_msg_size;
 
+    if (!cbs || !rcv_buffer) {
+        ICC_ERR("Invalid arguments");
+        icc_status = ICC_ERR_PARAM_INVAL;
+        return icc_status;
+    }
+
     /* RX */
-    icc_status = ICC_Msg_Recv( channel_id, rcv_buffer, RCV_BUF_SIZE,
-            &rx_msg_size, timeout, ICC_RX_NORMAL );
-    if( icc_status != ICC_SUCCESS )
+    icc_status = ICC_Msg_Recv(channel_id, rcv_buffer, RCV_BUF_SIZE,
+            &rx_msg_size, timeout, ICC_RX_NORMAL);
+    if (icc_status != ICC_SUCCESS)
     {
-        ICC_SAMPLE_LOG("POP failed with err %d \n", icc_status );
+        ICC_ERR("Recv failed with err %d", icc_status);
         /* return; */
-        watch_Ch_Rx_ko[channel_id]++;
+        cbs->watch_Ch_Rx_ko[channel_id]++;
 
     } else {
-        watch_Ch_Rx_ok[channel_id]++;
-#ifdef VERBOSE_LOG
-        ICC_SAMPLE_LOG("POP: Receive message [%d] from [%u] via ch [%u]: %s \n",
-                watch_Ch_Rx_ok[channel_id], ICC_GET_REMOTE_CORE_ID,
-                channel_id, rcv_buffer );
-#endif
+        cbs->watch_Ch_Rx_ok[channel_id]++;
+        if (icc_verbose_comm_log) {
+            ICC_INFO("Recv: Rx message [%u] from [%u] via ch [%u]: %s",
+                    cbs->watch_Ch_Rx_ok[channel_id], ICC_GET_REMOTE_CORE_ID,
+                    channel_id, rcv_buffer);
+        }
     }
 
     return icc_status;
@@ -217,14 +254,23 @@ extern void ICC_Timer_Update_ns(uint64_t new_time_ns);
 int ICC_Data_kthread(void *data)
 {
     ICC_Err_t      icc_status = ICC_SUCCESS;
-    ICC_Timeout_t  timeout = ICC_WAIT_FOREVER;
+    ICC_Timeout_t  timeout = ICC_WAIT_ZERO;
 
-    /* Ignore the timeout for now, we'll re-enable it in the future:
-    if ( ICC_CROSS_VALUE_OF(ICC_Default_Config_Ptr->Channels_Ptr)[channel_id].fifos_cfg[ICC_RX_FIFO].fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED ) {
+    struct icc_watch_cb_flags_t *cbs = (struct icc_watch_cb_flags_t *)data;
+    unsigned char snd_buffer[SND_BUF_SIZE] = {0};
+    unsigned char rcv_buffer[RCV_BUF_SIZE] = {0};
+    const ICC_Channel_t channel_id = IccChannel_1; /**< the data channel */
+
+    struct icc_func_stat_t icc_data_thread_stat = {0};
+    uint64_t icc_last_func_sec;
+
+    if (!data)
+        icc_status = ICC_ERR_PARAM_INVAL;
+
+    /* if we have timeout enabled, force communication to wait forever */
+    if ( ICC_CROSS_VALUE_OF(ICC_Config0.Channels_Ptr)[channel_id].fifos_cfg[ICC_RX_FIFO].fifo_flags & ICC_FIFO_FLAG_TIMEOUT_ENABLED ) {
         timeout = ICC_WAIT_FOREVER;
-    } else {
-        timeout = ICC_WAIT_ZERO;
-    }*/
+    }
 
     while ((icc_status == ICC_SUCCESS) && atomic_read(&thread_on)) {
         struct timespec ts1 = {0};
@@ -232,15 +278,16 @@ int ICC_Data_kthread(void *data)
 
 #ifdef ICC_BUILD_FOR_M4
 
-        icc_status = ICC_Data_Send(timeout);
+        icc_status = ICC_Data_Send(cbs, channel_id, snd_buffer, timeout);
 
-        icc_status = ICC_Data_Receive(timeout);
+        icc_status = ICC_Data_Receive(cbs, channel_id, rcv_buffer, timeout);
 
 #else
 
-        icc_status = ICC_Data_Receive(timeout);
+        icc_status = ICC_Data_Receive(cbs, channel_id, rcv_buffer, timeout);
 
-        icc_status = ICC_Data_Send(timeout);
+        icc_status = ICC_Data_Send(cbs, channel_id, snd_buffer, timeout);
+
 #endif
 
         if (icc_status == ICC_SUCCESS) {
@@ -248,21 +295,21 @@ int ICC_Data_kthread(void *data)
             uint64_t exec_time_ns;
             getnstimeofday(&ts2);
 
-#ifdef ICC_STATISTICS
-            icc_data_thread_stat.func_calls++;
-            /* in the following assignments we don't care for nanoseconds overflow */
-            icc_data_thread_stat.func_time_ns.tv_sec += ts2.tv_sec;
-            icc_data_thread_stat.func_time_ns.tv_sec -= ts1.tv_sec;
-            icc_data_thread_stat.func_time_ns.tv_nsec += ts2.tv_nsec;
-            icc_data_thread_stat.func_time_ns.tv_nsec -= ts1.tv_nsec;
-            exec_time_ns = get_ns(&ts2, NULL);
-            if ((exec_time_ns / NSEC_PER_SEC - icc_last_func_sec) > ICC_PRINT_STATS_DELAY_SEC) {
-                ICC_SAMPLE_LOG("icc data kthread: exec %d times; %llu ns in average\n",
-                        icc_data_thread_stat.func_calls,
-                        get_ns(&icc_data_thread_stat.func_time_ns, NULL) / icc_data_thread_stat.func_calls);
-                icc_last_func_sec = exec_time_ns / NSEC_PER_SEC;
+            if (icc_exec_stats) {
+                icc_data_thread_stat.func_calls++;
+                /* in the following assignments we don't care for nanoseconds overflow */
+                icc_data_thread_stat.func_time_ns.tv_sec += ts2.tv_sec;
+                icc_data_thread_stat.func_time_ns.tv_sec -= ts1.tv_sec;
+                icc_data_thread_stat.func_time_ns.tv_nsec += ts2.tv_nsec;
+                icc_data_thread_stat.func_time_ns.tv_nsec -= ts1.tv_nsec;
+                exec_time_ns = get_ns(&ts2, NULL);
+                if ((exec_time_ns / NSEC_PER_SEC - icc_last_func_sec) > ICC_PRINT_STATS_DELAY_SEC) {
+                    ICC_INFO("exec %d times; %llu ns in average",
+                            icc_data_thread_stat.func_calls,
+                            get_ns(&icc_data_thread_stat.func_time_ns, NULL) / icc_data_thread_stat.func_calls);
+                    icc_last_func_sec = exec_time_ns / NSEC_PER_SEC;
+                }
             }
-#endif
 
 #ifdef ICC_USE_POLLING
             exec_time_ns = get_ns(&ts2, &ts1);
@@ -271,19 +318,34 @@ int ICC_Data_kthread(void *data)
         }
     }; /* end while(1) */
 
-    ICC_SAMPLE_LOG("ICC_Data_kthread stopped\n");
+    ICC_INFO("ICC_Data_kthread stopped");
 
     return icc_status;
 }
 
 /*-----------------------------------------------------------*/
 
+/**
+ * Define callbacks names here and keep the bodies in one place, rather than
+ *  duplicate the entire function definitions.
+ */
 #ifdef ICC_BUILD_FOR_M4
+#define ICC_CB_RX USER_ICC_Callback_Rx_CB_M4
+#define ICC_CB_TX USER_ICC_Callback_Tx_CB_M4
+#define ICC_CB_CHAN_STATE USER_ICC_Callback_Channel_State_Update_CB_M4
+#define ICC_CB_NODE_STATE USER_ICC_Node_State_Update_CB_M4
+#else
+#define ICC_CB_RX USER_ICC_Callback_Rx_CB_App
+#define ICC_CB_TX USER_ICC_Callback_Tx_CB_App
+#define ICC_CB_CHAN_STATE USER_ICC_Callback_Channel_State_Update_CB_App
+#define ICC_CB_NODE_STATE USER_ICC_Node_State_Update_CB_App
+#endif
+
 
 /*
  * ICC callback for RX free buffer.
  */
-void USER_ICC_Callback_Rx_CB_M4( ICC_IN const ICC_Channel_t channel_id ) /** The id of the channel that received a message. */
+void ICC_CB_RX( ICC_IN const ICC_Channel_t   channel_id /**< the id of the channel that received a message */ )
 {
 
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
@@ -292,33 +354,34 @@ void USER_ICC_Callback_Rx_CB_M4( ICC_IN const ICC_Channel_t channel_id ) /** The
         }
     #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
-    watch_CB_Rx[channel_id]++;
+    cbs.watch_CB_Rx[channel_id]++;
 }
+
 
 /*
  * ICC callback for TX free buffer; no blocking calls allowed.
  */
-void USER_ICC_Callback_Tx_CB_M4( ICC_IN const ICC_Channel_t channel_id ) /**< The id of the channel that just "received" free space. */
+void ICC_CB_TX( ICC_IN const ICC_Channel_t channel_id /**< The id of the channel that just "received" free space. */ )
 {
-    watch_CB_Tx[channel_id]++;
+    cbs.watch_CB_Tx[channel_id]++;
 }
 
 /*
  * ICC callback for channel transitioning to a new state.
  */
-void USER_ICC_Callback_Channel_State_Update_CB_M4( ICC_IN const ICC_Channel_t       channel_id, /** The id of the channel that transitioned to a new state. */
-                                                   ICC_IN const ICC_Channel_State_t channel_state ) /** The new state that the channel transitioned to. */
+void ICC_CB_CHAN_STATE( ICC_IN const ICC_Channel_t       channel_id, /** The id of the channel that transitioned to a new state. */
+                        ICC_IN const ICC_Channel_State_t channel_state /** The new state that the channel transitioned to. */ )
 {
-    watch_CB_Ch[channel_id]++;
+    cbs.watch_CB_Ch[channel_id]++;
 }
 
 /*
  * ICC callback for node transitioning to a new state.
  */
-void USER_ICC_Node_State_Update_CB_M4( ICC_IN const ICC_Node_t       node_id, /** The id of the node that transitioned to a new state. */
-                                       ICC_IN const ICC_Node_State_t node_state ) /** The new state the node transitioned to. */
+void ICC_CB_NODE_STATE( ICC_IN const ICC_Node_t       node_id, /** The id of the node that transitioned to a new state. */
+                        ICC_IN const ICC_Node_State_t node_state /** The new state the node transitioned to. */ )
 {
-    watch_CB_Node++;
+    cbs.watch_CB_Node++;
 
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
         if( node_state == ICC_NODE_STATE_INIT )
@@ -328,57 +391,8 @@ void USER_ICC_Node_State_Update_CB_M4( ICC_IN const ICC_Node_t       node_id, /*
     #endif /*ICC_CFG_HEARTBEAT_ENABLED*/
 }
 
-#else
 
-void USER_ICC_Callback_Rx_CB_App( ICC_IN const ICC_Channel_t   channel_id /**< the id of the channel that received a message */ )
-{
-
-    #ifdef ICC_CFG_HEARTBEAT_ENABLED
-        if( channel_id == 0 ){
-            return;
-        }
-    #endif /* ICC_CFG_HEARTBEAT_ENABLED */
-
-    watch_CB_Rx[channel_id]++;
-
-}
-
-void USER_ICC_Callback_Tx_CB_App(
-                               ICC_IN const ICC_Channel_t   channel_id           /**< the id of the channel that just "received" free space */
-                               )
-{
-    watch_CB_Tx[channel_id]++;
-}
-
-
-void USER_ICC_Callback_Channel_State_Update_CB_App(
-                                                  ICC_IN const ICC_Channel_t          channel_id,   /**< the id of the channel that transitioned to a new state */
-                                                  ICC_IN const ICC_Channel_State_t    channel_state /**< the new state that the channel transitioned to */
-                                                 )
-{
-    watch_CB_Ch[channel_id]++;
-}
-
-void USER_ICC_Node_State_Update_CB_App(
-                                       ICC_IN const ICC_Node_t        node_id,    /**< the id of the node that transitioned to a new state */
-                                       ICC_IN const ICC_Node_State_t  node_state  /**< the new state the node transitioned to */
-                                      )
-{
-    watch_CB_Node++;
-
-    #ifdef ICC_CFG_HEARTBEAT_ENABLED
-        if( node_state == ICC_NODE_STATE_INIT )
-        {
-            atomic_set( &heartbeat_on, 1);
-        }
-    #endif /*ICC_CFG_HEARTBEAT_ENABLED*/
-}
-
-#endif  /* ICC_BUILD_FOR_M4 */
-
-#if (defined(ICC_LINUX2LINUX) && defined(DUMP_SHARED_MEM))
-
-#include "ICC_Config_Test.h"
+#ifdef ICC_LINUX2LINUX
 
 #ifndef ICC_BUILD_FOR_M4
 extern
@@ -413,26 +427,11 @@ int Start_ICC_Sample(void)
     atomic_set( &heartbeat_on, 0 );
     #endif
 
-    for( i = 0; i < ICC_NUM_CORES; i++ )
-    {
-        watch_CB_Rx[i]=0;
-        watch_CB_Tx[i]=0;
-        watch_CB_Ch[i]=0;
-
-        watch_Ch_Rx_ok[i]=0;
-        watch_Ch_Tx_ok[i]=0;
-
-        watch_Ch_Rx_ko[i]=0;
-        watch_Ch_Tx_ko[i]=0;
-    }
-
-    watch_CB_Node=0;
-
 #if (defined(ICC_BUILD_FOR_M4) && defined(ICC_LINUX2LINUX))
     /* Re-locate the objects in ICC_Config.c, at address IRAM_BASE_ADDR + 4 (first uint32 is used for polling/synchronization) */
     config = ICC_Relocate_Config(config, NULL);
     if (!config) {
-        ICC_SAMPLE_LOG("Start_ICC_Sample: Failed to relocate config\n");
+        ICC_ERR("Failed to relocate config");
     }
     /* TODO: use incoming icc_bar.bar_size to validate that the RC can access all shared mem */
 #endif
@@ -440,35 +439,37 @@ int Start_ICC_Sample(void)
     /* initialize ICC */
     if ((return_code = ICC_Initialize( config )) != ICC_SUCCESS) {
 
-        ICC_SAMPLE_LOG("Start_ICC_Sample: ICC_Initialize failed with error code: %d\n", return_code);
+        ICC_ERR("ICC_Initialize failed with error code: %d", return_code);
 
         return return_code;
     }
 
-    ICC_SAMPLE_LOG("ICC_Initialize ... done\n");
+    ICC_INFO("ICC Initialize ... done");
 
-#if (defined(ICC_LINUX2LINUX) && defined(DUMP_SHARED_MEM))
+#ifdef ICC_LINUX2LINUX
+    if (icc_mem_dump) {
 #ifdef ICC_BUILD_FOR_M4
-    ICC_Dump_Config(config);
+        ICC_Dump_Config(config);
 #else
-    ICC_Dump_Config(ICC_Config_Ptr_M4);
+        ICC_Dump_Config(ICC_Config_Ptr_M4);
 #endif
+    }
 #endif
 
 #ifdef ICC_LINUX2LINUX
 
 #ifdef ICC_BUILD_FOR_M4
-    ICC_SAMPLE_LOG("Waiting for peer ...\n");
+    ICC_INFO("Waiting for peer ...");
     if ((return_code = ICC_Wait_For_Peer() != ICC_SUCCESS)) {
-        ICC_SAMPLE_LOG("failed\n");
+        ICC_ERR("Wait for peer failed");
         return return_code;
     }
 #else
-    ICC_SAMPLE_LOG("Notifying peer ...\n");
+    ICC_INFO("Notifying peer ...");
     ICC_Notify_Peer_Alive();
 #endif
 
-    ICC_SAMPLE_LOG("Peers connected\n");
+    ICC_INFO("Peers connected");
 
 #endif
 
@@ -484,18 +485,18 @@ int Start_ICC_Sample(void)
 
     }
 
-    ICC_SAMPLE_LOG("Opening all channels ... done\n");
+    ICC_INFO("Opening all channels ... done");
 
     atomic_set(&thread_on, 1);
 
-    task_data = kthread_run( ICC_Data_kthread, NULL, "%s_kthread_%d", "ICC_Data", 0 );
-    ICC_SAMPLE_LOG("ICC data kthread %s: started\n", task_data->comm );
+    task_data = kthread_run( ICC_Data_kthread, &cbs, "%s_kthread_%d", "ICC_Data", 0 );
+    ICC_INFO("ICC data kthread %s: started", task_data->comm );
 
 
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
         while( atomic_read( &heartbeat_on) == 0 );
         task_hb = kthread_run( ICC_HeartBeat_kthread, NULL, "%s_kthread_%d", "HB", 0 );
-        ICC_SAMPLE_LOG("ICC HB kthread %s: started\n", task_hb->comm );
+        ICC_INFO("ICC HB kthread %s: started", task_hb->comm );
     #endif
 
     return ICC_SUCCESS;
@@ -514,6 +515,8 @@ int Stop_ICC_Sample(void)
 
     /* ICC clean up */
     ICC_CHECK_ERR_CODE(ICC_Finalize());
+
+    ICC_INFO("ICC Finalize ... done");
 
     return ICC_SUCCESS;
 }

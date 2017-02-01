@@ -17,7 +17,7 @@
 *   Build Version        :
 *
 *   (c) Copyright 2014,2016 Freescale Semiconductor Inc.
-*   (c) Copyright 2016 NXP
+*   (c) Copyright 2016,2017 NXP
 *
 *   This program is free software; you can redistribute it and/or
 *   modify it under the terms of the GNU General Public License
@@ -52,11 +52,11 @@
 #include "ICC_Api.h"
 #include "ICC_Notification.h"
 
+#include "ICC_Log.h"
+
 MODULE_DESCRIPTION("ICC device");
 MODULE_AUTHOR("Freescale Semiconductor");
 MODULE_LICENSE("GPL");
-
-#define LOG_LEVEL       KERN_ALERT
 
 #ifdef ICC_LINUX2LINUX
 /* first words are for the hand shake */
@@ -81,7 +81,7 @@ static int ICC_dev_open(struct inode *inode, struct file *file)
                                                 cdev);
     file->private_data = data;
 
-    printk(LOG_LEVEL "Opened ICC_library device\n");
+    ICC_DEBUG("Opened ICC_library device");
     return 0;
 }
 
@@ -89,7 +89,7 @@ static int ICC_dev_release(struct inode *inode, struct file *file)
 {
     file->private_data = NULL;
 
-    printk(LOG_LEVEL "Closed ICC_library device\n");
+    ICC_DEBUG("Closed ICC_library device");
 
     return 0;
 }
@@ -190,7 +190,7 @@ static int local_init(struct ICC_platform_data * icc_data)
 
         /* Reserve shared memory */
         if (!devm_request_mem_region(dev, get_shmem_base_address(), get_shmem_size(), "ICC_shmem")) {
-            printk (KERN_ERR "[ICC_dev_init] Failed to request mem region!\n");
+            ICC_ERR("Failed to request mem region!");
             err = -ENOMEM;
             goto cleanup;
         }
@@ -199,9 +199,9 @@ static int local_init(struct ICC_platform_data * icc_data)
          * resides on EP side.
          */
         ICC_Shared_Virt_Base_Addr = devm_ioremap_nocache(dev, get_shmem_base_address(), get_shmem_size()) + ICC_CONFIG_OFFSET_FROM_BASE;
-        printk(LOG_LEVEL "[ICC_dev_init] reserved ICC_Shared_Virt_Base_Addr=%#llx size is %d\n", ICC_Shared_Virt_Base_Addr, get_shmem_size() - ICC_CONFIG_OFFSET_FROM_BASE);
+        ICC_INFO("reserved ICC_Shared_Virt_Base_Addr=%#llx size is %d", ICC_Shared_Virt_Base_Addr, get_shmem_size() - ICC_CONFIG_OFFSET_FROM_BASE);
         if( !ICC_Shared_Virt_Base_Addr ){
-            printk(KERN_ERR "[ICC_dev_init] ICC_Shared_Virt_Base_Addr virtual mapping has failed for %#x\n", get_shmem_base_address());
+            ICC_ERR("ICC_Shared_Virt_Base_Addr virtual mapping has failed for %#x", get_shmem_base_address());
             err = -ENOMEM;
             goto cleanup;
         }
@@ -219,15 +219,15 @@ static int local_init(struct ICC_platform_data * icc_data)
             if ((ICC_Local_Magic.raw.m0 == crt_start->raw.m0) &&
             (ICC_Local_Magic.raw.m1 == crt_start->raw.m1)){
                 ICC_Config_Ptr_M4 = (ICC_Config_t *)crt_start;
-                printk(LOG_LEVEL "[ICC_dev_init] ICC Shared Config found at address %#llx\n", ICC_Config_Ptr_M4);
+                ICC_INFO("ICC Shared Config found at address %#llx", ICC_Config_Ptr_M4);
                 break;
             }
         }
 
         ICC_Config_Ptr_M4_Remote = (ICC_Config_t *)(ICC_Config_Ptr_M4->This_Ptr);
 
-        printk(LOG_LEVEL "[ICC_dev_init] ICC Shared Config local virtual address: %#llx \n", ICC_Config_Ptr_M4);
-        printk(LOG_LEVEL "[ICC_dev_init] ICC Shared Config remote virtual address: %#llx \n", ICC_Config_Ptr_M4_Remote);
+        ICC_INFO("ICC Shared Config local virtual address: %#llx", ICC_Config_Ptr_M4);
+        ICC_INFO("ICC Shared Config remote virtual address: %#llx", ICC_Config_Ptr_M4_Remote);
 #endif
 
         return 0;
@@ -296,21 +296,23 @@ static void __exit ICC_dev_exit(void);
 
 static int __init ICC_dev_init(void)
 {
-    int i, err = platform_driver_register(&ICC_driver);
+    int i, err = 0;
+
+    ICC_DEBUG("ICC linux driver");
+
+    err = platform_driver_register(&ICC_driver);
     if (err) {
         return err;
     }
-
-    printk(LOG_LEVEL "[ICC_dev_init] Freescale ICC linux driver\n");
 
     err = alloc_chrdev_region(&dev_no, BASEMINOR, NUM_MINORS, MODULE_NAME);
 
     if (err) {
-        printk(KERN_ERR "[ICC_dev_init] Major number allocation has failed\n");
+        ICC_ERR("Major number allocation has failed");
         return err;
     }
 
-    printk(LOG_LEVEL "[ICC_dev_init] Major number %d\n", MAJOR(dev_no));
+    ICC_DEBUG("Major number %d", MAJOR(dev_no));
 
     /* initialize each device */
     for (i = 0; i < NUM_MINORS; i++) {
@@ -332,7 +334,7 @@ static void __exit ICC_dev_exit(void)
 
     platform_driver_unregister(&ICC_driver);
 
-    printk(LOG_LEVEL "[ICC_dev_exit] \n");
+    ICC_DEBUG("ICC linux driver exit");
 }
 
 /**

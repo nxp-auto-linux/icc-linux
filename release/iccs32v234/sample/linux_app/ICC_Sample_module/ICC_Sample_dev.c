@@ -45,6 +45,9 @@
 #include "ICC_Config.h"
 #include "ICC_Linux_Sample.h"
 
+#define ICC_LOG_SRC
+#include "ICC_Log.h"
+
 MODULE_DESCRIPTION("ICC Sample application");
 MODULE_AUTHOR("Freescale Semiconductor");
 MODULE_LICENSE("GPL");
@@ -52,7 +55,6 @@ MODULE_LICENSE("GPL");
 #define BASEMINOR   0
 #define COUNT       1
 
-#define LOG_LEVEL       KERN_ALERT
 #define MODULE_NAME     "ICC_Sample"
 #define NUM_MINORS      1
 
@@ -98,11 +100,11 @@ static int ICC_Sample_dev_init(void)
     err = alloc_chrdev_region(&dev_no, BASEMINOR, NUM_MINORS, MODULE_NAME); 
 
     if (err < 0) {
-        printk(LOG_LEVEL "Major number allocation has failed\n");
+        ICC_ERR("Major number allocation has failed");
         return err;
     }
 
-    printk(LOG_LEVEL "[ICC_Sample_dev_init] Major number %d\n", MAJOR(dev_no));
+    ICC_DEBUG("Major number %d", MAJOR(dev_no));
 
 
     /* initialize each device */
@@ -115,7 +117,7 @@ static int ICC_Sample_dev_init(void)
     if ( Start_ICC_Sample() != 0 ) err=-1;
 
     if (!err) {
-    	printk(LOG_LEVEL "Finishing the initialization of the ICC_Sample_dev \n");
+    	ICC_DEBUG("Finished initialization");
     }
     else {
     	ICC_Sample_dev_exit();
@@ -135,7 +137,7 @@ static void ICC_Sample_dev_exit(void)
         cdev_del(&devs[i].cdev);
 
     unregister_chrdev_region(dev_no, NUM_MINORS);
-    printk(LOG_LEVEL "Finishing unregister the ICC_Sample_dev \n");
+    ICC_DEBUG("Finished execution");
 
     /* wait for any thread activity to finish */
     msleep(100);

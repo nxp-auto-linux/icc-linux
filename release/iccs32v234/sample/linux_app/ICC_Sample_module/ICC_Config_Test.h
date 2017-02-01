@@ -39,8 +39,9 @@
 
 #include "ICC_Config.h"
 #include "ICC_Os.h"
+#include "ICC_Log.h"
 
-#define PRINT(...) count += printk(KERN_ALERT __VA_ARGS__)
+#define PRINT(...) count += printk(ICC_LOG_LEVEL_STR(ICC_LOGLEVEL_INFO) __VA_ARGS__)
 
 #define ROWSIZE 32
 #define GROUPSIZE 4

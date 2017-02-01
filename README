@@ -18,14 +18,23 @@ It is assumed that this git repo has been cloned to a local directory, e.g.
 Prior to being used it needs to be integrated with the Operating Systems running
 on each of the targetted cores.
 
-This linux package provides the Linux source code required for building the Linux
-ICC module (ICC_dev*.ko) in '/path/to/icc/release/iccs32v234/sample/linux_app/ICC_module',
+This Linux package provides the Linux source code representing the ICC API implementation,
+initialization of the ICC resources (shared memory, interrupts, PCIe communication etc.),
+a sample for demonstrating ICC functionality on the Linux side (A5x) and a binary AUTOSAR
+application for demonstrating ICC functionality on the AUTOSAR side (M4), which is required
+to be loaded on the M4 core prior to loading the Linux modules in the M4 - A53 ICC setup.
+ 
+The API implementation and Linux resource initialization are linked in the ICC module
+(ICC_dev*.ko), which also exports the ICC API.
+The ICC Sample module (ICC_Sample*.ko) uses the API exported by the ICC module and executes
+a loop which exchanges messages with the other end (M4 or another A5x).
+
+ICC module (ICC_dev*.ko) is located in
+'/path/to/icc/release/iccs32v234/sample/linux_app/ICC_module',
 the Linux ICC Sample module (ICC_Sample*.ko) in 
 '/path/to/icc/release/iccs32v234/sample/linux_app/ICC_Sample_module',
-as well as a binary image for the AUTOSAR ICC pre-built sample application
-(icc_sample_asr.bin) in '/path/to/icc/release/iccs32v234/sample/autosar_app'
-which is required to be loaded on the M4 core prior to loading the Linux modules in the 
-M4 - A53 ICC setup.
+and the a binary image for the AUTOSAR ICC pre-built sample application
+(icc_sample_asr.bin) in '/path/to/icc/release/iccs32v234/sample/autosar_app'.
 
 For all supported setups, it is assumed that the kernel sources are located in 
 '/path/to/kernel/sources' and the kernel build output (binaries and Module.symvers),
@@ -94,24 +103,19 @@ one could monitor the following:
 
 - output from the modules module:
 root@s32v234evb:~# insmod /icc/ICC_dev.ko                                 
-[ 2057.839087] [init_interrupt_data] reserved ICC_HW_MSCM_VIRT_BASE=0xffffff800128e000 size is 1000
-[ 2057.849030] [ICC_dev_init] reserved ICC_Shared_Virt_Base_Addr=0xffffff8001300000 size is 262144
-[ 2057.857829] [ICC_dev_init] ICC Shared Config found at address 0xffffff8001301ca0
-[ 2057.864944] [ICC_dev_init] ICC Shared Config local virtual address: 0xffffff8001301ca0 
-[ 2057.872836] [ICC_dev_init] ICC Shared Config remote virtual address: 0x0 
-[ 2057.880983] [ICC_dev_init] Freescale ICC linux driver
-[ 2057.885800] [ICC_dev_init] Major number 248
+[  283.440650] ICC_dev: reserved ICC_HW_MSCM_VIRT_BASE=0xffffff8001288000 size is 1000
+[  283.449987] ICC_dev: reserved ICC_Shared_Virt_Base_Addr=0xffffff8001300000 size is 262144
+[  283.458051] ICC_dev: ICC Shared Config found at address 0xffffff8001301ca0
+[  283.464817] ICC_dev: ICC Shared Config local virtual address: 0xffffff8001301ca0
+[  283.472736] ICC_dev: ICC Shared Config remote virtual address: 0x0
 root@s32v234evb:~# insmod /icc/ICC_Sample.ko 
-[ 2069.189456] [ICC_Sample_dev_init] Major number 247
-[ 2069.193907] ICC_Initialize ... done
-[ 2069.197729] Opening all channels ... done
-[ 2069.201457] ICC data kthread ICC_Data_kthrea: started
-[ 2069.206731] icc data kthread: exec 1 times; 18250 ns in average
-[ 2069.212343] Finishing the initialization of the ICC_Sample_dev 
-root@s32v234evb:~# [ 2071.532742] icc data kthread: exec 11445 times; 202544 ns in average
-[ 2074.532795] icc data kthread: exec 26030 times; 203963 ns in average
-[ 2077.532733] icc data kthread: exec 40605 times; 204412 ns in average
-[ 2080.532735] icc data kthread: exec 55178 times; 204632 ns in average
+[  498.111155] ICC_Sample: ICC Initialize ... done
+[  498.115372] ICC_Sample: Opening all channels ... done
+[  498.121022] ICC_Sample: ICC data kthread ICC_Data_kthrea: started
+[  498.126932] ICC_Sample: exec 1 times; 19000 ns in average
+root@s32v234evb:~# [  500.498634] ICC_Sample: exec 11561 times; 204509 ns in average
+[  503.498791] ICC_Sample: exec 26190 times; 204519 ns in average
+[  506.498663] ICC_Sample: exec 40807 times; 204575 ns in average
 ..........
 
 - contents of the file '/proc/interrupts', which outputs how many times the 
@@ -170,14 +174,12 @@ For S32V234 PCIe:
 - From Linux, start ICC by inserting the two modules in this exact order:
 ICC_dev_EP.ko and ICC_Sample_EP.ko:
 root@s32v234pcie:~# insmod /icc/ICC_dev_EP.ko
-[ 54.503854] [ICC_dev_init] Freescale ICC linux driver
-[ 54.508565] [ICC_dev_init] reserved 0xffffff8001200018 size is 1048576
-[ 54.515053] Inbound region setup successfully
-[ 54.519426] [ICC_dev_init] Major number 248
-root@s32v234pcie:~# insmod /icc/ICC_Sample_EP.ko
-[ 60.456975] [ICC_Sample_dev_init] Major number 247
-[ 60.461527] ICC_Initialize ... done
-[ 60.464834] Waiting for peer ...
+[   77.355486] ICC_dev_EP: reserved ICC_Shared_Virt_Base_Addr=0xffffff8001280018 size is 1048552
+[   77.363693] ICC_dev_EP: Inbound region setup successfully
+[   77.368948] ICC_dev_EP:      EP 0x8ff00000 mapped to EP BAR 2
+root@s32v234pcie:~# insmod /icc/ICC_Sample_EP.ko 
+[   82.763732] ICC_Sample_EP: ICC Initialize ... done
+[   82.768140] ICC_Sample_EP: Waiting for peer ...
 
 For S32V234 EVB:
 - In uboot:
@@ -186,44 +188,37 @@ For S32V234 EVB:
 - Boot the kernel
 - From Linux, start ICC by inserting the two modules in this exact order:
 ICC_dev_RC.ko and ICC_Sample_RC.ko:
-root@s32v234evb:~# insmod /icc/ICC_dev_RC.ko
-[ 63.524574] [ICC_dev_init] Freescale ICC linux driver
-[ 63.529305] [ICC_dev_init] reserved 0xffffff8001280018 size is 1048576
-[ 63.536597] [ICC_dev_init] ICC Shared Con?g found at address 0xffffff8001281d50
-[ 63.543692] [ICC_dev_init] ICC Shared Con?g local virtual address: 0xffffff8001281d50
-[ 63.551618] [ICC_dev_init] ICC Shared Con?g remote virtual address: 0xffffff8001201d50
-[ 63.559790] [ICC_dev_init] Major number 248
-root@s32v234evb:~# insmod /icc/ICC_Sample_RC.ko
-[ 68.734267] [ICC_Sample_dev_init] Major number 247
-[ 68.738755] ICC_Initialize ... done
-[ 68.742297] Notifying peer ...
-[ 68.745201] Peers connected
-[ 68.800049] Opening all channels ... done
-[ 68.803800] ICC data kthread ICC_Data_kthrea: started
-[ 68.808728] Finishing the initialization of the ICC_Sample_dev
+root@s32v234evb:~# insmod /icc/ICC_dev_RC.ko 
+[   89.823659] ICC_dev_RC: reserved ICC_Shared_Virt_Base_Addr=0xffffff8001300018 size is 1048552
+[   89.832040] ICC_dev_RC: ICC Shared Config found at address 0xffffff8001300018
+[   89.838925] ICC_dev_RC: ICC Shared Config local virtual address: 0xffffff8001300018
+[   89.846584] ICC_dev_RC: ICC Shared Config remote virtual address: 0xffffff8001280018
+root@s32v234evb:~# insmod /icc/ICC_Sample_RC.ko 
+[   99.134143] ICC_Sample_RC: ICC Initialize ... done
+[   99.138580] ICC_Sample_RC: Notifying peer ...
+[   99.142983] ICC_Sample_RC: Peers connected
+[   99.164335] ICC_Sample_RC: Opening all channels ... done
+[   99.169392] ICC_Sample_RC: ICC data kthread ICC_Data_kthrea: started
 
 After this, the two applications will begin to communicate.
 Please look on the appropriate consoles.
 
 For S32V234 PCIe:
-[ 81.519570] Outbound region setup successfully
-[ 81.523642] RC 0x72200000 (BAR 2) mapped to EP 0x8ff00000, size 1914699776
-[ 81.530572] EP 0x72000000 mapped to RC 0x8ff00000, size 1048576
-[ 81.536484] Peers connected
-[ 81.569581] Opening all channels ... done
-[ 81.573322] ICC data kthread ICC_Data_kthrea: started
-[ 81.578214] Finishing the initialization of the ICC_Sample_dev
-root@s32v234pcie:~# [ 81.609619] icc data kthread: exec 1 times; 36280083 ns in average
-[ 84.569598] icc data kthread: exec 75 times; 39872495 ns in average
-[ 87.569596] icc data kthread: exec 150 times; 39896835 ns in average
-[ 90.569596] icc data kthread: exec 225 times; 39904598 ns in average
+[  115.555309] ICC_dev_EP: Outbound region setup successfully
+[  115.560447] ICC_dev_EP:      RC 0x72200000 mapped to EP BAR 2, size 1048576
+[  115.566947] ICC_dev_EP:      EP 0x72000000 mapped to RC 0x8ff00000, size 1048576
+[  115.573943] ICC_Sample_EP: Peers connected
+[  115.579547] ICC_Sample_EP: Opening all channels ... done
+[  115.584640] ICC_Sample_EP: ICC data kthread ICC_Data_kthrea: started
+root@s32v234pcie:~# [  115.587125] ICC_Sample_EP: exec 1 times; 2471834 ns in average
+[  117.602453] ICC_Sample_EP: exec 637 times; 3167381 ns in average
+[  120.600430] ICC_Sample_EP: exec 1581 times; 3168702 ns in average
 .....
 
 For S32V234 EVB:
-root@s32v234evb:~# [ 68.850039] icc data kthread: exec 1 times; 46218583 ns in average
-[ 71.070026] icc data kthread: exec 56 times; 40363589 ns in average
-[ 74.090025] icc data kthread: exec 131 times; 40262813 ns in average
-[ 77.070025] icc data kthread: exec 205 times; 40236143 ns in average
+root@s32v234evb:~# [   99.176055] ICC_Sample_RC: exec 1 times; 6645666 ns in average
+[  101.225409] ICC_Sample_RC: exec 642 times; 3193602 ns in average
+[  104.229683] ICC_Sample_RC: exec 1582 times; 3191250 ns in average
 .....
 
 2.2 ICC on BlueBox (S32V234 PCIe and LS2080A/LS2085A RDB over PCI Express)
@@ -249,14 +244,12 @@ For S32V234 PCIe:
 - From Linux, start ICC by inserting the two modules in this exact order:
 ICC_dev_EP.ko and ICC_Sample_EP.ko:
 root@s32v234pcie:~# insmod /icc/ICC_dev_EP.ko
-[ 273.135591] [ICC_dev_init] Freescale ICC linux driver
-[ 273.140398] [ICC_dev_init] reserved 0xffffff8001200018 size is 1048576
-[ 273.146812] Inbound region setup successfully
-[ 273.151533] [ICC_dev_init] Major number 248
-root@s32v234pcie:~# insmod /icc/ICC_Sample_EP.ko
-[ 279.560429] [ICC_Sample_dev_init] Major number 247
-[ 279.564921] ICC_Initialize ... done
-[ 279.568346] Waiting for peer ...
+[   77.355486] ICC_dev_EP: reserved ICC_Shared_Virt_Base_Addr=0xffffff8001280018 size is 1048552
+[   77.363693] ICC_dev_EP: Inbound region setup successfully
+[   77.368948] ICC_dev_EP:      EP 0x8ff00000 mapped to EP BAR 2
+root@s32v234pcie:~# insmod /icc/ICC_Sample_EP.ko 
+[   82.763732] ICC_Sample_EP: ICC Initialize ... done
+[   82.768140] ICC_Sample_EP: Waiting for peer ...
 
 For LS2 RDB:
 - In uboot:
@@ -265,45 +258,39 @@ For LS2 RDB:
 - Boot the kernel
 - From Linux, start ICC by inserting the two modules in this exact order: 
 ICC_dev_BB_RC.ko and ICC_Sample_BB_RC.ko:
-root@ls2bluebox:~# insmod /icc/ICC_dev_BB_RC.ko
-[ 231.881085] [ ICC_dev_init] Freescale ICC linux driver
-[ 231.886203] [ ICC_dev_init] reserved 0xffff000009080018 size is 1048576
-[ 231.894301] [ ICC_dev_init] ICC Shared Con?g found at address 0xffff000009081d50
-[ 231.901728] [ ICC_dev_init] ICC Shared Con?g local virtual address: 0xffff000009081d50
-[ 231.909764] [ ICC_dev_init] ICC Shared Con?g remote virtual address: 0xffffff8001201d50
-[ 231.917952] [ ICC_dev_init] Major number 248
-root@ls2bluebox:~# insmod /icc/ICC_Sample_BB_RC.ko
-[ 238.070616] [ICC_Sample_dev_init] Major number 247
-[ 238.075521] ICC_Initialize ... done
-[ 238.079041] Notifying peer ...
-[ 238.082100] Peers connected
-[ 238.158338] Opening all channels ... done
-[ 238.162407] ICC data kthread ICC_Data_kthrea: started
-[ 238.167471] Finishing the initialization of the ICC_Sample_dev
+root@ls2bluebox:~# insmod /icc/ICC_dev_BB_RC.ko 
+[  189.823659] ICC_dev_BB_RC: reserved ICC_Shared_Virt_Base_Addr=0xffff000009080018 size is 1048552
+[  189.832040] ICC_dev_BB_RC: ICC Shared Config found at address 0xffff000009080018
+[  189.838925] ICC_dev_BB_RC: ICC Shared Config local virtual address: 0xffff000009080018
+[  189.846584] ICC_dev_BB_RC: ICC Shared Config remote virtual address: 0xffffff8001280018
+root@ls2bluebox:~# insmod /icc/ICC_Sample_BB_RC.ko 
+[  199.134143] ICC_Sample_BB_RC: ICC Initialize ... done
+[  199.138580] ICC_Sample_BB_RC: Notifying peer ...
+[  199.142983] ICC_Sample_BB_RC: Peers connected
+[  199.164335] ICC_Sample_BB_RC: Opening all channels ... done
+[  199.169392] ICC_Sample_BB_RC: ICC data kthread ICC_Data_kthrea: started
 
 After this, the two applications will begin to communicate. Please look on the appropriate
 consoles.
 
 For S32V234 PCIe:
-[ 299.969692] Outbound region setup successfully
-[ 299.973795] RC 0x1446100000 (BAR 2) mapped to EP 0x8ff00000, size 1175453696
-[ 299.980936] EP 0x72000000 mapped to RC 0x8350000000, size 1048576
-[ 299.987078] Peers connected
-[ 300.009692] Opening all channels ... done
-[ 300.013456] ICC data kthread ICC_Data_kthrea: started
-[ 300.018386] Finishing the initialization of the ICC_Sample_dev
-root@s32v234pcie:~# [ 300.059732] icc data kthread: exec 1 times; 46261750 ns in average
-[ 302.599692] icc data kthread: exec 64 times; 40318118 ns in average
-[ 305.599712] icc data kthread: exec 139 times; 40103829 ns in average
-[ 308.599711] icc data kthread: exec 214 times; 40039235 ns in average
+[  115.555309] ICC_dev_EP: Outbound region setup successfully
+[  115.560447] ICC_dev_EP:      RC 0x1446100000 mapped to EP BAR 2, size 1048576
+[  115.566947] ICC_dev_EP:      EP 0x72000000 mapped to RC 0x8350000000, size 1048576
+[  115.573943] ICC_Sample_EP: Peers connected
+[  115.579547] ICC_Sample_EP: Opening all channels ... done
+[  115.584640] ICC_Sample_EP: ICC data kthread ICC_Data_kthrea: started
+root@s32v234pcie:~# [  115.587125] ICC_Sample_EP: exec 1 times; 46261750 ns in average
+[  117.602453] ICC_Sample_EP: exec 64 times; 40318118 ns in average
+[  120.600430] ICC_Sample_EP: exec 139 times; 40103829 ns in average
 .....
 
 For LS2 RDB:
-root@ls2bluebox:~# [238.198344] icc data kthread: exec 1 times; 35930160 ns in average
-[ 241.088338] icc data kthread: exec 73 times; 39996015 ns in average
-[ 244.088341] icc data kthread: exec 148 times; 39955418 ns in average
-[ 247.088341] icc data kthread: exec 223 times; 39941746 ns in average
+root@ls2bluebox:~# [  199.176055] ICC_Sample_BB_RC: exec 1 times; 35930160 ns in average
+[  201.225409] ICC_Sample_BB_RC: exec 73 times; 39996015 ns in average
+[  204.229683] ICC_Sample_BB_RC: exec 148 times; 39955418 ns in average
 .....
+
 
 Appendix: Additional information
 ================================
