@@ -44,6 +44,7 @@
 #include "ICC_Notification.h"
 #include "ICC_Pcie.h"
 #include "ICC_Log.h"
+#include "ICC_Args.h"
 #include "ICC_Of.h"
 
 #ifndef ICC_USE_BAR
