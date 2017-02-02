@@ -23,8 +23,7 @@
 # CONFIG can be one of:
 # RTOS (for RTOS/Linux on the same board)
 # EP for EndPoint (s32v234 pcie)
-# RC for RootComplex (s32v234 evb), in an s32v234 pcie / evb setup for Linux over PCIE
-# BB_RC for RootComplex (ls208xx rdb), in a BlueBox setup setup for Linux over PCIE
+# RC for RootComplex (s32v234 evb or ls208xx rdb)
 CONFIG ?= RTOS
 
 SRC := $(shell pwd)/release/iccs32v234/sample/linux_app
@@ -43,6 +42,9 @@ build:
 modules_install:
 	$(MAKE) -C $(MODULE_SRC) modules_install
 	$(MAKE) -C $(SAMPLE_MODULE_SRC) modules_install
+ifeq ($(CONFIG),RTOS)
+	$(MAKE) -C $(MODULE_SRC) m4_install
+endif
 
 headers_install:
 	$(MAKE) -C $(MODULE_SRC) headers_install

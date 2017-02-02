@@ -1,6 +1,6 @@
 
-# CONFIG must be one of RTOS, EP, RC, or BB_RC
-ifeq ($(findstring $(CONFIG),RTOS EP RC BB_RC),)
+# CONFIG must be one of RTOS, EP, RC
+ifeq ($(findstring $(CONFIG),RTOS EP RC),)
     $(error CONFIG not defined or invalid)
 endif
 
@@ -9,16 +9,12 @@ CONFIG_USED := $(SRC_ROOT)/sample/config/include
 
 EXTRA_CFLAGS += -O0 -I$(KERNELDIR)/include -Wno-format -DICC_GCC_ARM -DICC_MIX_32_64_SUPPORT
 
-ifeq ($(findstring $(CONFIG),EP RC BB_RC),$(CONFIG))
+ifeq ($(findstring $(CONFIG),EP RC),$(CONFIG))
     EXTRA_CFLAGS += -DICC_LINUX2LINUX -DICC_USE_POLLING
 endif
 
 ifeq ($(CONFIG),EP)
     EXTRA_CFLAGS += -DICC_BUILD_FOR_M4
-endif
-
-ifeq ($(CONFIG),BB_RC)
-    EXTRA_CFLAGS += -DICC_PCIE_SHMEM_BLUEBOX
 endif
 
 INCLUDE_DEPENDENCIES := -I$(SRC_ROOT)/code/linux/inc \
