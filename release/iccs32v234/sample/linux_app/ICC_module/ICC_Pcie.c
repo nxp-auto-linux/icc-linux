@@ -68,10 +68,6 @@ static uint32_t ICC_Shm_Size;
 
 #ifdef ICC_BUILD_FOR_M4
 
-#ifndef CONFIG_PCI_S32V234_EP
-#error Kernel must be configured as PCIe End Point
-#endif
-
     /* M4 stands for the module replacing the RTOS app, that is the one initializing the shared mem.
      * In our case that would be the PCIe EndPoint. */
     #define SHM_BASE_ADDR ICC_Shm_Phys_Base_Addr
