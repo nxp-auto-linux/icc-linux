@@ -43,17 +43,11 @@ extern "C"
 {
 #endif
 
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/kernel.h>
-#include <linux/fs.h>
-#include <linux/cdev.h>
-#include <linux/ioport.h>
-#include <linux/io.h>
-#include <linux/mm.h>
-#include <asm/io.h>
-#include <asm/atomic.h>
+#include <linux/sched.h>
+#include <linux/wait.h>
+#include <linux/timer.h>
 #include <linux/interrupt.h>
+#include <asm/atomic.h>
 
 #include "ICC_Config.h"
 
@@ -147,7 +141,7 @@ ICC_OS_Initialize(ICC_IN const ICC_Config_t * unused_config_ptr)
         init_waitqueue_head(rate_wait_queue);
 
         atomic_set(&rate_cond, 0);
-        rate_timeout = ICC_CROSS_VALUE_OF(ICC_Config_Ptr->ICC_Heartbeat_Os_Config)->rate_ticks;
+        rate_timeout = ICC_CROSS_VALUE_OF(ICC_Config_Ptr->ICC_Heartbeat_Os_Config)->rate_usec;
 
         setup_timer(&timer, ICC_HB_timer_handler, 0);
     #endif /* ICC_CFG_HEARTBEAT_ENABLED */
@@ -473,13 +467,13 @@ ICC_OS_Wait_Rate_Event( ICC_IN ICC_Channel_t ch_id,
         return ICC_ERR_OS_LINUX_WRONGCHNID;
     }
 
-    if ( HB_OS_config->rate_ticks != 0 )
+    if ( HB_OS_config->rate_usec != 0 )
     {
         atomic_set(&rate_cond, 0);
         ret = wait_event_interruptible_timeout (
                                 *(rate_wait_queue),
                                 atomic_read(&rate_cond),
-                                usecs_to_jiffies( HB_OS_config->rate_ticks )
+                                usecs_to_jiffies( HB_OS_config->rate_usec )
                                 );
 
         if (ret < 0)
