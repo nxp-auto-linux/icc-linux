@@ -46,6 +46,8 @@
 
 
 
+    #define ICC_ASM  asm volatile
+    #define ICC_MSYNC() ICC_ASM("dsb\n")
 
     /* Field definitions for IRCPGIR */
     #define ICC_MSCM_IRCPGIR_TLF_SHIFT      (24UL)
@@ -96,6 +98,7 @@
      */
     #define ICC_HW_Trigger_Cpu2Cpu_Interrupt(int_id) \
                                                      \
+            ICC_MSYNC();                             \
             iowrite32(ICC_MSCM_IRCPGIR_TLF(1) | ICC_MSCM_IRCPGIR_INTID(int_id), ICC_MSCM_IRCPGIR)
 
 
@@ -119,7 +122,8 @@
           */
          #define ICC_HW_Trigger_Local_Interrupt(int_id)  \
                                                          \
-                 iowrite32(ICC_MSCM_IRCPGIR_TLF(2) | ICC_MSCM_IRCPGIR_INTID(int_id), ICC_MSCM_IRCPGIR)
+                ICC_MSYNC();                             \
+                iowrite32(ICC_MSCM_IRCPGIR_TLF(2) | ICC_MSCM_IRCPGIR_INTID(int_id), ICC_MSCM_IRCPGIR)
 
          /*
           * clear ISR flag for local interrupt

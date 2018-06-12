@@ -140,17 +140,29 @@ typedef enum  {
 
 
 #ifdef ICC_CFG_HEARTBEAT_ENABLED
-/*
- * ICC Heartbeat mechanism state
- */
-typedef enum {
 
-    ICC_HEARTBEAT_STATE_UNINIT=0,           /**< ICC HEARTBEAT's structure in uninitialized state*/
-    ICC_HEARTBEAT_STATE_INIT,               /**< ICC HEARTBEAT's structure in initialized state*/
-    ICC_HEARTBEAT_STATE_RUNNING,            /**< ICC HEARTBEAT's structure in running state*/
-    ICC_HEARTBEAT_STATE_ERROR,              /**< ICC HEARTBEAT's structure in error state*/
+    /*
+     * ICC Heartbeat mechanism state
+     */
+    typedef enum {
 
-} ICC_Heartbeat_State_t;
+        ICC_HEARTBEAT_STATE_UNINIT=0,           /**< ICC HEARTBEAT's structure in uninitialized state*/
+        ICC_HEARTBEAT_STATE_INIT,               /**< ICC HEARTBEAT's structure in initialized state*/
+        ICC_HEARTBEAT_STATE_RUNNING,            /**< ICC HEARTBEAT's structure in running state*/
+        ICC_HEARTBEAT_STATE_ERROR,              /**< ICC HEARTBEAT's structure in error state*/
+
+    } ICC_Heartbeat_State_t;
+
+
+    /*
+     * The HearBeat message
+     */
+    typedef struct {
+
+        unsigned int run;                      /**< the id of the current running sequence this message belongs */
+        unsigned int val;                      /**< the actual message value */
+
+    } ICC_Heartbeat_Msg_t;
 
 #endif /* ICC_CFG_HEARTBEAT_ENABLED */
 
@@ -293,11 +305,11 @@ typedef struct {
 
     void                             * not_used_on_app;                   /**< not used on application side */
 
-#ifndef ICC_CFG_NO_TIMEOUT
+
     #ifdef ICC_CFG_HEARTBEAT_ENABLED
         const ICC_Heartbeat_Os_Config_t * ICC_Heartbeat_Os_Config;             /**< pointer to Heartbeat OS configuration */
-    #endif /* ICC_CFG_HEARTBEAT_ENABLED */
-#endif /* ICC_CFG_NO_TIMEOUT */
+    #endif
+
 
 
     ICC_Callback_Node_State_Update_t   Node_Update_Cb;                    /**< node update call back function, different symbol for each side */

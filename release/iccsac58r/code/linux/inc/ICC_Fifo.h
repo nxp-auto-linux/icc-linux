@@ -65,7 +65,9 @@ extern
 ICC_Err_t
 ICC_FIFO_Init(ICC_FIFO_IN       ICC_Fifo_Ram_t       * queue_ICC,
               ICC_FIFO_IN const ICC_Fifo_Config_t    * fifo_conf,
-              ICC_FIFO_IN       ICC_Fifo_Os_Ram_t    * fifo_os_ram);
+              ICC_FIFO_IN       ICC_Fifo_Os_Ram_t    * fifo_os_ram,
+              ICC_FIFO_IN       unsigned int           init);
+
 
 /*
  * simplified version of Push for the header only

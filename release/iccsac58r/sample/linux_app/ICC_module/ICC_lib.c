@@ -115,7 +115,7 @@ static int ICC_dev_init(void)
     }
 
 
-    ICC_Config_Ptr_M4 = (ICC_Config_t *)(ICC_Shared_Virt_Base_Addr + 0x00001c20 );  /**<  ICC_Config on m4 MAP file = 0x3f041c20 */
+    ICC_Config_Ptr_M4 = (ICC_Config_t *)(ICC_Shared_Virt_Base_Addr + 0x00001c2c );  /**<  ICC_Config on m4 MAP file = 0x3f041c20 */
 
     /* register device */
     err = alloc_chrdev_region(&dev_no, BASEMINOR, NUM_MINORS, MODULE_NAME); 

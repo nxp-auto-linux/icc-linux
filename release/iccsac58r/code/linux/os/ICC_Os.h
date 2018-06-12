@@ -76,6 +76,14 @@ extern
 ICC_Err_t ICC_OS_Initialize( ICC_IN const ICC_Config_t * config_ptr );
 
 /*
+ * OS specific initialization of interrupts
+ */
+ICC_ATTR_SEC_TEXT_CODE
+extern
+ICC_Err_t ICC_OS_Init_Interrupts( void );
+
+
+/*
  * Finalize OS specific elements
  */
 ICC_ATTR_SEC_TEXT_CODE
